@@ -2,127 +2,231 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  onSnapshot,
+  orderBy,
+  query,
+  where,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-type ProjectMaster = {
+type Vehicle = {
   id: string;
-  name: string[];
-  projectNo: string;
-  site: string;
+  name: string;
+  inspection: string;
+  sort: number;
+  assignedTo?: string;
 };
 
-const memberOptions = [
-  "濱野 昌之",
-  "永井 和明",
-  "林 知光",
-  "細野 正史",
-  "吉田 英樹",
-  "新木 康弘",
-  "髙橋 光広",
-  "加藤 健一",
-  "菅野 雄史",
-  "楯 健三",
-  "星野 大志",
-  "木村 陽介",
-  "北野 武蔵",
-  "設樂 啓明",
-  "狩野 康弘",
-  "狩野 清一",
-  "鈴木 利和",
-  "狩野 丈二",
-  "喜多 榛奈雄",
-  "齋藤 大地",
-  "村山 孝",
-  "北村 謙吉",
-  "松村 賢",
-  "篠原 聖貴",
-  "金澤 富士男",
-  "吉田 弘二",
-  "細野 美雪",
-  "石坂 彩乃",
-   "深津 直樹",
-  "清水 友介",
-  "今井 祐子",
-  "石田 和義",
-  "田村 和江",
-　　"松田 唯",
-   "小笠原 寿子",
-   "設樂 雅之",
-   "設樂 美佐子",
-  "本多 竹三郎",
-  "本多 八男",
-  "宮内 弘",
-];
+type Reservation = {
+  id: string;
+  vehicleId: string;
+  dayKey: string;
+  name: string;
+  site: string;
+  projectNo: string;
+  updatedAt?: string;
+};
 
-export default function PortalPage() {
+function parseDayKey(dayKey: string) {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
+function formatDayKey(dayKey: string) {
+  const date = parseDayKey(dayKey);
+  if (!date) return dayKey;
+
+  const weekdayJa = ["日", "月", "火", "水", "木", "金", "土"];
+  return `${date.getMonth() + 1}/${date.getDate()}（${weekdayJa[date.getDay()]}）`;
+}
+
+export default function MyPage() {
   const router = useRouter();
 
   const [userName, setUserName] = useState("");
-  const [projects, setProjects] = useState<ProjectMaster[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [draftName, setDraftName] = useState("");
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [loadingVehicles, setLoadingVehicles] = useState(true);
+  const [loadingReservations, setLoadingReservations] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
+  const [savingUser, setSavingUser] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("portalUserName");
+    const saved = localStorage.getItem("userName");
     if (saved) {
       setUserName(saved);
+      setDraftName(saved);
     }
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, "projectMasters"), orderBy("projectNo", "asc"));
+    const q = query(collection(db, "vehicles"), orderBy("sort", "asc"));
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list: ProjectMaster[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as {
-          name?: string[] | string;
-          projectNo?: string;
-          site?: string;
-        };
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const list: Vehicle[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as {
+            name?: string;
+            inspection?: string;
+            sort?: number;
+            assignedTo?: string;
+          };
 
-        return {
-          id: docSnap.id,
-          name: Array.isArray(data.name)
-            ? data.name
-            : data.name
-            ? [data.name]
-            : [],
-          projectNo: data.projectNo ?? "",
-          site: data.site ?? "",
-        };
-      });
+          return {
+            id: docSnap.id,
+            name: data.name ?? "",
+            inspection: data.inspection ?? "",
+            sort: data.sort ?? 0,
+            assignedTo: data.assignedTo ?? "",
+          };
+        });
 
-      setProjects(list);
-      setLoading(false);
-    });
+        setVehicles(list);
+        setLoadingVehicles(false);
+      },
+      (error) => {
+        console.error("vehicles read error:", error);
+        alert("車両データの読み込みに失敗しました");
+        setLoadingVehicles(false);
+      }
+    );
 
     return () => unsubscribe();
   }, []);
 
-  const myProjects = useMemo(() => {
+  useEffect(() => {
+    const q = collection(db, "reservations");
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const list: Reservation[] = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as {
+            vehicleId?: string;
+            dayKey?: string;
+            name?: string;
+            site?: string;
+            projectNo?: string;
+            updatedAt?: string;
+          };
+
+          return {
+            id: docSnap.id,
+            vehicleId: data.vehicleId ?? "",
+            dayKey: data.dayKey ?? "",
+            name: data.name ?? "",
+            site: data.site ?? "",
+            projectNo: data.projectNo ?? "",
+            updatedAt: data.updatedAt ?? "",
+          };
+        });
+
+        setReservations(list);
+        setLoadingReservations(false);
+      },
+      (error) => {
+        console.error("reservations read error:", error);
+        alert("予約データの読み込みに失敗しました");
+        setLoadingReservations(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const sharedVehicles = useMemo(() => {
+    return vehicles.filter((v) => !(v.assignedTo ?? "").trim());
+  }, [vehicles]);
+
+  const myCars = useMemo(() => {
     if (!userName) return [];
-    return projects
-      .filter((p) => p.name.includes(userName))
-      .sort((a, b) => a.projectNo.localeCompare(b.projectNo, "ja"));
-  }, [projects, userName]);
+    return vehicles.filter((v) => (v.assignedTo ?? "").trim() === userName.trim());
+  }, [vehicles, userName]);
 
-  const goToHaisha = (project?: ProjectMaster) => {
-    const params = new URLSearchParams();
+  const myReservedSharedCars = useMemo(() => {
+    if (!userName) return [];
 
-    if (project) {
-      params.set("projectNo", project.projectNo);
-      params.set("site", project.site);
+    return reservations
+      .filter((r) => r.name.trim() === userName.trim())
+      .map((r) => {
+        const vehicle = sharedVehicles.find((v) => v.id === r.vehicleId);
+        return {
+          ...r,
+          vehicle,
+        };
+      })
+      .filter(
+        (
+          item
+        ): item is Reservation & {
+          vehicle: Vehicle;
+        } => !!item.vehicle
+      )
+      .sort((a, b) => {
+        const aDate = parseDayKey(a.dayKey)?.getTime() ?? 0;
+        const bDate = parseDayKey(b.dayKey)?.getTime() ?? 0;
+        return aDate - bDate;
+      });
+  }, [reservations, sharedVehicles, userName]);
+
+  const saveUserName = async () => {
+    const trimmed = draftName.trim();
+
+    if (!trimmed) {
+      alert("名前を入力してください");
+      return;
     }
+
+    try {
+      setSavingUser(true);
+
+      const q = query(collection(db, "users"), where("name", "==", trimmed));
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        await addDoc(collection(db, "users"), {
+          name: trimmed,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      setUserName(trimmed);
+      localStorage.setItem("userName", trimmed);
+    } catch (error) {
+      console.error("user save error:", error);
+      alert("ユーザ登録に失敗しました");
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const clearUserName = () => {
+    const ok = window.confirm("登録ユーザを変更しますか？");
+    if (!ok) return;
+
+    localStorage.removeItem("userName");
+    setUserName("");
+    setDraftName("");
+  };
+
+  const goToReservation = () => {
+    const params = new URLSearchParams();
 
     if (userName) {
       params.set("name", userName);
-      localStorage.setItem("portalUserName", userName);
-      localStorage.setItem("userName", userName);
     }
 
     router.push(`/?${params.toString()}`);
   };
+
+  const isLoading = loadingVehicles || loadingReservations;
 
   return (
     <main className="min-h-screen bg-white text-black p-4">
@@ -130,8 +234,8 @@ export default function PortalPage() {
         <div className="rounded-2xl border overflow-hidden">
           <div className="bg-white py-3 px-4 flex items-center justify-between border-b">
             <div className="flex items-center gap-2">
-              <img src="/icon.png" alt="TakaTok" className="w-10 h-10" />
-              <div className="font-bold text-lg">🏢 TakaTok ポータル</div>
+              <img src="/icon.png" alt="配車さん" className="w-10 h-10" />
+              <div className="font-bold text-lg">👤 マイページ</div>
             </div>
 
             <button
@@ -149,121 +253,173 @@ export default function PortalPage() {
                   className="rounded-lg bg-blue-600 text-white py-2 text-sm"
                   onClick={() => {
                     setShowMenu(false);
-                    goToHaisha();
+                    goToReservation();
                   }}
                 >
-                  🚚 配車さん
+                  🚚 予約ページ
                 </button>
 
                 <button
                   className="rounded-lg border py-2 text-sm bg-white"
                   onClick={() => {
                     setShowMenu(false);
-                    router.push("/projects");
+                    router.push("/manage");
                   }}
                 >
-                  🥸 案件マスター
-                </button>
-
-                <button
-                  className="rounded-lg border py-2 text-sm text-gray-400"
-                  disabled
-                >
-                  ⏰ 勤怠くん
-                </button>
-
-                <button
-                  className="rounded-lg border py-2 text-sm text-gray-400"
-                  disabled
-                >
-                  🏗 重機くん
+                  ⚙️ 管理ページ
                 </button>
               </div>
             </div>
           )}
 
-          <div className="p-4">
-            <label className="text-sm text-gray-600">自分の名前</label>
-            <select
-              value={userName}
-              onChange={(e) => {
-                const value = e.target.value;
-                setUserName(value);
-                localStorage.setItem("portalUserName", value);
-                localStorage.setItem("userName", value);
-              }}
-              className="w-full border rounded-lg px-3 py-2 mt-1"
-            >
-              <option value="">選択してください</option>
-              {memberOptions.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+          <div className="p-4 space-y-3">
+            {!userName ? (
+              <>
+                <div>
+                  <label className="text-sm text-gray-600">初回登録する名前</label>
+                  <input
+                    type="text"
+                    value={draftName}
+                    onChange={(e) => setDraftName(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2 mt-1"
+                    placeholder="例：設樂 啓明"
+                    disabled={savingUser}
+                  />
+                </div>
+
+                <button
+                  className="w-full rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
+                  onClick={saveUserName}
+                  disabled={savingUser}
+                >
+                  この名前で開始
+                </button>
+
+                <p className="text-xs text-gray-500">
+                  初回に登録した名前が、この端末のユーザとして保存されます。
+                </p>
+              </>
+            ) : (
+              <div className="rounded-xl border bg-gray-50 px-4 py-3">
+                <div className="text-sm text-gray-500">現在のユーザ</div>
+                <div className="mt-1 text-lg font-bold">{userName}</div>
+
+                <button
+                  className="mt-3 rounded-lg border bg-white px-3 py-2 text-sm"
+                  onClick={clearUserName}
+                >
+                  ユーザ変更
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         <div className="rounded-2xl border p-4 space-y-3">
-          <div className="flex justify-between">
-            <h2 className="font-bold text-lg">担当案件</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="font-bold text-lg">予約済み共有車</h2>
             {userName && (
-              <div className="text-sm text-gray-500">{myProjects.length}件</div>
+              <div className="text-sm text-gray-500">{myReservedSharedCars.length}件</div>
             )}
           </div>
 
           {!userName && (
-            <div className="text-sm text-gray-500">
-              名前を選択してください
-            </div>
+            <div className="text-sm text-gray-500">先にユーザ登録してください</div>
           )}
 
-          {userName && loading && (
+          {userName && isLoading && (
             <div className="text-sm text-gray-500">読み込み中...</div>
           )}
 
-          {userName && !loading && myProjects.length === 0 && (
-            <div className="text-sm text-gray-500">担当案件はありません</div>
+          {userName && !isLoading && myReservedSharedCars.length === 0 && (
+            <div className="text-sm text-gray-500">予約された共有車はありません</div>
           )}
 
-         <div className="space-y-3">
-  {myProjects.map((project) => (
-    <div key={project.id} className="rounded-xl border p-3 space-y-2">
-      <div className="font-bold text-lg">{project.projectNo}</div>
-      <div className="text-gray-700">{project.site}</div>
-      <div className="text-sm text-gray-500">
-        担当: {project.name.join(" / ")}
-      </div>
+          <div className="space-y-3">
+            {myReservedSharedCars.map((item) => (
+              <div key={item.id} className="rounded-xl border p-3 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-bold text-lg whitespace-pre-line">
+                      {item.vehicle.name}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {formatDayKey(item.dayKey)}
+                    </div>
+                  </div>
+                </div>
 
-      <div className="flex gap-2">
-        <button
-          className="flex-1 rounded-lg bg-blue-600 text-white py-2 text-sm"
-          onClick={() => goToHaisha(project)}
-        >
-          配車
-        </button>
+                {item.site && (
+                  <div className="text-gray-800">行先: {item.site}</div>
+                )}
 
-        <button
-          className="flex-1 rounded-lg border py-2 text-sm"
-          onClick={() => {
-            const params = new URLSearchParams();
+                {item.projectNo && (
+                  <div className="text-sm text-gray-600">
+                    用途・案件番号: {item.projectNo}
+                  </div>
+                )}
 
-            params.set("projectNo", project.projectNo);
-            params.set("site", project.site);
+                <div className="text-sm text-gray-500">
+                  車検: {item.vehicle.inspection || "未設定"}
+                </div>
 
-            if (userName) {
-              params.set("name", userName);
-            }
+                <button
+                  className="w-full rounded-lg border py-2 text-sm"
+                  onClick={goToReservation}
+                >
+                  予約ページへ
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
 
-            router.push(`/my-work?${params.toString()}`);
-          }}
-        >
-          My工事
-        </button>
-      </div>
-    </div>
-  ))}
-</div>
+        <div className="rounded-2xl border p-4 space-y-3">
+          <div className="flex justify-between items-center">
+            <h2 className="font-bold text-lg">マイカー</h2>
+            {userName && (
+              <div className="text-sm text-gray-500">{myCars.length}台</div>
+            )}
+          </div>
+
+          {!userName && (
+            <div className="text-sm text-gray-500">先にユーザ登録してください</div>
+          )}
+
+          {userName && isLoading && (
+            <div className="text-sm text-gray-500">読み込み中...</div>
+          )}
+
+          {userName && !isLoading && myCars.length === 0 && (
+            <div className="text-sm text-gray-500">割り振られたマイカーはありません</div>
+          )}
+
+          <div className="space-y-3">
+            {myCars.map((vehicle) => (
+              <div key={vehicle.id} className="rounded-xl border p-3 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="font-bold text-lg whitespace-pre-line">
+                    {vehicle.name}
+                  </div>
+                </div>
+
+                <div className="text-sm text-gray-600">
+                  車検: {vehicle.inspection || "未設定"}
+                </div>
+
+                <div className="text-sm text-gray-500">
+                  担当者: {vehicle.assignedTo || "未設定"}
+                </div>
+
+                <button
+                  className="w-full rounded-lg border py-2 text-sm"
+                  onClick={goToReservation}
+                >
+                  予約ページへ
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </main>

@@ -26,9 +26,7 @@ type Vehicle = {
   inspection: string;
   name: string;
   sort: number;
-  saltFrom?: string;
-  saltTo?: string;
-  saltLabel?: string;
+  assignedTo?: string;
 };
 
 type Reservation = {
@@ -39,54 +37,10 @@ type Reservation = {
   site: string;
   projectNo: string;
   createdAt?: unknown;
+  updatedAt?: string;
 };
 
 const weekdayJa = ["月", "火", "水", "木", "金", "土", "日"];
-
-const memberOptions = [
-   "濱野 昌之",
-  "永井 和明",
-  "林 知光",
-  "細野 正史",
-  "吉田 英樹",
-  "新木 康弘",
-  "髙橋 光広",
-  "加藤 健一",
-  "菅野 雄史",
-  "楯 健三",
-  "星野 大志",
-  "木村 陽介",
-  "北野 武蔵",
-  "設樂 啓明",
-  "狩野 康弘",
-  "狩野 清一",
-  "鈴木 利和",
-  "狩野 丈二",
-  "喜多 榛奈雄",
-  "齋藤 大地",
-  "村山 孝",
-  "北村 謙吉",
-  "松村 賢",
-  "篠原 聖貴",
-  "金澤 富士男",
-  "吉田 弘二",
-  "細野 美雪",
-  "石坂 彩乃",
-   "深津 直樹",
-  "清水 友介",
-  "今井 祐子",
-  "石田 和義",
-  "田村 和江",
-　　"松田 唯",
-   "小笠原 寿子",
-   "設樂 雅之",
-   "設樂 美佐子",
-  "本多 竹三郎",
-  "本多 八男",
-  "宮内 弘",
-  "車検",
-  "修理",
-];
 
 function formatHeaderDate(date: Date) {
   return `${date.getMonth() + 1}/${date.getDate()}`;
@@ -113,6 +67,7 @@ function getMonday(date: Date) {
 function makeReservationId(vehicleId: string, dayKey: string) {
   return `${vehicleId}_${dayKey}`;
 }
+
 function formatCsvDate(date: Date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -147,25 +102,6 @@ function downloadCsv(filename: string, rows: string[][]) {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-function toDateOnly(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function parseYmd(value?: string) {
-  if (!value) return null;
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return null;
-  return toDateOnly(d);
-}
-
-function isSaltPeriod(vehicle: Vehicle, date: Date) {
-  const from = parseYmd(vehicle.saltFrom);
-  const to = parseYmd(vehicle.saltTo);
-  if (!from || !to) return false;
-
-  const current = toDateOnly(date);
-  return current >= from && current <= to;
-}
 
 export default function Home() {
   const router = useRouter();
@@ -174,6 +110,7 @@ export default function Home() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
+  const [userName, setUserName] = useState("");
   const [showVehicleLog, setShowVehicleLog] = useState(false);
   const [logMode, setLogMode] = useState<"vehicle" | "name" | "project">("vehicle");
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
@@ -206,6 +143,7 @@ export default function Home() {
   useEffect(() => {
     const saved = localStorage.getItem("userName");
     if (saved) {
+      setUserName(saved);
       setFormName(saved);
     }
   }, []);
@@ -223,6 +161,7 @@ export default function Home() {
       setFormSite(site);
     }
     if (name) {
+      setUserName(name);
       setFormName(name);
       localStorage.setItem("userName", name);
     }
@@ -251,9 +190,7 @@ export default function Home() {
             inspection?: string;
             name?: string;
             sort?: number;
-            saltFrom?: string;
-            saltTo?: string;
-            saltLabel?: string;
+            assignedTo?: string;
           };
 
           return {
@@ -261,9 +198,7 @@ export default function Home() {
             inspection: data.inspection ?? "",
             name: data.name ?? "",
             sort: data.sort ?? 0,
-            saltFrom: data.saltFrom ?? "",
-            saltTo: data.saltTo ?? "",
-            saltLabel: data.saltLabel ?? "塩カル",
+            assignedTo: data.assignedTo ?? "",
           };
         });
 
@@ -292,6 +227,7 @@ export default function Home() {
             site?: string;
             projectNo?: string;
             createdAt?: unknown;
+            updatedAt?: string;
           };
 
           return {
@@ -302,6 +238,7 @@ export default function Home() {
             site: data.site ?? "",
             projectNo: data.projectNo ?? "",
             createdAt: data.createdAt,
+            updatedAt: data.updatedAt ?? "",
           };
         });
 
@@ -339,18 +276,38 @@ export default function Home() {
     setSiteHistory(sites);
   }, [reservations]);
 
+  const sharedVehicles = useMemo(() => {
+    return vehicles.filter((v) => !(v.assignedTo ?? "").trim());
+  }, [vehicles]);
+
+  const nameHistory = useMemo(() => {
+    return Array.from(
+      new Set(
+        reservations
+          .map((r) => r.name?.trim())
+          .filter((n): n is string => !!n)
+      )
+    ).sort((a, b) => a.localeCompare(b, "ja"));
+  }, [reservations]);
+
   const openReservationModal = (
     vehicleId: string,
     vehicleName: string,
     dayKey: string,
     dateLabel: string
   ) => {
+    if (!userName.trim()) {
+      alert("先にマイページでユーザ登録してください");
+      router.push("/mypage");
+      return;
+    }
+
     const existing = reservations.find(
       (r) => r.vehicleId === vehicleId && r.dayKey === dayKey
     );
 
     const params = new URLSearchParams(window.location.search);
-    const presetName = params.get("name") ?? localStorage.getItem("userName") ?? "";
+    const presetName = userName || params.get("name") || "";
     const presetSite = params.get("site") ?? "";
     const presetProjectNo = params.get("projectNo") ?? "";
 
@@ -362,7 +319,7 @@ export default function Home() {
 
   const closeReservationModal = () => {
     setSelectedSlot(null);
-    setFormName(localStorage.getItem("userName") ?? "");
+    setFormName(userName ?? "");
     setFormSite("");
     setFormProjectNo("");
     setShowSiteSuggest(false);
@@ -373,12 +330,13 @@ export default function Home() {
   const saveReservation = async () => {
     if (!selectedSlot) return;
 
-    const trimmedName = formName.trim();
+    const trimmedName = userName.trim();
     const trimmedSite = formSite.trim();
     const trimmedProjectNo = formProjectNo.trim();
 
     if (!trimmedName) {
-      alert("予約者名を選んでください");
+      alert("先にマイページでユーザ登録してください");
+      router.push("/mypage");
       return;
     }
 
@@ -406,53 +364,55 @@ export default function Home() {
       setSaving(false);
     }
   };
-const exportCurrentWeekCsv = (
-  mode: "all" | "reservedOnly" | "projectOnly"
-) => {
-  const rows: string[][] = [];
 
-  rows.push([
-    "日付",
-    "曜日",
-    "車種",
-    "車検",
-    "予約者名",
-    "行先",
-    "工事番号",
-  ]);
+  const exportCurrentWeekCsv = (
+    mode: "all" | "reservedOnly" | "projectOnly"
+  ) => {
+    const rows: string[][] = [];
 
-  for (const day of days) {
-    for (const vehicle of vehicles) {
-      const reservation = reservations.find(
-        (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
-      );
+    rows.push([
+      "日付",
+      "曜日",
+      "車種",
+      "車検",
+      "予約者名",
+      "行先",
+      "用途・案件番号",
+    ]);
 
-      if (mode === "reservedOnly" && !reservation) continue;
-      if (mode === "projectOnly" && !reservation?.projectNo?.trim()) continue;
+    for (const day of days) {
+      for (const vehicle of sharedVehicles) {
+        const reservation = reservations.find(
+          (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
+        );
 
-      rows.push([
-        formatCsvDate(day.date),
-        day.weekday,
-        vehicle.name,
-        vehicle.inspection,
-        reservation?.name ?? "",
-        reservation?.site ?? "",
-        reservation?.projectNo ?? "",
-      ]);
+        if (mode === "reservedOnly" && !reservation) continue;
+        if (mode === "projectOnly" && !reservation?.projectNo?.trim()) continue;
+
+        rows.push([
+          formatCsvDate(day.date),
+          day.weekday,
+          vehicle.name,
+          vehicle.inspection,
+          reservation?.name ?? "",
+          reservation?.site ?? "",
+          reservation?.projectNo ?? "",
+        ]);
+      }
     }
-  }
 
-  const weekLabel = formatCsvDate(weekStart).replace(/\//g, "-");
+    const weekLabel = formatCsvDate(weekStart).replace(/\//g, "-");
 
-  const fileName =
-    mode === "all"
-      ? `配車さん_${weekLabel}_週_全件.csv`
-      : mode === "reservedOnly"
-      ? `配車さん_${weekLabel}_週_予約ありのみ.csv`
-      : `配車さん_${weekLabel}_週_工事番号ありのみ.csv`;
+    const fileName =
+      mode === "all"
+        ? `配車さん_${weekLabel}_週_全件.csv`
+        : mode === "reservedOnly"
+        ? `配車さん_${weekLabel}_週_予約ありのみ.csv`
+        : `配車さん_${weekLabel}_週_用途ありのみ.csv`;
 
-  downloadCsv(fileName, rows);
-};
+    downloadCsv(fileName, rows);
+  };
+
   const saveInspection = async () => {
     if (!inspectionEdit) return;
 
@@ -496,64 +456,73 @@ const exportCurrentWeekCsv = (
           </div>
 
           <div className="bg-yellow-300 text-center font-bold py-2 text-lg">
-            トラック配車シート
+            共有車予約ページ
           </div>
 
           {formProjectNo && (
             <div className="mx-3 mt-2 rounded-lg border bg-blue-50 px-3 py-2 text-sm">
               <div className="font-semibold text-blue-800">
-                📌 案件: {formProjectNo}
+                📌 用途・案件番号: {formProjectNo}
               </div>
               {formSite && <div className="text-blue-700">{formSite}</div>}
             </div>
           )}
 
-         
-  <button
-  className="w-full border-b py-2 text-sm bg-white"
-  onClick={() => router.push("/portal")}
->
-  🏢 ポータルへ
-</button>
+          <button
+            className="w-full border-b py-2 text-sm bg-white"
+            onClick={() => router.push("/mypage")}
+          >
+            マイページへ
+          </button>
 
-<div className="p-2 space-y-2 border-b bg-white">
-  <button
-    className="w-full border rounded-lg py-2"
-    onClick={() => setShowVehicleLog(true)}
-  >
-    車両実績を見る
-  </button>
+          <div className="p-2 space-y-2 border-b bg-white">
+            {!userName ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                先にマイページでユーザ登録してください
+              </div>
+            ) : (
+              <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
+                現在のユーザ: <span className="font-semibold">{userName}</span>
+              </div>
+            )}
 
-  <details className="rounded-lg border bg-white">
-    <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium select-none flex items-center justify-between">
-      <span>⬇️ CSV出力</span>
-      <span className="text-gray-500">▼</span>
-    </summary>
+            <button
+              className="w-full border rounded-lg py-2"
+              onClick={() => setShowVehicleLog(true)}
+            >
+              車両実績を見る
+            </button>
 
-    <div className="border-t p-2 space-y-2">
-      <button
-        className="w-full rounded-lg border py-2 text-sm"
-        onClick={() => exportCurrentWeekCsv("all")}
-      >
-        全件
-      </button>
+            <details className="rounded-lg border bg-white">
+              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium select-none flex items-center justify-between">
+                <span>⬇️ CSV出力</span>
+                <span className="text-gray-500">▼</span>
+              </summary>
 
-      <button
-        className="w-full rounded-lg border py-2 text-sm"
-        onClick={() => exportCurrentWeekCsv("reservedOnly")}
-      >
-        予約ありのみ
-      </button>
+              <div className="border-t p-2 space-y-2">
+                <button
+                  className="w-full rounded-lg border py-2 text-sm"
+                  onClick={() => exportCurrentWeekCsv("all")}
+                >
+                  全件
+                </button>
 
-      <button
-        className="w-full rounded-lg border py-2 text-sm"
-        onClick={() => exportCurrentWeekCsv("projectOnly")}
-      >
-        工事番号ありのみ
-      </button>
-    </div>
-  </details>
-</div>
+                <button
+                  className="w-full rounded-lg border py-2 text-sm"
+                  onClick={() => exportCurrentWeekCsv("reservedOnly")}
+                >
+                  予約ありのみ
+                </button>
+
+                <button
+                  className="w-full rounded-lg border py-2 text-sm"
+                  onClick={() => exportCurrentWeekCsv("projectOnly")}
+                >
+                  用途ありのみ
+                </button>
+              </div>
+            </details>
+          </div>
 
           <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-t">
             <button
@@ -615,7 +584,7 @@ const exportCurrentWeekCsv = (
             </thead>
 
             <tbody>
-              {vehicles.map((vehicle) => {
+              {sharedVehicles.map((vehicle) => {
                 return (
                   <tr key={vehicle.id}>
                     <td className="border px-2 py-3 text-center align-middle whitespace-nowrap">
@@ -640,7 +609,6 @@ const exportCurrentWeekCsv = (
                     {days.map((day) => {
                       const isSunday = day.date.getDay() === 0;
                       const isSaturday = day.date.getDay() === 6;
-                      const saltActive = isSaltPeriod(vehicle, day.date);
 
                       const cellBg = isSunday
                         ? "bg-red-50"
@@ -669,12 +637,6 @@ const exportCurrentWeekCsv = (
                             }
                           >
                             <div className="space-y-1">
-                              {saltActive && (
-                                <div className="inline-block rounded bg-amber-100 px-2 py-[2px] text-[10px] font-semibold text-amber-800">
-                                  {vehicle.saltLabel || "塩カル期間"}
-                                </div>
-                              )}
-
                               {reservation ? (
                                 <div className="space-y-1">
                                   {reservation.site && (
@@ -707,7 +669,7 @@ const exportCurrentWeekCsv = (
         </div>
 
         <p className="mt-3 text-xs text-gray-500">
-          vehicles件数: {vehicles.length} / reservations件数: {reservations.length}
+          sharedVehicles件数: {sharedVehicles.length} / reservations件数: {reservations.length}
         </p>
       </div>
 
@@ -737,21 +699,12 @@ const exportCurrentWeekCsv = (
             <div className="space-y-3">
               <div>
                 <label className="text-sm text-gray-600">予約者名</label>
-                <select
-                  value={formName}
-                  onChange={(e) => {
-                    setFormName(e.target.value);
-                    localStorage.setItem("userName", e.target.value);
-                  }}
-                  className="w-full border rounded-lg px-3 py-2"
-                >
-                  <option value="">選択してください</option>
-                  {memberOptions.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={userName}
+                  readOnly
+                  className="w-full border rounded-lg px-3 py-2 bg-gray-50"
+                />
               </div>
 
               <div className="relative">
@@ -790,7 +743,7 @@ const exportCurrentWeekCsv = (
               </div>
 
               <div className="relative">
-                <label className="text-sm text-gray-600">工事番号（任意）</label>
+                <label className="text-sm text-gray-600">用途・案件番号（任意）</label>
                 <input
                   type="text"
                   value={formProjectNo}
@@ -971,7 +924,7 @@ const exportCurrentWeekCsv = (
                   logMode === "project" ? "bg-blue-600 text-white" : "bg-white"
                 }`}
               >
-                工事番号
+                用途
               </button>
             </div>
 
@@ -982,7 +935,7 @@ const exportCurrentWeekCsv = (
                 className="w-full border rounded-lg px-3 py-2"
               >
                 <option value="">車両を選択</option>
-                {vehicles.map((v) => (
+                {sharedVehicles.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
                   </option>
@@ -997,7 +950,7 @@ const exportCurrentWeekCsv = (
                 className="w-full border rounded-lg px-3 py-2"
               >
                 <option value="">社員を選択</option>
-                {memberOptions.map((name) => (
+                {nameHistory.map((name) => (
                   <option key={name} value={name}>
                     {name}
                   </option>
@@ -1011,7 +964,7 @@ const exportCurrentWeekCsv = (
                 onChange={(e) => setSelectedProject(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2"
               >
-                <option value="">工事番号を選択</option>
+                <option value="">用途を選択</option>
                 {projectHistory.map((p) => (
                   <option key={p} value={p}>
                     {p}
