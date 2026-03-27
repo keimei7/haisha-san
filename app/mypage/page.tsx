@@ -64,6 +64,7 @@ export default function MyPage() {
   const [uid, setUid] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
   const [draftName, setDraftName] = useState("");
+  const [userRole, setUserRole] = useState("");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -73,31 +74,35 @@ export default function MyPage() {
   const [savingUser, setSavingUser] = useState(false);
 
   useEffect(() => {
-    const currentUid = auth.currentUser?.uid ?? null;
-    setUid(currentUid);
+    const currentUser = auth.currentUser;
 
-    if (!currentUid) {
+    if (!currentUser) {
       setLoadingUser(false);
       return;
     }
 
+    const currentUid = currentUser.uid;
+    setUid(currentUid);
+
     const run = async () => {
       try {
         const userSnap = await getDoc(doc(db, "users", currentUid));
+
         if (userSnap.exists()) {
           const data = userSnap.data() as UserDoc;
           const resolvedName = data.displayName ?? data.name ?? "";
           setUserName(resolvedName);
           setDraftName(resolvedName);
+          setUserRole(data.role ?? "");
+
           if (resolvedName) {
             localStorage.setItem("userName", resolvedName);
           }
         } else {
-          const saved = localStorage.getItem("userName");
-          if (saved) {
-            setUserName(saved);
-            setDraftName(saved);
-          }
+          const saved = localStorage.getItem("userName") ?? "";
+          setUserName(saved);
+          setDraftName(saved);
+          setUserRole("");
         }
       } catch (error) {
         console.error("user read error:", error);
@@ -110,10 +115,8 @@ export default function MyPage() {
   }, []);
 
   useEffect(() => {
-    const q = collection(db, "reservations");
-
     const unsubscribe = onSnapshot(
-      q,
+      collection(db, "reservations"),
       (snapshot) => {
         const list: Reservation[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data() as {
@@ -192,7 +195,7 @@ export default function MyPage() {
   }, [vehicles]);
 
   const myCars = useMemo(() => {
-    if (!userName) return [];
+    if (!userName.trim()) return [];
     return vehicles.filter((v) => (v.assignedTo ?? "").trim() === userName.trim());
   }, [vehicles, userName]);
 
@@ -203,12 +206,14 @@ export default function MyPage() {
       .filter((r) => r.userUid === uid)
       .map((r) => {
         const vehicle = sharedVehicles.find((v) => v.id === r.vehicleId);
+        if (!vehicle) return null;
+
         return {
           ...r,
           vehicle,
         };
       })
-      .filter((item): item is Reservation & { vehicle: Vehicle } => !!item.vehicle)
+      .filter((item): item is Reservation & { vehicle: Vehicle } => item !== null)
       .sort((a, b) => {
         const aDate = parseDayKey(a.dayKey)?.getTime() ?? 0;
         const bDate = parseDayKey(b.dayKey)?.getTime() ?? 0;
@@ -248,6 +253,7 @@ export default function MyPage() {
 
       setUserName(trimmed);
       setDraftName(trimmed);
+      setUserRole(existing.role ?? "member");
       localStorage.setItem("userName", trimmed);
     } catch (error) {
       console.error("user save error:", error);
@@ -271,6 +277,7 @@ export default function MyPage() {
   };
 
   const isLoading = loadingUser || loadingVehicles || loadingReservations;
+  const hasUserName = userName.trim() !== "";
 
   return (
     <main className="min-h-screen bg-white text-black p-4">
@@ -303,21 +310,23 @@ export default function MyPage() {
                   🚚 予約ページ
                 </button>
 
-                <button
-                  className="rounded-lg border py-2 text-sm bg-white"
-                  onClick={() => {
-                    setShowMenu(false);
-                    router.push("/manage");
-                  }}
-                >
-                  ⚙️ 管理ページ
-                </button>
+                {userRole === "admin" && (
+                  <button
+                    className="rounded-lg border py-2 text-sm bg-white"
+                    onClick={() => {
+                      setShowMenu(false);
+                      router.push("/manage");
+                    }}
+                  >
+                    ⚙️ 管理ページ
+                  </button>
+                )}
               </div>
             </div>
           )}
 
           <div className="p-4 space-y-3">
-            {!userName ? (
+            {!hasUserName ? (
               <>
                 <div>
                   <label className="text-sm text-gray-600">表示名</label>
@@ -344,17 +353,26 @@ export default function MyPage() {
                 </p>
               </>
             ) : (
-              <div className="rounded-xl border bg-gray-50 px-4 py-3">
-                <div className="text-sm text-gray-500">現在のユーザ</div>
-                <div className="mt-1 text-lg font-bold">{userName}</div>
+              <>
+                <div className="rounded-xl border bg-gray-50 px-4 py-3">
+                  <div className="text-sm text-gray-500">現在のユーザ</div>
+                  <div className="mt-1 text-lg font-bold">{userName}</div>
+
+                  <button
+                    className="mt-3 rounded-lg border bg-white px-3 py-2 text-sm"
+                    onClick={clearUserName}
+                  >
+                    ユーザ変更
+                  </button>
+                </div>
 
                 <button
-                  className="mt-3 rounded-lg border bg-white px-3 py-2 text-sm"
-                  onClick={clearUserName}
+                  className="w-full rounded-lg bg-blue-600 text-white py-2 font-medium"
+                  onClick={goToReservation}
                 >
-                  ユーザ変更
+                  予約ページへ
                 </button>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -362,20 +380,14 @@ export default function MyPage() {
         <div className="rounded-2xl border p-4 space-y-3">
           <div className="flex justify-between items-center">
             <h2 className="font-bold text-lg">予約済み共有車</h2>
-            {userName && (
-              <div className="text-sm text-gray-500">{myReservedSharedCars.length}件</div>
-            )}
+            <div className="text-sm text-gray-500">{myReservedSharedCars.length}件</div>
           </div>
 
-          {!userName && (
-            <div className="text-sm text-gray-500">先にユーザ登録してください</div>
-          )}
-
-          {userName && isLoading && (
+          {isLoading && (
             <div className="text-sm text-gray-500">読み込み中...</div>
           )}
 
-          {userName && !isLoading && myReservedSharedCars.length === 0 && (
+          {!isLoading && myReservedSharedCars.length === 0 && (
             <div className="text-sm text-gray-500">予約された共有車はありません</div>
           )}
 
@@ -421,20 +433,14 @@ export default function MyPage() {
         <div className="rounded-2xl border p-4 space-y-3">
           <div className="flex justify-between items-center">
             <h2 className="font-bold text-lg">マイカー</h2>
-            {userName && (
-              <div className="text-sm text-gray-500">{myCars.length}台</div>
-            )}
+            <div className="text-sm text-gray-500">{myCars.length}台</div>
           </div>
 
-          {!userName && (
-            <div className="text-sm text-gray-500">先にユーザ登録してください</div>
-          )}
-
-          {userName && isLoading && (
+          {isLoading && (
             <div className="text-sm text-gray-500">読み込み中...</div>
           )}
 
-          {userName && !isLoading && myCars.length === 0 && (
+          {!isLoading && myCars.length === 0 && (
             <div className="text-sm text-gray-500">割り振られたマイカーはありません</div>
           )}
 
