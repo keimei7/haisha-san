@@ -1,4 +1,5 @@
 "use client";
+
 import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
 export default function JoinCompanyPage() {

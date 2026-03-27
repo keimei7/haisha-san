@@ -1,9 +1,4 @@
 import type { NextConfig } from "next";
-const nextConfig = {
-  output: "standalone",
-  experimental: {
-    turbo: false,
-  },
-};
+const nextConfig = {};
 
 export default nextConfig;
