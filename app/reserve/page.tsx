@@ -629,131 +629,133 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
     </button>
   </div>
 </div>
-             <div className="rounded-xl border overflow-hidden">
+             <div className="rounded-xl border overflow-hidden bg-white">
   <div className="overflow-auto max-h-[70vh]">
-    <table className="border-collapse text-sm min-w-[760px] w-max">
-      <thead>
-        <tr>
-          <th className="sticky top-0 left-0 z-30 border bg-red-500 text-white px-1 py-2 w-[40px] min-w-[40px] max-w-[40px] text-[11px]">
-            車検
-          </th>
+    <div className="origin-top-left scale-[0.82] md:scale-100 w-[122%] md:w-auto">
+      <table className="border-collapse text-sm min-w-[860px] w-max">
+        <thead>
+          <tr>
+            <th className="sticky top-0 left-0 z-30 border bg-red-500 text-white px-1 py-2 w-[40px] min-w-[40px] max-w-[40px] text-[11px]">
+              車検
+            </th>
 
-          <th className="sticky top-0 left-[40px] z-30 border bg-green-600 text-white px-1 py-2 w-[48px] min-w-[48px] max-w-[48px] text-[11px]">
-            車種
-          </th>
-
-          {days.map((day) => {
-            const isSunday = day.date.getDay() === 0;
-            const isSaturday = day.date.getDay() === 6;
-
-            const headerBg = isSunday
-              ? "bg-red-100"
-              : isSaturday
-              ? "bg-blue-100"
-              : "bg-gray-100";
-
-            const weekdayColor = isSunday
-              ? "text-red-600"
-              : isSaturday
-              ? "text-blue-600"
-              : "text-black";
-
-            return (
-              <th
-                key={day.key}
-                className={`sticky top-0 z-20 border px-1 py-2 w-[84px] min-w-[84px] max-w-[84px] ${headerBg}`}
-              >
-                <div className="font-bold text-sm">{day.label}</div>
-                <div className={`text-xs ${weekdayColor}`}>{day.weekday}</div>
-              </th>
-            );
-          })}
-        </tr>
-      </thead>
-
-      <tbody>
-        {sharedVehicles.map((vehicle) => (
-          <tr key={vehicle.id}>
-            <td className="sticky left-0 z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-white w-[40px] min-w-[40px] max-w-[40px]">
-              <button
-                className="underline decoration-dotted hover:text-blue-600 text-[11px] leading-tight"
-                onClick={() =>
-                  setInspectionEdit({
-                    vehicleId: vehicle.id,
-                    vehicleName: vehicle.name.replace("\n", " "),
-                    value: vehicle.inspection,
-                  })
-                }
-                type="button"
-              >
-                {vehicle.inspection}
-              </button>
-            </td>
-
-            <td className="sticky left-[40px] z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-gray-50 w-[48px] min-w-[48px] max-w-[48px] text-xs">
-              {vehicle.name}
-            </td>
+            <th className="sticky top-0 left-[40px] z-30 border bg-green-600 text-white px-1 py-2 w-[48px] min-w-[48px] max-w-[48px] text-[11px]">
+              車種
+            </th>
 
             {days.map((day) => {
               const isSunday = day.date.getDay() === 0;
               const isSaturday = day.date.getDay() === 6;
 
-              const cellBg = isSunday
-                ? "bg-red-50"
+              const headerBg = isSunday
+                ? "bg-red-100"
                 : isSaturday
-                ? "bg-blue-50"
-                : "bg-white";
+                ? "bg-blue-100"
+                : "bg-gray-100";
 
-              const reservation = reservations.find(
-                (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
-              );
+              const weekdayColor = isSunday
+                ? "text-red-600"
+                : isSaturday
+                ? "text-blue-600"
+                : "text-black";
 
               return (
-                <td
-                  key={`${vehicle.id}-${day.key}`}
-                  className={`border p-1 align-top ${cellBg} w-[84px] min-w-[84px] max-w-[84px]`}
+                <th
+                  key={day.key}
+                  className={`sticky top-0 z-20 border px-1 py-2 w-[84px] min-w-[84px] max-w-[84px] ${headerBg}`}
                 >
-                  <button
-                    className="w-full min-h-[60px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-1.5"
-                    onClick={() =>
-                      openReservationModal(
-                        vehicle.id,
-                        vehicle.name.replace("\n", " "),
-                        day.key,
-                        `${day.label}（${day.weekday}）`
-                      )
-                    }
-                    type="button"
-                  >
-                    <div className="space-y-1">
-                      {reservation ? (
-                        <div className="space-y-1">
-                          {reservation.site && (
-                            <div className="font-bold text-xs leading-tight">
-                              {reservation.site}
-                            </div>
-                          )}
-                          <div className="text-[11px] text-gray-700 leading-tight">
-                            {reservation.userName ?? reservation.name ?? ""}
-                          </div>
-                          {reservation.projectNo && (
-                            <div className="text-[10px] text-gray-500 leading-tight">
-                              {reservation.projectNo}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-[11px]">＋予約</span>
-                      )}
-                    </div>
-                  </button>
-                </td>
+                  <div className="font-bold text-sm">{day.label}</div>
+                  <div className={`text-xs ${weekdayColor}`}>{day.weekday}</div>
+                </th>
               );
             })}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+
+        <tbody>
+          {sharedVehicles.map((vehicle) => (
+            <tr key={vehicle.id}>
+              <td className="sticky left-0 z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-white w-[40px] min-w-[40px] max-w-[40px]">
+                <button
+                  className="underline decoration-dotted hover:text-blue-600 text-[11px] leading-tight"
+                  onClick={() =>
+                    setInspectionEdit({
+                      vehicleId: vehicle.id,
+                      vehicleName: vehicle.name.replace("\n", " "),
+                      value: vehicle.inspection,
+                    })
+                  }
+                  type="button"
+                >
+                  {vehicle.inspection}
+                </button>
+              </td>
+
+              <td className="sticky left-[40px] z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-gray-50 w-[48px] min-w-[48px] max-w-[48px] text-xs">
+                {vehicle.name}
+              </td>
+
+              {days.map((day) => {
+                const isSunday = day.date.getDay() === 0;
+                const isSaturday = day.date.getDay() === 6;
+
+                const cellBg = isSunday
+                  ? "bg-red-50"
+                  : isSaturday
+                  ? "bg-blue-50"
+                  : "bg-white";
+
+                const reservation = reservations.find(
+                  (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
+                );
+
+                return (
+                  <td
+                    key={`${vehicle.id}-${day.key}`}
+                    className={`border p-1 align-top ${cellBg} w-[84px] min-w-[84px] max-w-[84px]`}
+                  >
+                    <button
+                      className="w-full min-h-[56px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-1"
+                      onClick={() =>
+                        openReservationModal(
+                          vehicle.id,
+                          vehicle.name.replace("\n", " "),
+                          day.key,
+                          `${day.label}（${day.weekday}）`
+                        )
+                      }
+                      type="button"
+                    >
+                      <div className="space-y-1">
+                        {reservation ? (
+                          <div className="space-y-1">
+                            {reservation.site && (
+                              <div className="font-bold text-[11px] leading-tight">
+                                {reservation.site}
+                              </div>
+                            )}
+                            <div className="text-[10px] text-gray-700 leading-tight">
+                              {reservation.userName ?? reservation.name ?? ""}
+                            </div>
+                            {reservation.projectNo && (
+                              <div className="text-[10px] text-gray-500 leading-tight">
+                                {reservation.projectNo}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-[10px]">＋予約</span>
+                        )}
+                      </div>
+                    </button>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
