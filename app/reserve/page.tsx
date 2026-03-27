@@ -634,11 +634,11 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
             <table className="border-collapse text-sm min-w-[860px] w-max">
               <thead>
                 <tr>
-                  <th className="sticky top-0 left-0 z-30 border bg-red-500 text-white px-1 py-2 w-[64px] min-w-[64px] max-w-[64px]">
+                  <th className="sticky top-0 left-0 z-30 border bg-red-500 text-white px-1 py-2 w-[56px] min-w-[56px] max-w-[56px]">
                     車検
                   </th>
 
-                  <th className="sticky top-0 left-[64px] z-30 border bg-green-600 text-white px-1 py-2 w-[72px] min-w-[72px] max-w-[72px]">
+                  <th className="sticky top-0 left-[64px] z-30 border bg-green-600 text-white px-1 py-2 w-[64px] min-w-[64px] max-w-[64px]">
                     車種
                   </th>
 
@@ -674,7 +674,7 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
               <tbody>
                 {sharedVehicles.map((vehicle) => (
                   <tr key={vehicle.id}>
-                    <td className="sticky left-0 z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-white w-[64px] min-w-[64px] max-w-[64px]">
+                    <td className="sticky left-0 z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-white w-[56px] min-w-[56px] max-w-[56px]">
                       <button
                         className="underline decoration-dotted hover:text-blue-600 text-xs"
                         onClick={() =>
@@ -690,7 +690,7 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
                       </button>
                     </td>
 
-                    <td className="sticky left-[64px] z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-gray-50 w-[72px] min-w-[72px] max-w-[72px] text-sm">
+                    <td className="sticky left-[64px] z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-gray-50 w-[64px] min-w-[64px] max-w-[64px] text-sm">
                       {vehicle.name}
                     </td>
 
