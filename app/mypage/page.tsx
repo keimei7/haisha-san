@@ -1,15 +1,15 @@
 "use client";
 
+import { auth } from "@/lib/firebase";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
-  addDoc,
   collection,
-  getDocs,
+  doc,
   onSnapshot,
   orderBy,
   query,
-  where,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -25,9 +25,11 @@ type Reservation = {
   id: string;
   vehicleId: string;
   dayKey: string;
-  name: string;
+  userUid: string;
+  userName: string;
   site: string;
   projectNo: string;
+  createdAt?: unknown;
   updatedAt?: string;
 };
 
@@ -57,89 +59,85 @@ export default function MyPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [savingUser, setSavingUser] = useState(false);
 
-  useEffect(() => {
-    const saved = localStorage.getItem("userName");
-    if (saved) {
-      setUserName(saved);
-      setDraftName(saved);
+useEffect(() => {
+  const q = collection(db, "reservations");
+
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      const list: Reservation[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as {
+          vehicleId?: string;
+          dayKey?: string;
+          name?: string;
+          userUid?: string;
+          userName?: string;
+          site?: string;
+          projectNo?: string;
+          updatedAt?: string;
+        };
+
+        return {
+          id: docSnap.id,
+          vehicleId: data.vehicleId ?? "",
+          dayKey: data.dayKey ?? "",
+          name: data.name ?? "",
+          userUid: data.userUid ?? "",
+          userName: data.userName ?? "",
+          site: data.site ?? "",
+          projectNo: data.projectNo ?? "",
+          updatedAt: data.updatedAt ?? "",
+        };
+      });
+
+      setReservations(list);
+      setLoadingReservations(false);
+    },
+    (error) => {
+      console.error("reservations read error:", error);
+      alert("予約データの読み込みに失敗しました");
+      setLoadingReservations(false);
     }
-  }, []);
+  );
 
-  useEffect(() => {
-    const q = query(collection(db, "vehicles"), orderBy("sort", "asc"));
+  return () => unsubscribe();
+}, []);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list: Vehicle[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as {
-            name?: string;
-            inspection?: string;
-            sort?: number;
-            assignedTo?: string;
-          };
+useEffect(() => {
+  const q = query(collection(db, "vehicles"), orderBy("sort", "asc"));
 
-          return {
-            id: docSnap.id,
-            name: data.name ?? "",
-            inspection: data.inspection ?? "",
-            sort: data.sort ?? 0,
-            assignedTo: data.assignedTo ?? "",
-          };
-        });
+  const unsubscribe = onSnapshot(
+    q,
+    (snapshot) => {
+      const list: Vehicle[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as {
+          name?: string;
+          inspection?: string;
+          sort?: number;
+          assignedTo?: string;
+        };
 
-        setVehicles(list);
-        setLoadingVehicles(false);
-      },
-      (error) => {
-        console.error("vehicles read error:", error);
-        alert("車両データの読み込みに失敗しました");
-        setLoadingVehicles(false);
-      }
-    );
+        return {
+          id: docSnap.id,
+          name: data.name ?? "",
+          inspection: data.inspection ?? "",
+          sort: data.sort ?? 0,
+          assignedTo: data.assignedTo ?? "",
+        };
+      });
 
-    return () => unsubscribe();
-  }, []);
+      setVehicles(list);
+      setLoadingVehicles(false);
+    },
+    (error) => {
+      console.error("vehicles read error:", error);
+      alert("車両データの読み込みに失敗しました");
+      setLoadingVehicles(false);
+    }
+  );
 
-  useEffect(() => {
-    const q = collection(db, "reservations");
-
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const list: Reservation[] = snapshot.docs.map((docSnap) => {
-          const data = docSnap.data() as {
-            vehicleId?: string;
-            dayKey?: string;
-            name?: string;
-            site?: string;
-            projectNo?: string;
-            updatedAt?: string;
-          };
-
-          return {
-            id: docSnap.id,
-            vehicleId: data.vehicleId ?? "",
-            dayKey: data.dayKey ?? "",
-            name: data.name ?? "",
-            site: data.site ?? "",
-            projectNo: data.projectNo ?? "",
-            updatedAt: data.updatedAt ?? "",
-          };
-        });
-
-        setReservations(list);
-        setLoadingReservations(false);
-      },
-      (error) => {
-        console.error("reservations read error:", error);
-        alert("予約データの読み込みに失敗しました");
-        setLoadingReservations(false);
-      }
-    );
-
-    return () => unsubscribe();
-  }, []);
+  return () => unsubscribe();
+}, []);
 
   const sharedVehicles = useMemo(() => {
     return vehicles.filter((v) => !(v.assignedTo ?? "").trim());
@@ -150,62 +148,67 @@ export default function MyPage() {
     return vehicles.filter((v) => (v.assignedTo ?? "").trim() === userName.trim());
   }, [vehicles, userName]);
 
-  const myReservedSharedCars = useMemo(() => {
-    if (!userName) return [];
+const myReservedSharedCars = useMemo(() => {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return [];
 
-    return reservations
-      .filter((r) => r.name.trim() === userName.trim())
-      .map((r) => {
-        const vehicle = sharedVehicles.find((v) => v.id === r.vehicleId);
-        return {
-          ...r,
-          vehicle,
-        };
-      })
-      .filter(
-        (
-          item
-        ): item is Reservation & {
-          vehicle: Vehicle;
-        } => !!item.vehicle
-      )
-      .sort((a, b) => {
-        const aDate = parseDayKey(a.dayKey)?.getTime() ?? 0;
-        const bDate = parseDayKey(b.dayKey)?.getTime() ?? 0;
-        return aDate - bDate;
-      });
-  }, [reservations, sharedVehicles, userName]);
+  return reservations
+    .filter((r) => r.userUid === uid)
+    .map((r) => {
+      const vehicle = sharedVehicles.find((v) => v.id === r.vehicleId);
+      return {
+        ...r,
+        vehicle,
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is Reservation & {
+        vehicle: Vehicle;
+      } => !!item.vehicle
+    )
+    .sort((a, b) => {
+      const aDate = parseDayKey(a.dayKey)?.getTime() ?? 0;
+      const bDate = parseDayKey(b.dayKey)?.getTime() ?? 0;
+      return aDate - bDate;
+    });
+}, [reservations, sharedVehicles]);
 
-  const saveUserName = async () => {
-    const trimmed = draftName.trim();
+const saveUserName = async () => {
+  const trimmed = draftName.trim();
 
-    if (!trimmed) {
-      alert("名前を入力してください");
-      return;
-    }
+  if (!trimmed) {
+    alert("名前を入力してください");
+    return;
+  }
 
-    try {
-      setSavingUser(true);
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    alert("ログイン情報がありません。もう一度ログインしてください");
+    router.push("/login");
+    return;
+  }
 
-      const q = query(collection(db, "users"), where("name", "==", trimmed));
-      const snapshot = await getDocs(q);
+  try {
+    setSavingUser(true);
 
-      if (snapshot.empty) {
-        await addDoc(collection(db, "users"), {
-          name: trimmed,
-          createdAt: new Date().toISOString(),
-        });
-      }
+    await setDoc(doc(db, "users", currentUser.uid), {
+      name: trimmed,
+      email: currentUser.email ?? "",
+      uid: currentUser.uid,
+      updatedAt: new Date().toISOString(),
+    });
 
-      setUserName(trimmed);
-      localStorage.setItem("userName", trimmed);
-    } catch (error) {
-      console.error("user save error:", error);
-      alert("ユーザ登録に失敗しました");
-    } finally {
-      setSavingUser(false);
-    }
-  };
+    setUserName(trimmed);
+    localStorage.setItem("userName", trimmed);
+  } catch (error) {
+    console.error("user save error:", error);
+    alert("ユーザ登録に失敗しました");
+  } finally {
+    setSavingUser(false);
+  }
+};
 
   const clearUserName = () => {
     const ok = window.confirm("登録ユーザを変更しますか？");
@@ -217,14 +220,14 @@ export default function MyPage() {
   };
 
   const goToReservation = () => {
-    const params = new URLSearchParams();
+  const params = new URLSearchParams();
 
-    if (userName) {
-      params.set("name", userName);
-    }
+  if (userName) {
+    params.set("name", userName);
+  }
 
-    router.push(`/?${params.toString()}`);
-  };
+  router.push(`/reserve?${params.toString()}`);
+};
 
   const isLoading = loadingVehicles || loadingReservations;
 
@@ -275,17 +278,7 @@ export default function MyPage() {
           <div className="p-4 space-y-3">
             {!userName ? (
               <>
-                <div>
-                  <label className="text-sm text-gray-600">初回登録する名前</label>
-                  <input
-                    type="text"
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 mt-1"
-                    placeholder="例：設樂 啓明"
-                    disabled={savingUser}
-                  />
-                </div>
+                
 
                 <button
                   className="w-full rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"

@@ -26,7 +26,9 @@ type Vehicle = {
 type UserItem = {
   id: string;
   name: string;
-  createdAt?: string;
+  email?: string;
+  uid?: string;
+  updatedAt?: string;
 };
 
 function toNumber(value: string) {
@@ -97,13 +99,17 @@ export default function ManagePage() {
         const list: UserItem[] = snapshot.docs.map((docSnap) => {
           const data = docSnap.data() as {
             name?: string;
-            createdAt?: string;
+            email?: string;
+            uid?: string;
+            updatedAt?: string;
           };
 
           return {
             id: docSnap.id,
             name: data.name ?? "",
-            createdAt: data.createdAt ?? "",
+            email: data.email ?? "",
+            uid: data.uid ?? "",
+            updatedAt: data.updatedAt ?? "",
           };
         });
 
@@ -323,9 +329,7 @@ export default function ManagePage() {
           {loadingUsers ? (
             <div className="text-sm text-gray-500">読み込み中...</div>
           ) : registeredUserNames.length === 0 ? (
-            <div className="text-sm text-gray-500">
-              まだ登録ユーザがありません
-            </div>
+            <div className="text-sm text-gray-500">まだ登録ユーザがありません</div>
           ) : (
             <div className="flex flex-wrap gap-2">
               {registeredUserNames.map((name) => (
@@ -364,9 +368,7 @@ export default function ManagePage() {
                     車検: {vehicle.inspection || "未設定"}
                   </div>
 
-                  <div className="text-sm text-gray-500">
-                    並び順: {vehicle.sort}
-                  </div>
+                  <div className="text-sm text-gray-500">並び順: {vehicle.sort}</div>
 
                   <div className="text-sm text-gray-500">区分: 共有車</div>
 
@@ -415,9 +417,7 @@ export default function ManagePage() {
                     車検: {vehicle.inspection || "未設定"}
                   </div>
 
-                  <div className="text-sm text-gray-500">
-                    並び順: {vehicle.sort}
-                  </div>
+                  <div className="text-sm text-gray-500">並び順: {vehicle.sort}</div>
 
                   <div className="text-sm text-gray-500">
                     担当者: {vehicle.assignedTo}
