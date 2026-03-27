@@ -328,14 +328,14 @@ export default function MyPage() {
 
                 {userRole === "admin" && (
                   <button
-                    className="rounded-lg border py-2 text-sm bg-white"
-                    onClick={() => {
-                      setShowMenu(false);
-                      router.push("/manage");
-                    }}
-                  >
-                    ⚙️ 管理ページ
-                  </button>
+  className="rounded-lg border py-2 text-sm bg-white"
+  onClick={() => {
+    setShowMenu(false);
+    router.push("/manage");
+  }}
+>
+  ⚙️ 管理ページ
+</button>
                 )}
               </div>
             </div>

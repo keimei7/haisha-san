@@ -1,13 +1,17 @@
 "use client";
+
 export const dynamic = "force-dynamic";
+
 import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -34,13 +38,22 @@ type Reservation = {
   id: string;
   vehicleId: string;
   dayKey: string;
-  name?: string;      // 旧互換
-  userUid?: string;   // 新方式
-  userName?: string;  // 新方式
+  name?: string;
+  userUid?: string;
+  userName?: string;
   site: string;
   projectNo: string;
   createdAt?: unknown;
   updatedAt?: string;
+};
+
+type UserDoc = {
+  uid?: string;
+  email?: string;
+  displayName?: string;
+  companyId?: string;
+  role?: string;
+  name?: string;
 };
 
 const weekdayJa = ["月", "火", "水", "木", "金", "土", "日"];
@@ -106,21 +119,17 @@ function downloadCsv(filename: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
-export default function Home() {
-    const [mounted, setMounted] = useState(false);
-
-useEffect(() => {
-  setMounted(true);
-}, []);
-
-if (!mounted) return null;
+export default function ReservePage() {
   const router = useRouter();
+
+  const [mounted, setMounted] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
+  const [userName, setUserName] = useState("");
 
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
-  const [userName, setUserName] = useState("");
   const [showVehicleLog, setShowVehicleLog] = useState(false);
   const [logMode, setLogMode] = useState<"vehicle" | "name" | "project">("vehicle");
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
@@ -145,51 +154,47 @@ if (!mounted) return null;
     value: string;
   } | null>(null);
 
-  const [formName, setFormName] = useState("");
   const [formSite, setFormSite] = useState("");
   const [formProjectNo, setFormProjectNo] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("userName");
-    if (saved) {
-      setUserName(saved);
-      setFormName(saved);
-    }
+    setMounted(true);
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const projectNo = params.get("projectNo");
-    const site = params.get("site");
-    const name = params.get("name");
+    if (!mounted) return;
 
-    if (projectNo) {
-      setFormProjectNo(projectNo);
-    }
-    if (site) {
-      setFormSite(site);
-    }
-    if (name) {
-      setUserName(name);
-      setFormName(name);
-      localStorage.setItem("userName", name);
-    }
-  }, []);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        setUid(null);
+        setUserName("");
+        return;
+      }
 
-  const days = useMemo<DayItem[]>(() => {
-    return Array.from({ length: 7 }, (_, i) => {
-      const date = addDays(weekStart, i);
-      return {
-        key: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
-        label: formatHeaderDate(date),
-        weekday: weekdayJa[i],
-        date,
-      };
+      setUid(currentUser.uid);
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
+        if (userSnap.exists()) {
+          const data = userSnap.data() as UserDoc;
+          const resolvedName = data.displayName ?? data.name ?? "";
+          setUserName(resolvedName);
+        } else {
+          setUserName("");
+        }
+      } catch (error) {
+        console.error("user read error:", error);
+        setUserName("");
+      }
     });
-  }, [weekStart]);
+
+    return () => unsubscribe();
+  }, [mounted]);
 
   useEffect(() => {
+    if (!mounted) return;
+
     const q = query(collection(db, "vehicles"), orderBy("sort", "asc"));
 
     const unsubscribe = onSnapshot(
@@ -221,9 +226,11 @@ if (!mounted) return null;
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
+    if (!mounted) return;
+
     const q = collection(db, "reservations");
 
     const unsubscribe = onSnapshot(
@@ -265,7 +272,7 @@ if (!mounted) return null;
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
     if (!reservations.length) return;
@@ -290,6 +297,18 @@ if (!mounted) return null;
     setSiteHistory(sites);
   }, [reservations]);
 
+  const days = useMemo<DayItem[]>(() => {
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(weekStart, i);
+      return {
+        key: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
+        label: formatHeaderDate(date),
+        weekday: weekdayJa[i],
+        date,
+      };
+    });
+  }, [weekStart]);
+
   const sharedVehicles = useMemo(() => {
     return vehicles.filter((v) => !(v.assignedTo ?? "").trim());
   }, [vehicles]);
@@ -310,8 +329,8 @@ if (!mounted) return null;
     dayKey: string,
     dateLabel: string
   ) => {
-    if (!userName.trim()) {
-      alert("先にマイページでユーザ登録してください");
+    if (!uid || !userName.trim()) {
+      alert("先にマイページで表示名を登録してください");
       router.push("/mypage");
       return;
     }
@@ -320,20 +339,13 @@ if (!mounted) return null;
       (r) => r.vehicleId === vehicleId && r.dayKey === dayKey
     );
 
-    const params = new URLSearchParams(window.location.search);
-    const presetName = userName || params.get("name") || "";
-    const presetSite = params.get("site") ?? "";
-    const presetProjectNo = params.get("projectNo") ?? "";
-
     setSelectedSlot({ vehicleId, vehicleName, dayKey, dateLabel });
-    setFormName((existing?.userName ?? existing?.name) || presetName);
-    setFormSite(existing?.site ?? presetSite);
-    setFormProjectNo(existing?.projectNo ?? presetProjectNo);
+    setFormSite(existing?.site ?? "");
+    setFormProjectNo(existing?.projectNo ?? "");
   };
 
   const closeReservationModal = () => {
     setSelectedSlot(null);
-    setFormName(userName ?? "");
     setFormSite("");
     setFormProjectNo("");
     setShowSiteSuggest(false);
@@ -349,15 +361,9 @@ if (!mounted) return null;
     const trimmedProjectNo = formProjectNo.trim();
     const currentUid = auth.currentUser?.uid;
 
-    if (!trimmedName) {
-      alert("先にマイページでユーザ登録してください");
+    if (!trimmedName || !currentUid) {
+      alert("ログイン情報または表示名が取得できませんでした");
       router.push("/mypage");
-      return;
-    }
-
-    if (!currentUid) {
-      alert("ログイン情報が取得できませんでした。もう一度ログインしてください");
-      router.push("/login");
       return;
     }
 
@@ -369,15 +375,15 @@ if (!mounted) return null;
     try {
       setSaving(true);
 
-   await setDoc(doc(db, "reservations", reservationId), {
-  vehicleId: selectedSlot.vehicleId,
-  dayKey: selectedSlot.dayKey,
-  userUid: currentUid,
-  userName: trimmedName, // 表示用だけ
-  site: trimmedSite,
-  projectNo: trimmedProjectNo,
-  updatedAt: new Date().toISOString(),
-});
+      await setDoc(doc(db, "reservations", reservationId), {
+        vehicleId: selectedSlot.vehicleId,
+        dayKey: selectedSlot.dayKey,
+        userUid: currentUid,
+        userName: trimmedName,
+        site: trimmedSite,
+        projectNo: trimmedProjectNo,
+        updatedAt: new Date().toISOString(),
+      });
 
       closeReservationModal();
     } catch (error) {
@@ -387,9 +393,7 @@ if (!mounted) return null;
     }
   };
 
-  const exportCurrentWeekCsv = (
-    mode: "all" | "reservedOnly" | "projectOnly"
-  ) => {
+  const exportCurrentWeekCsv = (mode: "all" | "reservedOnly" | "projectOnly") => {
     const rows: string[][] = [];
 
     rows.push([
@@ -465,6 +469,8 @@ if (!mounted) return null;
     })
     .sort((a, b) => (a.dayKey > b.dayKey ? 1 : -1));
 
+  if (!mounted) return null;
+
   return (
     <main className="min-h-screen bg-white text-black p-3">
       <div className="mx-auto max-w-md">
@@ -482,15 +488,6 @@ if (!mounted) return null;
             共有車予約ページ
           </div>
 
-          {formProjectNo && (
-            <div className="mx-3 mt-2 rounded-lg border bg-blue-50 px-3 py-2 text-sm">
-              <div className="font-semibold text-blue-800">
-                📌 用途・案件番号: {formProjectNo}
-              </div>
-              {formSite && <div className="text-blue-700">{formSite}</div>}
-            </div>
-          )}
-
           <button
             className="w-full border-b py-2 text-sm bg-white"
             onClick={() => router.push("/mypage")}
@@ -499,9 +496,9 @@ if (!mounted) return null;
           </button>
 
           <div className="p-2 space-y-2 border-b bg-white">
-            {!userName ? (
+            {!uid || !userName.trim() ? (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                先にマイページでユーザ登録してください
+                先にマイページで表示名を登録してください
               </div>
             ) : (
               <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
@@ -666,9 +663,9 @@ if (!mounted) return null;
                                     {reservation.site}
                                   </div>
                                 )}
-                               <div className="text-xs text-gray-700">
-  {reservation.userName}
-</div>
+                                <div className="text-xs text-gray-700">
+                                  {reservation.userName ?? reservation.name ?? ""}
+                                </div>
                                 {reservation.projectNo && (
                                   <div className="text-xs text-gray-500">
                                     {reservation.projectNo}
