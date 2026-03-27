@@ -545,111 +545,112 @@ export default function ReservePage() {
   return (
     <main className="min-h-screen bg-white text-black p-3">
       <div className="mx-auto max-w-md">
-        <div className="mb-3 rounded-xl border overflow-hidden">
-          <div className="bg-white py-2 flex items-center justify-center gap-1 border-b">
-            <img
-              src="/icon.png"
-              alt="配車さん"
-              className="w-12 h-12 object-contain"
-            />
-            <div className="font-bold text-lg tracking-wide">配車さん</div>
-          </div>
+       <div className="mb-3 rounded-2xl border overflow-hidden bg-white">
+  <div className="py-3 flex items-center justify-center gap-2 border-b bg-white">
+    <img
+      src="/icon.png"
+      alt="配車さん"
+      className="w-12 h-12 object-contain"
+    />
+    <div className="font-bold text-2xl tracking-wide">配車さん</div>
+  </div>
 
-          <div className="bg-yellow-300 text-center font-bold py-2 text-lg">
-            共有車予約ページ
-          </div>
+  <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
+    共有車予約ページ
+  </div>
 
-          <div className="grid grid-cols-2 border-b bg-white">
-            <button
-              className="py-2 text-sm border-r"
-              onClick={() => router.push("/mypage")}
-              type="button"
-            >
-              マイページへ
-            </button>
+  <div className="p-3 space-y-3 bg-white">
+    {!uid || !userName.trim() ? (
+      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        先にマイページで表示名を登録してください
+      </div>
+    ) : (
+      <div className="rounded-xl border bg-gray-50 px-4 py-3">
+        <div className="text-xs text-gray-500">現在のユーザ</div>
+        <div className="mt-1 font-semibold text-base">{userName}</div>
+      </div>
+    )}
 
-            <button
-              className="py-2 text-sm"
-              onClick={() => router.push("/manage")}
-              type="button"
-            >
-              管理ページへ
-            </button>
-          </div>
+    <div className="grid grid-cols-2 gap-2">
+      <button
+        className="rounded-xl border bg-white py-2.5 text-sm"
+        onClick={() => router.push("/mypage")}
+        type="button"
+      >
+        ← マイページ
+      </button>
 
-          <div className="p-2 space-y-2 border-b bg-white">
-            {!uid || !userName.trim() ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                先にマイページで表示名を登録してください
-              </div>
-            ) : (
-              <div className="rounded-lg border bg-gray-50 px-3 py-2 text-sm">
-                現在のユーザ: <span className="font-semibold">{userName}</span>
-              </div>
-            )}
+      <button
+        className="rounded-xl border bg-white py-2.5 text-sm"
+        onClick={() => router.push("/manage")}
+        type="button"
+      >
+        ⚙️ 管理ページ
+      </button>
+    </div>
 
-            <button
-              className="w-full border rounded-lg py-2"
-              onClick={() => setShowVehicleLog(true)}
-              type="button"
-            >
-              車両実績を見る
-            </button>
+    <button
+      className="w-full rounded-xl border bg-white py-3 text-sm"
+      onClick={() => setShowVehicleLog(true)}
+      type="button"
+    >
+      車両実績を見る
+    </button>
 
-            <details className="rounded-lg border bg-white">
-              <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium select-none flex items-center justify-between">
-                <span>⬇️ CSV出力</span>
-                <span className="text-gray-500">▼</span>
-              </summary>
+    <details className="rounded-xl border bg-white">
+      <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium select-none flex items-center justify-between">
+        <span>⬇️ CSV出力</span>
+        <span className="text-gray-500">▼</span>
+      </summary>
 
-              <div className="border-t p-2 space-y-2">
-                <button
-                  className="w-full rounded-lg border py-2 text-sm"
-                  onClick={() => exportCurrentWeekCsv("all")}
-                  type="button"
-                >
-                  全件
-                </button>
+      <div className="border-t p-2 space-y-2">
+        <button
+          className="w-full rounded-lg border py-2 text-sm"
+          onClick={() => exportCurrentWeekCsv("all")}
+          type="button"
+        >
+          全件
+        </button>
 
-                <button
-                  className="w-full rounded-lg border py-2 text-sm"
-                  onClick={() => exportCurrentWeekCsv("reservedOnly")}
-                  type="button"
-                >
-                  予約ありのみ
-                </button>
+        <button
+          className="w-full rounded-lg border py-2 text-sm"
+          onClick={() => exportCurrentWeekCsv("reservedOnly")}
+          type="button"
+        >
+          予約ありのみ
+        </button>
 
-                <button
-                  className="w-full rounded-lg border py-2 text-sm"
-                  onClick={() => exportCurrentWeekCsv("projectOnly")}
-                  type="button"
-                >
-                  用途ありのみ
-                </button>
-              </div>
-            </details>
-          </div>
+        <button
+          className="w-full rounded-lg border py-2 text-sm"
+          onClick={() => exportCurrentWeekCsv("projectOnly")}
+          type="button"
+        >
+          用途ありのみ
+        </button>
+      </div>
+    </details>
+  </div>
 
-          <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-t">
-            <button
-              className="rounded-lg border px-3 py-1"
-              onClick={() => setWeekStart(addDays(weekStart, -7))}
-              type="button"
-            >
-              ←
-            </button>
+  <div className="flex items-center justify-between px-3 py-3 bg-gray-50 border-t">
+    <button
+      className="rounded-xl border bg-white px-4 py-2"
+      onClick={() => setWeekStart(addDays(weekStart, -7))}
+      type="button"
+    >
+      ←
+    </button>
 
-            <div className="font-semibold">{formatWeekTitle(weekStart)}</div>
+    <div className="font-semibold text-lg">{formatWeekTitle(weekStart)}</div>
 
-            <button
-              className="rounded-lg border px-3 py-1"
-              onClick={() => setWeekStart(addDays(weekStart, 7))}
-              type="button"
-            >
-              →
-            </button>
-          </div>
-        </div>
+    <button
+      className="rounded-xl border bg-white px-4 py-2"
+      onClick={() => setWeekStart(addDays(weekStart, 7))}
+      type="button"
+    >
+      →
+    </button>
+  </div>
+</div>
 
         <div className="overflow-x-auto rounded-xl border">
           <table className="border-collapse text-sm min-w-[760px] w-full">
