@@ -61,7 +61,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-
+<div style={{ color: "red" }}>NEW BUILD OK</div>
         {/* ログインボタン */}
         <button
           onClick={handleLogin}
