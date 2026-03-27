@@ -1,6 +1,48 @@
 "use client";
 
+import { useEffect } from "react";
+import { auth } from "@/lib/firebase-client";
+import { db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+
+type UserDoc = {
+  uid?: string;
+  email?: string;
+  displayName?: string;
+  companyId?: string;
+  role?: string;
+};
+
 export default function SetupPage() {
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.replace("/");
+        return;
+      }
+
+      try {
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data() as UserDoc;
+
+          if (userData.companyId) {
+            window.location.replace("/mypage");
+            return;
+          }
+        }
+
+        // company未所属なら setup に残す
+      } catch (error) {
+        console.error("setup user read error:", error);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
   return (
     <main className="min-h-screen bg-white text-black flex items-center justify-center p-4">
       <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white shadow-sm p-6 space-y-5">

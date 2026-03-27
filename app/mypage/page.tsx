@@ -15,6 +15,7 @@ import {
   query,
   setDoc,
 } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
 
 type Vehicle = {
   id: string;
@@ -44,6 +45,12 @@ type UserDoc = {
   name?: string;
 };
 
+type CompanyDoc = {
+  name?: string;
+  inviteCode?: string;
+  ownerUid?: string;
+};
+
 function parseDayKey(dayKey: string) {
   const [y, m, d] = dayKey.split("-").map(Number);
   if (!y || !m || !d) return null;
@@ -65,6 +72,8 @@ export default function MyPage() {
   const [userName, setUserName] = useState("");
   const [draftName, setDraftName] = useState("");
   const [userRole, setUserRole] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -74,44 +83,51 @@ export default function MyPage() {
   const [savingUser, setSavingUser] = useState(false);
 
   useEffect(() => {
-    const currentUser = auth.currentUser;
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (!currentUser) {
+        setLoadingUser(false);
+        return;
+      }
 
-    if (!currentUser) {
-      setLoadingUser(false);
-      return;
-    }
+      setUid(currentUser.uid);
 
-    const currentUid = currentUser.uid;
-    setUid(currentUid);
-
-    const run = async () => {
       try {
-        const userSnap = await getDoc(doc(db, "users", currentUid));
+        const userSnap = await getDoc(doc(db, "users", currentUser.uid));
 
         if (userSnap.exists()) {
           const data = userSnap.data() as UserDoc;
           const resolvedName = data.displayName ?? data.name ?? "";
+          const resolvedCompanyId = data.companyId ?? "";
+
           setUserName(resolvedName);
           setDraftName(resolvedName);
           setUserRole(data.role ?? "");
+          setCompanyId(resolvedCompanyId);
 
           if (resolvedName) {
             localStorage.setItem("userName", resolvedName);
+          }
+
+          if (resolvedCompanyId) {
+            const companySnap = await getDoc(doc(db, "companies", resolvedCompanyId));
+            if (companySnap.exists()) {
+              const companyData = companySnap.data() as CompanyDoc;
+              setCompanyName(companyData.name ?? "");
+            }
           }
         } else {
           const saved = localStorage.getItem("userName") ?? "";
           setUserName(saved);
           setDraftName(saved);
-          setUserRole("");
         }
       } catch (error) {
         console.error("user read error:", error);
       } finally {
         setLoadingUser(false);
       }
-    };
+    });
 
-    run();
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -146,7 +162,6 @@ export default function MyPage() {
       },
       (error) => {
         console.error("reservations read error:", error);
-        alert("予約データの読み込みに失敗しました");
         setLoadingReservations(false);
       }
     );
@@ -182,7 +197,6 @@ export default function MyPage() {
       },
       (error) => {
         console.error("vehicles read error:", error);
-        alert("車両データの読み込みに失敗しました");
         setLoadingVehicles(false);
       }
     );
@@ -254,6 +268,7 @@ export default function MyPage() {
       setUserName(trimmed);
       setDraftName(trimmed);
       setUserRole(existing.role ?? "member");
+      setCompanyId(existing.companyId ?? "");
       localStorage.setItem("userName", trimmed);
     } catch (error) {
       console.error("user save error:", error);
@@ -278,6 +293,7 @@ export default function MyPage() {
 
   const isLoading = loadingUser || loadingVehicles || loadingReservations;
   const hasUserName = userName.trim() !== "";
+  const joinedCompany = companyId.trim() !== "";
 
   return (
     <main className="min-h-screen bg-white text-black p-4">
@@ -347,16 +363,18 @@ export default function MyPage() {
                 >
                   この名前で開始
                 </button>
-
-                <p className="text-xs text-gray-500">
-                  最初に登録した表示名がこのアカウントの名前になります。
-                </p>
               </>
             ) : (
               <>
                 <div className="rounded-xl border bg-gray-50 px-4 py-3">
                   <div className="text-sm text-gray-500">現在のユーザ</div>
                   <div className="mt-1 text-lg font-bold">{userName}</div>
+
+                  {joinedCompany && (
+                    <div className="mt-2 text-sm text-gray-600">
+                      会社名: {companyName || "読み込み中..."}
+                    </div>
+                  )}
 
                   <button
                     className="mt-3 rounded-lg border bg-white px-3 py-2 text-sm"
@@ -376,52 +394,54 @@ export default function MyPage() {
             )}
           </div>
         </div>
-{myReservedSharedCars.length > 0 && (
-  <div className="rounded-2xl border p-4 space-y-3">
-    <div className="flex justify-between items-center">
-      <h2 className="font-bold text-lg">予約済み共有車</h2>
-      <div className="text-sm text-gray-500">{myReservedSharedCars.length}件</div>
-    </div>
 
-    <div className="space-y-3">
-      {myReservedSharedCars.map((item) => (
-        <div key={item.id} className="rounded-xl border p-3 space-y-2">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="font-bold text-lg whitespace-pre-line">
-                {item.vehicle.name}
-              </div>
-              <div className="text-sm text-gray-600">
-                {formatDayKey(item.dayKey)}
-              </div>
+        {myReservedSharedCars.length > 0 && (
+          <div className="rounded-2xl border p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <h2 className="font-bold text-lg">予約済み共有車</h2>
+              <div className="text-sm text-gray-500">{myReservedSharedCars.length}件</div>
+            </div>
+
+            <div className="space-y-3">
+              {myReservedSharedCars.map((item) => (
+                <div key={item.id} className="rounded-xl border p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="font-bold text-lg whitespace-pre-line">
+                        {item.vehicle.name}
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {formatDayKey(item.dayKey)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {item.site && (
+                    <div className="text-gray-800">行先: {item.site}</div>
+                  )}
+
+                  {item.projectNo && (
+                    <div className="text-sm text-gray-600">
+                      用途・案件番号: {item.projectNo}
+                    </div>
+                  )}
+
+                  <div className="text-sm text-gray-500">
+                    車検: {item.vehicle.inspection || "未設定"}
+                  </div>
+
+                  <button
+                    className="w-full rounded-lg border py-2 text-sm"
+                    onClick={goToReservation}
+                  >
+                    予約ページへ
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
+        )}
 
-          {item.site && (
-            <div className="text-gray-800">行先: {item.site}</div>
-          )}
-
-          {item.projectNo && (
-            <div className="text-sm text-gray-600">
-              用途・案件番号: {item.projectNo}
-            </div>
-          )}
-
-          <div className="text-sm text-gray-500">
-            車検: {item.vehicle.inspection || "未設定"}
-          </div>
-
-          <button
-            className="w-full rounded-lg border py-2 text-sm"
-            onClick={goToReservation}
-          >
-            予約ページへ
-          </button>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
         <div className="rounded-2xl border p-4 space-y-3">
           <div className="flex justify-between items-center">
             <h2 className="font-bold text-lg">マイカー</h2>

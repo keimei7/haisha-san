@@ -46,14 +46,14 @@ export default function JoinPage() {
       const companyId = snap.docs[0].id;
 
       await setDoc(doc(db, "users", currentUser.uid), {
-        uid: currentUser.uid,
-        email: currentUser.email ?? "",
-        displayName: displayName.trim(),
-        companyId,
-        role: "member",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+  uid: currentUser.uid,
+  email: currentUser.email ?? "",
+  displayName: displayName.trim(),
+  companyId,
+  role: "member",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
 
       localStorage.setItem("userName", displayName.trim());
       window.location.assign("/mypage");
