@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase-client";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 
 export default function SignupPage() {

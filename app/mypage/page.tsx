@@ -1,6 +1,7 @@
 "use client";
 
-import { auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase-client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -11,7 +12,7 @@ import {
   query,
   setDoc,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+
 
 type Vehicle = {
   id: string;
@@ -29,7 +30,6 @@ type Reservation = {
   userName: string;
   site: string;
   projectNo: string;
-  createdAt?: unknown;
   updatedAt?: string;
 };
 
@@ -65,30 +65,28 @@ useEffect(() => {
   const unsubscribe = onSnapshot(
     q,
     (snapshot) => {
-      const list: Reservation[] = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as {
-          vehicleId?: string;
-          dayKey?: string;
-          name?: string;
-          userUid?: string;
-          userName?: string;
-          site?: string;
-          projectNo?: string;
-          updatedAt?: string;
-        };
+     const list: Reservation[] = snapshot.docs.map((docSnap) => {
+  const data = docSnap.data() as {
+    vehicleId?: string;
+    dayKey?: string;
+    userUid?: string;
+    userName?: string;
+    site?: string;
+    projectNo?: string;
+    updatedAt?: string;
+  };
 
-        return {
-          id: docSnap.id,
-          vehicleId: data.vehicleId ?? "",
-          dayKey: data.dayKey ?? "",
-          name: data.name ?? "",
-          userUid: data.userUid ?? "",
-          userName: data.userName ?? "",
-          site: data.site ?? "",
-          projectNo: data.projectNo ?? "",
-          updatedAt: data.updatedAt ?? "",
-        };
-      });
+  return {
+    id: docSnap.id,
+    vehicleId: data.vehicleId ?? "",
+    dayKey: data.dayKey ?? "",
+    userUid: data.userUid ?? "",
+    userName: data.userName ?? "",
+    site: data.site ?? "",
+    projectNo: data.projectNo ?? "",
+    updatedAt: data.updatedAt ?? "",
+  };
+});
 
       setReservations(list);
       setLoadingReservations(false);

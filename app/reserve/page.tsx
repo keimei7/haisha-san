@@ -1,6 +1,6 @@
 "use client";
-
-import { auth, db } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase-client";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -106,6 +106,13 @@ function downloadCsv(filename: string, rows: string[][]) {
 }
 
 export default function Home() {
+    const [mounted, setMounted] = useState(false);
+
+useEffect(() => {
+  setMounted(true);
+}, []);
+
+if (!mounted) return null;
   const router = useRouter();
 
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
