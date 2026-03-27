@@ -629,140 +629,141 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
     </button>
   </div>
 </div>
-<div className="rounded-xl border overflow-hidden">
-  <div className="overflow-auto max-h-[70vh]">
-    <table className="border-collapse text-sm min-w-[760px] w-full">
-      <thead>
-        <tr>
-          <th className="sticky top-0 left-0 z-20 border bg-red-500 text-white px-2 py-2 w-16">
-            車検
-          </th>
+        <div className="rounded-xl border overflow-hidden">
+          <div className="overflow-auto max-h-[70vh]">
+            <table className="border-collapse text-sm min-w-[900px] w-max">
+              <thead>
+                <tr>
+                  <th className="sticky top-0 left-0 z-30 border bg-red-500 text-white px-2 py-2 w-[88px] min-w-[88px] max-w-[88px]">
+                    車検
+                  </th>
 
-          <th className="sticky top-0 left-16 z-20 border bg-green-600 text-white px-2 py-2 w-28">
-            車種
-          </th>
+                  <th className="sticky top-0 left-[88px] z-30 border bg-green-600 text-white px-2 py-2 w-[88px] min-w-[88px] max-w-[88px]">
+                    車種
+                  </th>
 
-          {days.map((day) => {
-            const isSunday = day.date.getDay() === 0;
-            const isSaturday = day.date.getDay() === 6;
+                  {days.map((day) => {
+                    const isSunday = day.date.getDay() === 0;
+                    const isSaturday = day.date.getDay() === 6;
 
-            const headerBg = isSunday
-              ? "bg-red-100"
-              : isSaturday
-              ? "bg-blue-100"
-              : "bg-gray-100";
+                    const headerBg = isSunday
+                      ? "bg-red-100"
+                      : isSaturday
+                      ? "bg-blue-100"
+                      : "bg-gray-100";
 
-            const weekdayColor = isSunday
-              ? "text-red-600"
-              : isSaturday
-              ? "text-blue-600"
-              : "text-black";
+                    const weekdayColor = isSunday
+                      ? "text-red-600"
+                      : isSaturday
+                      ? "text-blue-600"
+                      : "text-black";
 
-            return (
-              <th
-                key={day.key}
-                className={`sticky top-0 z-20 border px-2 py-2 min-w-[92px] ${headerBg}`}
-              >
-                <div className="font-bold">{day.label}</div>
-                <div className={weekdayColor}>{day.weekday}</div>
-              </th>
-            );
-          })}
-        </tr>
-      </thead>
+                    return (
+                      <th
+                        key={day.key}
+                        className={`sticky top-0 z-20 border px-2 py-2 w-[96px] min-w-[96px] max-w-[96px] ${headerBg}`}
+                      >
+                        <div className="font-bold">{day.label}</div>
+                        <div className={weekdayColor}>{day.weekday}</div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
 
-      <tbody>
-        {sharedVehicles.map((vehicle) => (
-          <tr key={vehicle.id}>
-            <td className="sticky left-0 z-10 border px-2 py-3 text-center align-middle whitespace-nowrap bg-white">
-              <button
-                className="underline decoration-dotted hover:text-blue-600"
-                onClick={() =>
-                  setInspectionEdit({
-                    vehicleId: vehicle.id,
-                    vehicleName: vehicle.name.replace("\n", " "),
-                    value: vehicle.inspection,
-                  })
-                }
-                type="button"
-              >
-                {vehicle.inspection}
-              </button>
-            </td>
+              <tbody>
+                {sharedVehicles.map((vehicle) => (
+                  <tr key={vehicle.id}>
+                    <td className="sticky left-0 z-20 border px-2 py-3 text-center align-middle whitespace-nowrap bg-white w-[88px] min-w-[88px] max-w-[88px]">
+                      <button
+                        className="underline decoration-dotted hover:text-blue-600"
+                        onClick={() =>
+                          setInspectionEdit({
+                            vehicleId: vehicle.id,
+                            vehicleName: vehicle.name.replace("\n", " "),
+                            value: vehicle.inspection,
+                          })
+                        }
+                        type="button"
+                      >
+                        {vehicle.inspection}
+                      </button>
+                    </td>
 
-            <td className="sticky left-16 z-10 border px-2 py-3 text-center align-middle whitespace-pre-line bg-gray-50">
-              {vehicle.name}
-            </td>
+                    <td className="sticky left-[88px] z-20 border px-2 py-3 text-center align-middle whitespace-nowrap bg-gray-50 w-[88px] min-w-[88px] max-w-[88px]">
+                      {vehicle.name}
+                    </td>
 
-            {days.map((day) => {
-              const isSunday = day.date.getDay() === 0;
-              const isSaturday = day.date.getDay() === 6;
+                    {days.map((day) => {
+                      const isSunday = day.date.getDay() === 0;
+                      const isSaturday = day.date.getDay() === 6;
 
-              const cellBg = isSunday
-                ? "bg-red-50"
-                : isSaturday
-                ? "bg-blue-50"
-                : "bg-white";
+                      const cellBg = isSunday
+                        ? "bg-red-50"
+                        : isSaturday
+                        ? "bg-blue-50"
+                        : "bg-white";
 
-              const reservation = reservations.find(
-                (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
-              );
+                      const reservation = reservations.find(
+                        (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
+                      );
 
-              return (
-                <td
-                  key={`${vehicle.id}-${day.key}`}
-                  className={`border p-1 align-top ${cellBg}`}
-                >
-                  <button
-                    className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-2"
-                    onClick={() =>
-                      openReservationModal(
-                        vehicle.id,
-                        vehicle.name.replace("\n", " "),
-                        day.key,
-                        `${day.label}（${day.weekday}）`
-                      )
-                    }
-                    type="button"
-                  >
-                    <div className="space-y-1">
-                      {reservation ? (
-                        <div className="space-y-1">
-                          {reservation.site && (
-                            <div className="font-bold text-sm">
-                              {reservation.site}
+                      return (
+                        <td
+                          key={`${vehicle.id}-${day.key}`}
+                          className={`border p-1 align-top ${cellBg} w-[96px] min-w-[96px] max-w-[96px]`}
+                        >
+                          <button
+                            className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-2"
+                            onClick={() =>
+                              openReservationModal(
+                                vehicle.id,
+                                vehicle.name.replace("\n", " "),
+                                day.key,
+                                `${day.label}（${day.weekday}）`
+                              )
+                            }
+                            type="button"
+                          >
+                            <div className="space-y-1">
+                              {reservation ? (
+                                <div className="space-y-1">
+                                  {reservation.site && (
+                                    <div className="font-bold text-sm">
+                                      {reservation.site}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-gray-700">
+                                    {reservation.userName ?? reservation.name ?? ""}
+                                  </div>
+                                  {reservation.projectNo && (
+                                    <div className="text-xs text-gray-500">
+                                      {reservation.projectNo}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-400 text-xs">＋予約</span>
+                              )}
                             </div>
-                          )}
-                          <div className="text-xs text-gray-700">
-                            {reservation.userName ?? reservation.name ?? ""}
-                          </div>
-                          {reservation.projectNo && (
-                            <div className="text-xs text-gray-500">
-                              {reservation.projectNo}
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs">＋予約</span>
-                      )}
-                    </div>
-                  </button>
-                </td>
-              );
-            })}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  </div>
-</div>
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <p className="mt-3 text-xs text-gray-500">
           sharedVehicles件数: {sharedVehicles.length} / reservations件数: {reservations.length}
         </p>
       </div>
 
       {selectedSlot && (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
           <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -931,7 +932,7 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
       )}
 
       {inspectionEdit && (
-       <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-[200]">
+        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-[200]">
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl space-y-3">
             <div>
               <h2 className="text-lg font-bold">車検日変更</h2>
@@ -975,7 +976,7 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
       )}
 
       {showVehicleLog && (
-     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
           <div className="bg-white rounded-xl w-full max-w-md p-4 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-bold">車両実績</h2>
@@ -983,35 +984,36 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
                 ×
               </button>
             </div>
-<div className="flex gap-2">
-  <button
-    onClick={() => {
-      setLogMode("vehicle");
-      setSelectedVehicleId("");
-      setSelectedName("");
-    }}
-    className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
-      logMode === "vehicle" ? "bg-blue-600 text-white" : "bg-white"
-    }`}
-    type="button"
-  >
-    車両
-  </button>
 
-  <button
-    onClick={() => {
-      setLogMode("name");
-      setSelectedVehicleId("");
-      setSelectedName("");
-    }}
-    className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
-      logMode === "name" ? "bg-blue-600 text-white" : "bg-white"
-    }`}
-    type="button"
-  >
-    社員
-  </button>
-</div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setLogMode("vehicle");
+                  setSelectedVehicleId("");
+                  setSelectedName("");
+                }}
+                className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
+                  logMode === "vehicle" ? "bg-blue-600 text-white" : "bg-white"
+                }`}
+                type="button"
+              >
+                車両
+              </button>
+
+              <button
+                onClick={() => {
+                  setLogMode("name");
+                  setSelectedVehicleId("");
+                  setSelectedName("");
+                }}
+                className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
+                  logMode === "name" ? "bg-blue-600 text-white" : "bg-white"
+                }`}
+                type="button"
+              >
+                社員
+              </button>
+            </div>
 
             {logMode === "vehicle" && (
               <select
@@ -1043,8 +1045,6 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
               </select>
             )}
 
-          
-
             <div className="space-y-2">
               {filteredLogs.map((r) => {
                 const vehicleName =
@@ -1065,16 +1065,16 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
                 );
               })}
 
-             {((logMode === "vehicle" && !selectedVehicleId) ||
-  (logMode === "name" && !selectedName)) && (
-  <div className="text-sm text-gray-500 text-center py-6">
-    条件を選択してください
-  </div>
-)}
+              {((logMode === "vehicle" && !selectedVehicleId) ||
+                (logMode === "name" && !selectedName)) && (
+                <div className="text-sm text-gray-500 text-center py-6">
+                  条件を選択してください
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
-    </main>
+    </main>　　　
   );
 }
