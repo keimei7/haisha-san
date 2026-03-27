@@ -1,5 +1,6 @@
 "use client";
-
+import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase-client";
 export default function JoinCompanyPage() {
   return (
     <main className="min-h-screen bg-white text-black p-4">

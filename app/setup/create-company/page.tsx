@@ -1,10 +1,9 @@
 "use client";
 
-import { auth } from "@/lib/firebase-client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-
+import { auth } from "@/lib/firebase-client";
 import {
   collection,
   doc,

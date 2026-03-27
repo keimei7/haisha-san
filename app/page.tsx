@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase-client";
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
