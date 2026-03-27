@@ -944,7 +944,7 @@ export default function ReservePage() {
       )}
 
       {inspectionEdit && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4">
+       <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-[200]">
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl space-y-3">
             <div>
               <h2 className="text-lg font-bold">車検日変更</h2>
@@ -988,7 +988,7 @@ export default function ReservePage() {
       )}
 
       {showVehicleLog && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
           <div className="bg-white rounded-xl w-full max-w-md p-4 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-bold">車両実績</h2>
