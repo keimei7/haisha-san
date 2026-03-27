@@ -17,6 +17,7 @@ import {
   query,
   setDoc,
   updateDoc,
+  where,
 } from "firebase/firestore";
 
 type DayItem = {
@@ -45,6 +46,7 @@ type Reservation = {
   userName?: string;
   site: string;
   projectNo: string;
+  companyId?: string;
   createdAt?: unknown;
   updatedAt?: string;
 };
@@ -56,6 +58,11 @@ type UserDoc = {
   companyId?: string;
   role?: string;
   name?: string;
+};
+
+type MemberItem = {
+  uid: string;
+  name: string;
 };
 
 const weekdayJa = ["月", "火", "水", "木", "金", "土", "日"];
@@ -125,8 +132,14 @@ export default function ReservePage() {
   const router = useRouter();
 
   const [mounted, setMounted] = useState(false);
+
   const [uid, setUid] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [userRole, setUserRole] = useState("");
+
+  const [members, setMembers] = useState<MemberItem[]>([]);
+  const [selectedUserUid, setSelectedUserUid] = useState("");
 
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -171,6 +184,8 @@ export default function ReservePage() {
       if (!currentUser) {
         setUid(null);
         setUserName("");
+        setCompanyId("");
+        setUserRole("");
         return;
       }
 
@@ -178,16 +193,27 @@ export default function ReservePage() {
 
       try {
         const userSnap = await getDoc(doc(db, "users", currentUser.uid));
-        if (userSnap.exists()) {
-          const data = userSnap.data() as UserDoc;
-          const resolvedName = data.displayName ?? data.name ?? "";
-          setUserName(resolvedName);
-        } else {
+        if (!userSnap.exists()) {
           setUserName("");
+          setCompanyId("");
+          setUserRole("");
+          return;
         }
+
+        const data = userSnap.data() as UserDoc;
+        const resolvedName = data.displayName ?? data.name ?? "";
+        const resolvedCompanyId = data.companyId ?? "";
+        const resolvedRole = data.role ?? "";
+
+        setUserName(resolvedName);
+        setCompanyId(resolvedCompanyId);
+        setUserRole(resolvedRole);
+        setSelectedUserUid(currentUser.uid);
       } catch (error) {
         console.error("user read error:", error);
         setUserName("");
+        setCompanyId("");
+        setUserRole("");
       }
     });
 
@@ -195,9 +221,39 @@ export default function ReservePage() {
   }, [mounted]);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!companyId) return;
 
-    const q = query(collection(db, "vehicles"), orderBy("sort", "asc"));
+    const q = query(collection(db, "users"), where("companyId", "==", companyId));
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const list: MemberItem[] = snap.docs
+        .map((d) => {
+          const data = d.data() as UserDoc;
+          return {
+            uid: d.id,
+            name: data.displayName ?? data.name ?? "",
+          };
+        })
+        .filter((m) => m.name);
+
+      setMembers(list);
+
+      if (!selectedUserUid && uid) {
+        setSelectedUserUid(uid);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [companyId, uid, selectedUserUid]);
+
+  useEffect(() => {
+    if (!companyId) return;
+
+    const q = query(
+      collection(db, "vehicles"),
+      where("companyId", "==", companyId),
+      orderBy("sort", "asc")
+    );
 
     const unsubscribe = onSnapshot(
       q,
@@ -207,6 +263,8 @@ export default function ReservePage() {
             inspection?: string;
             name?: string;
             sort?: number;
+            companyId?: string;
+            assignedUid?: string;
             assignedTo?: string;
           };
 
@@ -215,6 +273,8 @@ export default function ReservePage() {
             inspection: data.inspection ?? "",
             name: data.name ?? "",
             sort: data.sort ?? 0,
+            companyId: data.companyId ?? "",
+            assignedUid: data.assignedUid ?? "",
             assignedTo: data.assignedTo ?? "",
           };
         });
@@ -228,12 +288,12 @@ export default function ReservePage() {
     );
 
     return () => unsubscribe();
-  }, [mounted]);
+  }, [companyId]);
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!companyId) return;
 
-    const q = collection(db, "reservations");
+    const q = query(collection(db, "reservations"), where("companyId", "==", companyId));
 
     const unsubscribe = onSnapshot(
       q,
@@ -247,6 +307,7 @@ export default function ReservePage() {
             userName?: string;
             site?: string;
             projectNo?: string;
+            companyId?: string;
             createdAt?: unknown;
             updatedAt?: string;
           };
@@ -260,6 +321,7 @@ export default function ReservePage() {
             userName: data.userName ?? "",
             site: data.site ?? "",
             projectNo: data.projectNo ?? "",
+            companyId: data.companyId ?? "",
             createdAt: data.createdAt,
             updatedAt: data.updatedAt ?? "",
           };
@@ -274,7 +336,7 @@ export default function ReservePage() {
     );
 
     return () => unsubscribe();
-  }, [mounted]);
+  }, [companyId]);
 
   useEffect(() => {
     if (!reservations.length) return;
@@ -311,9 +373,11 @@ export default function ReservePage() {
     });
   }, [weekStart]);
 
-const sharedVehicles = useMemo(() => {
-  return vehicles.filter((v) => !(v.assignedUid ?? "").trim() && !(v.assignedTo ?? "").trim());
-}, [vehicles]);
+  const sharedVehicles = useMemo(() => {
+    return vehicles.filter(
+      (v) => !(v.assignedUid ?? "").trim() && !(v.assignedTo ?? "").trim()
+    );
+  }, [vehicles]);
 
   const nameHistory = useMemo(() => {
     return Array.from(
@@ -342,12 +406,14 @@ const sharedVehicles = useMemo(() => {
     );
 
     setSelectedSlot({ vehicleId, vehicleName, dayKey, dateLabel });
+    setSelectedUserUid(existing?.userUid ?? uid);
     setFormSite(existing?.site ?? "");
     setFormProjectNo(existing?.projectNo ?? "");
   };
 
   const closeReservationModal = () => {
     setSelectedSlot(null);
+    setSelectedUserUid(uid ?? "");
     setFormSite("");
     setFormProjectNo("");
     setShowSiteSuggest(false);
@@ -357,15 +423,17 @@ const sharedVehicles = useMemo(() => {
 
   const saveReservation = async () => {
     if (!selectedSlot) return;
+    if (!companyId) {
+      alert("会社情報が取得できませんでした");
+      return;
+    }
 
-    const trimmedName = userName.trim();
     const trimmedSite = formSite.trim();
     const trimmedProjectNo = formProjectNo.trim();
-    const currentUid = auth.currentUser?.uid;
 
-    if (!trimmedName || !currentUid) {
-      alert("ログイン情報または表示名が取得できませんでした");
-      router.push("/mypage");
+    const selectedUser = members.find((m) => m.uid === selectedUserUid);
+    if (!selectedUserUid || !selectedUser) {
+      alert("予約者を選択してください");
       return;
     }
 
@@ -380,8 +448,9 @@ const sharedVehicles = useMemo(() => {
       await setDoc(doc(db, "reservations", reservationId), {
         vehicleId: selectedSlot.vehicleId,
         dayKey: selectedSlot.dayKey,
-        userUid: currentUid,
-        userName: trimmedName,
+        userUid: selectedUserUid,
+        userName: selectedUser.name,
+        companyId,
         site: trimmedSite,
         projectNo: trimmedProjectNo,
         updatedAt: new Date().toISOString(),
@@ -490,12 +559,23 @@ const sharedVehicles = useMemo(() => {
             共有車予約ページ
           </div>
 
-          <button
-            className="w-full border-b py-2 text-sm bg-white"
-            onClick={() => router.push("/mypage")}
-          >
-            マイページへ
-          </button>
+          <div className="grid grid-cols-2 border-b bg-white">
+            <button
+              className="py-2 text-sm border-r"
+              onClick={() => router.push("/mypage")}
+              type="button"
+            >
+              マイページへ
+            </button>
+
+            <button
+              className="py-2 text-sm"
+              onClick={() => router.push("/manage")}
+              type="button"
+            >
+              管理ページへ
+            </button>
+          </div>
 
           <div className="p-2 space-y-2 border-b bg-white">
             {!uid || !userName.trim() ? (
@@ -511,6 +591,7 @@ const sharedVehicles = useMemo(() => {
             <button
               className="w-full border rounded-lg py-2"
               onClick={() => setShowVehicleLog(true)}
+              type="button"
             >
               車両実績を見る
             </button>
@@ -525,6 +606,7 @@ const sharedVehicles = useMemo(() => {
                 <button
                   className="w-full rounded-lg border py-2 text-sm"
                   onClick={() => exportCurrentWeekCsv("all")}
+                  type="button"
                 >
                   全件
                 </button>
@@ -532,6 +614,7 @@ const sharedVehicles = useMemo(() => {
                 <button
                   className="w-full rounded-lg border py-2 text-sm"
                   onClick={() => exportCurrentWeekCsv("reservedOnly")}
+                  type="button"
                 >
                   予約ありのみ
                 </button>
@@ -539,6 +622,7 @@ const sharedVehicles = useMemo(() => {
                 <button
                   className="w-full rounded-lg border py-2 text-sm"
                   onClick={() => exportCurrentWeekCsv("projectOnly")}
+                  type="button"
                 >
                   用途ありのみ
                 </button>
@@ -550,6 +634,7 @@ const sharedVehicles = useMemo(() => {
             <button
               className="rounded-lg border px-3 py-1"
               onClick={() => setWeekStart(addDays(weekStart, -7))}
+              type="button"
             >
               ←
             </button>
@@ -559,6 +644,7 @@ const sharedVehicles = useMemo(() => {
             <button
               className="rounded-lg border px-3 py-1"
               onClick={() => setWeekStart(addDays(weekStart, 7))}
+              type="button"
             >
               →
             </button>
@@ -618,6 +704,7 @@ const sharedVehicles = useMemo(() => {
                           value: vehicle.inspection,
                         })
                       }
+                      type="button"
                     >
                       {vehicle.inspection}
                     </button>
@@ -656,6 +743,7 @@ const sharedVehicles = useMemo(() => {
                               `${day.label}（${day.weekday}）`
                             )
                           }
+                          type="button"
                         >
                           <div className="space-y-1">
                             {reservation ? (
@@ -719,12 +807,17 @@ const sharedVehicles = useMemo(() => {
             <div className="space-y-3">
               <div>
                 <label className="text-sm text-gray-600">予約者名</label>
-                <input
-                  type="text"
-                  value={userName}
-                  readOnly
-                  className="w-full border rounded-lg px-3 py-2 bg-gray-50"
-                />
+                <select
+                  value={selectedUserUid}
+                  onChange={(e) => setSelectedUserUid(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                >
+                  {members.map((m) => (
+                    <option key={m.uid} value={m.uid}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="relative">
@@ -803,6 +896,7 @@ const sharedVehicles = useMemo(() => {
                 className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
                 onClick={saveReservation}
                 disabled={saving}
+                type="button"
               >
                 決定
               </button>
@@ -811,6 +905,7 @@ const sharedVehicles = useMemo(() => {
                 className="rounded-lg border px-4 py-2"
                 onClick={closeReservationModal}
                 disabled={saving}
+                type="button"
               >
                 閉じる
               </button>
@@ -847,6 +942,7 @@ const sharedVehicles = useMemo(() => {
                 }
               }}
               disabled={saving}
+              type="button"
             >
               この予約を削除
             </button>
@@ -881,6 +977,7 @@ const sharedVehicles = useMemo(() => {
               <button
                 className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium"
                 onClick={saveInspection}
+                type="button"
               >
                 決定
               </button>
@@ -888,6 +985,7 @@ const sharedVehicles = useMemo(() => {
               <button
                 className="rounded-lg border px-4 py-2"
                 onClick={() => setInspectionEdit(null)}
+                type="button"
               >
                 閉じる
               </button>
@@ -901,7 +999,9 @@ const sharedVehicles = useMemo(() => {
           <div className="bg-white rounded-xl w-full max-w-md p-4 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-bold">車両実績</h2>
-              <button onClick={() => setShowVehicleLog(false)}>×</button>
+              <button onClick={() => setShowVehicleLog(false)} type="button">
+                ×
+              </button>
             </div>
 
             <div className="flex gap-2">
@@ -915,6 +1015,7 @@ const sharedVehicles = useMemo(() => {
                 className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
                   logMode === "vehicle" ? "bg-blue-600 text-white" : "bg-white"
                 }`}
+                type="button"
               >
                 車両
               </button>
@@ -929,6 +1030,7 @@ const sharedVehicles = useMemo(() => {
                 className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
                   logMode === "name" ? "bg-blue-600 text-white" : "bg-white"
                 }`}
+                type="button"
               >
                 社員
               </button>
@@ -943,6 +1045,7 @@ const sharedVehicles = useMemo(() => {
                 className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
                   logMode === "project" ? "bg-blue-600 text-white" : "bg-white"
                 }`}
+                type="button"
               >
                 用途
               </button>

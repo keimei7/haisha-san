@@ -13,7 +13,6 @@ import {
   onSnapshot,
   orderBy,
   query,
-  setDoc,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -72,7 +71,6 @@ export default function MyPage() {
 
   const [uid, setUid] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
-  const [draftName, setDraftName] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -81,7 +79,6 @@ export default function MyPage() {
   const [loadingVehicles, setLoadingVehicles] = useState(true);
   const [loadingReservations, setLoadingReservations] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
-  const [savingUser, setSavingUser] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -101,12 +98,7 @@ export default function MyPage() {
           const resolvedCompanyId = data.companyId ?? "";
 
           setUserName(resolvedName);
-          setDraftName(resolvedName);
           setCompanyId(resolvedCompanyId);
-
-          if (resolvedName) {
-            localStorage.setItem("userName", resolvedName);
-          }
 
           if (resolvedCompanyId) {
             const companySnap = await getDoc(doc(db, "companies", resolvedCompanyId));
@@ -120,9 +112,7 @@ export default function MyPage() {
             setCompanyName("");
           }
         } else {
-          const saved = localStorage.getItem("userName") ?? "";
-          setUserName(saved);
-          setDraftName(saved);
+          setUserName("");
           setCompanyId("");
           setCompanyName("");
         }
@@ -186,6 +176,8 @@ export default function MyPage() {
             name?: string;
             inspection?: string;
             sort?: number;
+            companyId?: string;
+            assignedUid?: string;
             assignedTo?: string;
           };
 
@@ -194,6 +186,8 @@ export default function MyPage() {
             name: data.name ?? "",
             inspection: data.inspection ?? "",
             sort: data.sort ?? 0,
+            companyId: data.companyId ?? "",
+            assignedUid: data.assignedUid ?? "",
             assignedTo: data.assignedTo ?? "",
           };
         });
@@ -211,22 +205,24 @@ export default function MyPage() {
   }, []);
 
   const sharedVehicles = useMemo(() => {
-    return vehicles.filter((v) => !(v.assignedTo ?? "").trim());
+    return vehicles.filter(
+      (v) => !(v.assignedUid ?? "").trim() && !(v.assignedTo ?? "").trim()
+    );
   }, [vehicles]);
 
   const myCars = useMemo(() => {
-  return vehicles.filter((v) => {
-    if (v.assignedUid && uid) {
-      return v.assignedUid === uid;
-    }
+    return vehicles.filter((v) => {
+      if (v.assignedUid && uid) {
+        return v.assignedUid === uid;
+      }
 
-    if (v.assignedTo && userName.trim()) {
-      return v.assignedTo.trim() === userName.trim();
-    }
+      if (v.assignedTo && userName.trim()) {
+        return v.assignedTo.trim() === userName.trim();
+      }
 
-    return false;
-  });
-}, [vehicles, uid, userName]);
+      return false;
+    });
+  }, [vehicles, uid, userName]);
 
   const myReservedSharedCars = useMemo(() => {
     if (!uid) return [];
@@ -250,57 +246,6 @@ export default function MyPage() {
       });
   }, [reservations, sharedVehicles, uid]);
 
-  const saveUserName = async () => {
-    const trimmed = draftName.trim();
-
-    if (!trimmed) {
-      alert("名前を入力してください");
-      return;
-    }
-
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      alert("ログイン情報がありません。もう一度ログインしてください");
-      router.push("/");
-      return;
-    }
-
-    try {
-      setSavingUser(true);
-
-      const existingSnap = await getDoc(doc(db, "users", currentUser.uid));
-      const existing = existingSnap.exists() ? (existingSnap.data() as UserDoc) : {};
-
-      await setDoc(doc(db, "users", currentUser.uid), {
-        uid: currentUser.uid,
-        email: currentUser.email ?? "",
-        displayName: trimmed,
-        companyId: existing.companyId ?? "",
-        role: existing.role ?? "member",
-        updatedAt: new Date().toISOString(),
-      });
-
-      setUserName(trimmed);
-      setDraftName(trimmed);
-      setCompanyId(existing.companyId ?? "");
-      localStorage.setItem("userName", trimmed);
-    } catch (error) {
-      console.error("user save error:", error);
-      alert("ユーザ登録に失敗しました");
-    } finally {
-      setSavingUser(false);
-    }
-  };
-
-  const clearUserName = () => {
-    const ok = window.confirm("登録ユーザを変更しますか？");
-    if (!ok) return;
-
-    localStorage.removeItem("userName");
-    setUserName("");
-    setDraftName("");
-  };
-
   const goToReservation = () => {
     setShowMenu(false);
     router.push("/reserve");
@@ -312,7 +257,6 @@ export default function MyPage() {
   };
 
   const isLoading = loadingUser || loadingVehicles || loadingReservations;
-  const hasUserName = userName.trim() !== "";
   const joinedCompany = companyId.trim() !== "";
 
   return (
@@ -357,59 +301,24 @@ export default function MyPage() {
           )}
 
           <div className="p-4 space-y-3">
-            {!hasUserName ? (
-              <>
-                <div>
-                  <label className="text-sm text-gray-600">表示名</label>
-                  <input
-                    type="text"
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 mt-1"
-                    placeholder="例：設樂 啓明"
-                    disabled={savingUser}
-                  />
+            <div className="rounded-xl border bg-gray-50 px-4 py-3">
+              <div className="text-sm text-gray-500">ユーザ</div>
+              <div className="mt-1 text-lg font-bold">{userName || "未設定"}</div>
+
+              {joinedCompany && (
+                <div className="mt-2 text-sm text-gray-600">
+                  会社名: {companyName || "読み込み中..."}
                 </div>
+              )}
+            </div>
 
-                <button
-                  className="w-full rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
-                  onClick={saveUserName}
-                  disabled={savingUser}
-                  type="button"
-                >
-                  この名前で開始
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="rounded-xl border bg-gray-50 px-4 py-3">
-                  <div className="text-sm text-gray-500">現在のユーザ</div>
-                  <div className="mt-1 text-lg font-bold">{userName}</div>
-
-                  {joinedCompany && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      会社名: {companyName || "読み込み中..."}
-                    </div>
-                  )}
-
-                  <button
-                    className="mt-3 rounded-lg border bg-white px-3 py-2 text-sm"
-                    onClick={clearUserName}
-                    type="button"
-                  >
-                    ユーザ変更
-                  </button>
-                </div>
-
-                <button
-                  className="w-full rounded-lg bg-blue-600 text-white py-2 font-medium"
-                  onClick={goToReservation}
-                  type="button"
-                >
-                  予約ページへ
-                </button>
-              </>
-            )}
+            <button
+              className="w-full rounded-lg bg-blue-600 text-white py-2 font-medium"
+              onClick={goToReservation}
+              type="button"
+            >
+              予約ページへ
+            </button>
           </div>
         </div>
 
