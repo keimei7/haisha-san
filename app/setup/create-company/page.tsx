@@ -1,103 +1,59 @@
 "use client";
-export const dynamic = "force-dynamic";
+
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
-import {
-  collection,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  where,
-} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
 
-export default function JoinCompanyPage() {
-  const router = useRouter();
-
-  const [displayName, setDisplayName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
+export default function CreateCompanyPage() {
+  const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
 
   const submit = async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      router.replace("/");
+    const user = auth.currentUser;
+    if (!user) {
+      window.location.replace("/");
       return;
     }
 
-    if (!displayName.trim() || !inviteCode.trim()) {
-      alert("表示名と招待コードを入力してください");
+    if (!name.trim()) {
+      alert("会社名を入力してください");
       return;
     }
 
     try {
       setSaving(true);
 
-      const q = query(
-        collection(db, "companies"),
-        where("inviteCode", "==", inviteCode.trim())
-      );
+      const inviteCode = Math.random().toString(36).slice(2, 8);
 
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
-        alert("招待コードが見つかりません");
-        return;
-      }
-
-      const companyId = snap.docs[0].id;
-
-      await setDoc(doc(db, "users", currentUser.uid), {
-        uid: currentUser.uid,
-        email: currentUser.email ?? "",
-        displayName: displayName.trim(),
-        companyId,
-        role: "member",
+      const docRef = await addDoc(collection(db, "companies"), {
+        name: name.trim(),
+        inviteCode,
+        ownerUid: user.uid,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       });
 
-      localStorage.setItem("userName", displayName.trim());
-      router.replace("/mypage");
-    } catch (error) {
-      console.error("join company error:", error);
-      alert("会社参加に失敗しました");
+      alert(`招待コード: ${inviteCode}`);
+
+      window.location.assign("/setup/join");
+    } catch (e) {
+      console.error(e);
+      alert("会社作成失敗");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-white text-black p-4">
-      <div className="mx-auto max-w-md rounded-2xl border p-4 space-y-4">
-        <h1 className="text-xl font-bold">招待コードで参加</h1>
-
-        <input
-          className="w-full rounded-xl border px-3 py-3"
-          placeholder="表示名"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          disabled={saving}
-        />
-
-        <input
-          className="w-full rounded-xl border px-3 py-3"
-          placeholder="招待コード"
-          value={inviteCode}
-          onChange={(e) => setInviteCode(e.target.value)}
-          disabled={saving}
-        />
-
-        <button
-          className="w-full rounded-xl bg-blue-600 py-3 text-white disabled:opacity-50"
-          onClick={submit}
-          disabled={saving}
-        >
-          参加
-        </button>
-      </div>
+    <main className="p-4">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="会社名"
+      />
+      <button onClick={submit} disabled={saving}>
+        作成
+      </button>
     </main>
   );
 }
