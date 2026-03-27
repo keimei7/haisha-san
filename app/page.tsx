@@ -69,17 +69,11 @@ export default function HomePage() {
       );
       await moveAfterAuth(result.user.uid);
     } catch (error: any) {
-      if (error?.code === "auth/email-already-in-use") {
-        alert("このメールアドレスはすでに登録されています。ログインから進んでください。");
-        setMode("login");
-      } else if (error?.code === "auth/weak-password") {
-        alert("パスワードが弱すぎます");
-      } else {
-        alert("ユーザ登録に失敗しました");
-      }
-    } finally {
-      setLoading(false);
-    }
+  console.error("SIGNUP ERROR", error);
+  alert(`${error.code} / ${error.message}`);
+} finally {
+  setLoading(false);
+}
   };
 
   return (
