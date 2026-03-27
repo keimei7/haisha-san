@@ -638,9 +638,9 @@ export default function ReservePage() {
                     車検
                   </th>
 
-                  <th className="border bg-green-600 text-white px-2 py-2 w-24">
-                    車種
-                  </th>
+                  <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
+  車種
+</th>
 
                   {days.map((day) => {
                     const isSunday = day.date.getDay() === 0;
@@ -690,9 +690,9 @@ export default function ReservePage() {
                       </button>
                     </td>
 
-                    <td className="border px-2 py-3 text-center align-middle whitespace-pre-line bg-gray-50">
-                      {vehicle.name}
-                    </td>
+                   <td className="sticky left-0 z-10 border px-2 py-3 text-center align-middle whitespace-pre-line bg-gray-50">
+  {vehicle.name}
+</td>
 
                     {days.map((day) => {
                       const isSunday = day.date.getDay() === 0;
