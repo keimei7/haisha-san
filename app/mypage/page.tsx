@@ -71,7 +71,6 @@ export default function MyPage() {
   const [uid, setUid] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
   const [draftName, setDraftName] = useState("");
-  const [userRole, setUserRole] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -101,7 +100,6 @@ export default function MyPage() {
 
           setUserName(resolvedName);
           setDraftName(resolvedName);
-          setUserRole(data.role ?? "");
           setCompanyId(resolvedCompanyId);
 
           if (resolvedName) {
@@ -113,12 +111,18 @@ export default function MyPage() {
             if (companySnap.exists()) {
               const companyData = companySnap.data() as CompanyDoc;
               setCompanyName(companyData.name ?? "");
+            } else {
+              setCompanyName("");
             }
+          } else {
+            setCompanyName("");
           }
         } else {
           const saved = localStorage.getItem("userName") ?? "";
           setUserName(saved);
           setDraftName(saved);
+          setCompanyId("");
+          setCompanyName("");
         }
       } catch (error) {
         console.error("user read error:", error);
@@ -267,7 +271,6 @@ export default function MyPage() {
 
       setUserName(trimmed);
       setDraftName(trimmed);
-      setUserRole(existing.role ?? "member");
       setCompanyId(existing.companyId ?? "");
       localStorage.setItem("userName", trimmed);
     } catch (error) {
@@ -288,7 +291,13 @@ export default function MyPage() {
   };
 
   const goToReservation = () => {
+    setShowMenu(false);
     router.push("/reserve");
+  };
+
+  const goToManage = () => {
+    setShowMenu(false);
+    router.push("/manage");
   };
 
   const isLoading = loadingUser || loadingVehicles || loadingReservations;
@@ -306,37 +315,32 @@ export default function MyPage() {
             </div>
 
             <button
-              className="rounded-lg border px-3 py-2 text-lg"
+              className="relative z-50 rounded-lg border px-3 py-2 text-lg"
               onClick={() => setShowMenu((prev) => !prev)}
+              type="button"
             >
               ☰
             </button>
           </div>
 
           {showMenu && (
-            <div className="border-b bg-gray-50 p-3">
-              <div className="grid grid-cols-2 gap-2">
+            <div className="relative z-40 border-b bg-gray-50 p-3">
+              <div className="space-y-2">
                 <button
-                  className="rounded-lg bg-blue-600 text-white py-2 text-sm"
-                  onClick={() => {
-                    setShowMenu(false);
-                    goToReservation();
-                  }}
+                  className="w-full rounded-lg bg-blue-600 text-white py-2 text-sm"
+                  onClick={goToReservation}
+                  type="button"
                 >
                   🚚 予約ページ
                 </button>
 
-                {userRole === "admin" && (
-                  <button
-  className="rounded-lg border py-2 text-sm bg-white"
-  onClick={() => {
-    setShowMenu(false);
-    router.push("/manage");
-  }}
->
-  ⚙️ 管理ページ
-</button>
-                )}
+                <button
+                  className="w-full rounded-lg border py-2 text-sm bg-white"
+                  onClick={goToManage}
+                  type="button"
+                >
+                  ⚙️ 管理ページ
+                </button>
               </div>
             </div>
           )}
@@ -360,6 +364,7 @@ export default function MyPage() {
                   className="w-full rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
                   onClick={saveUserName}
                   disabled={savingUser}
+                  type="button"
                 >
                   この名前で開始
                 </button>
@@ -379,6 +384,7 @@ export default function MyPage() {
                   <button
                     className="mt-3 rounded-lg border bg-white px-3 py-2 text-sm"
                     onClick={clearUserName}
+                    type="button"
                   >
                     ユーザ変更
                   </button>
@@ -387,6 +393,7 @@ export default function MyPage() {
                 <button
                   className="w-full rounded-lg bg-blue-600 text-white py-2 font-medium"
                   onClick={goToReservation}
+                  type="button"
                 >
                   予約ページへ
                 </button>
@@ -433,6 +440,7 @@ export default function MyPage() {
                   <button
                     className="w-full rounded-lg border py-2 text-sm"
                     onClick={goToReservation}
+                    type="button"
                   >
                     予約ページへ
                   </button>
@@ -476,6 +484,7 @@ export default function MyPage() {
                 <button
                   className="w-full rounded-lg border py-2 text-sm"
                   onClick={goToReservation}
+                  type="button"
                 >
                   予約ページへ
                 </button>
