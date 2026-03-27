@@ -629,17 +629,111 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
     </button>
   </div>
 </div>
-             <div className="rounded-xl border overflow-hidden bg-white">
-  <div className="overflow-auto max-h-[70vh]">
-    <div className="origin-top-left scale-[0.82] md:scale-100 w-[122%] md:w-auto">
-      <table className="border-collapse text-sm min-w-[860px] w-max">
+            
+
+  <div className="md:hidden space-y-3">
+    {sharedVehicles.map((vehicle) => (
+      <div key={vehicle.id} className="rounded-2xl border overflow-hidden bg-white">
+        <div className="grid grid-cols-[72px_1fr] border-b">
+          <button
+            className="border-r bg-red-50 px-2 py-3 text-xs underline decoration-dotted"
+            onClick={() =>
+              setInspectionEdit({
+                vehicleId: vehicle.id,
+                vehicleName: vehicle.name.replace("\n", " "),
+                value: vehicle.inspection,
+              })
+            }
+            type="button"
+          >
+            <div className="text-[10px] text-gray-500 mb-1">車検</div>
+            <div>{vehicle.inspection || "未設定"}</div>
+          </button>
+
+          <div className="px-3 py-3 bg-green-50">
+            <div className="text-[10px] text-gray-500 mb-1">車種</div>
+            <div className="font-semibold">{vehicle.name}</div>
+          </div>
+        </div>
+
+        <div className="divide-y">
+          {days.map((day) => {
+            const reservation = reservations.find(
+              (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
+            );
+
+            const isSunday = day.date.getDay() === 0;
+            const isSaturday = day.date.getDay() === 6;
+
+            const dayTextClass = isSunday
+              ? "text-red-600"
+              : isSaturday
+              ? "text-blue-600"
+              : "text-black";
+
+            return (
+              <button
+                key={`${vehicle.id}-${day.key}`}
+                className="w-full px-3 py-3 text-left bg-white active:bg-gray-50"
+                onClick={() =>
+                  openReservationModal(
+                    vehicle.id,
+                    vehicle.name.replace("\n", " "),
+                    day.key,
+                    `${day.label}（${day.weekday}）`
+                  )
+                }
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-[64px]">
+                    <div className={`font-bold ${dayTextClass}`}>{day.label}</div>
+                    <div className={`text-sm ${dayTextClass}`}>{day.weekday}</div>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    {reservation ? (
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold">
+                          {reservation.site || "予約あり"}
+                        </div>
+                        <div className="text-xs text-gray-600">
+                          {reservation.userName ?? reservation.name ?? ""}
+                        </div>
+                        {reservation.projectNo && (
+                          <div className="text-xs text-gray-500">
+                            {reservation.projectNo}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-400">＋予約</div>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    ))}
+
+    <p className="px-1 text-xs text-gray-500">
+      sharedVehicles件数: {sharedVehicles.length} / reservations件数: {reservations.length}
+    </p>
+  </div>
+
+  {/* PC版 */}
+  <div className="hidden md:block rounded-xl border overflow-hidden bg-white">
+    <div className="overflow-auto max-h-[70vh]">
+      <table className="border-collapse text-sm min-w-[900px] w-max">
         <thead>
           <tr>
-            <th className="sticky top-0 left-0 z-30 border bg-red-500 text-white px-1 py-2 w-[40px] min-w-[40px] max-w-[40px] text-[11px]">
+            <th className="sticky top-0 left-0 z-30 border bg-red-500 text-white px-2 py-2 w-[64px] min-w-[64px] max-w-[64px]">
               車検
             </th>
 
-            <th className="sticky top-0 left-[40px] z-30 border bg-green-600 text-white px-1 py-2 w-[48px] min-w-[48px] max-w-[48px] text-[11px]">
+            <th className="sticky top-0 left-[64px] z-30 border bg-green-600 text-white px-2 py-2 w-[72px] min-w-[72px] max-w-[72px]">
               車種
             </th>
 
@@ -662,10 +756,10 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
               return (
                 <th
                   key={day.key}
-                  className={`sticky top-0 z-20 border px-1 py-2 w-[84px] min-w-[84px] max-w-[84px] ${headerBg}`}
+                  className={`sticky top-0 z-20 border px-2 py-2 w-[96px] min-w-[96px] max-w-[96px] ${headerBg}`}
                 >
-                  <div className="font-bold text-sm">{day.label}</div>
-                  <div className={`text-xs ${weekdayColor}`}>{day.weekday}</div>
+                  <div className="font-bold">{day.label}</div>
+                  <div className={weekdayColor}>{day.weekday}</div>
                 </th>
               );
             })}
@@ -675,9 +769,9 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
         <tbody>
           {sharedVehicles.map((vehicle) => (
             <tr key={vehicle.id}>
-              <td className="sticky left-0 z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-white w-[40px] min-w-[40px] max-w-[40px]">
+              <td className="sticky left-0 z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-white w-[64px] min-w-[64px] max-w-[64px]">
                 <button
-                  className="underline decoration-dotted hover:text-blue-600 text-[11px] leading-tight"
+                  className="underline decoration-dotted hover:text-blue-600 text-xs"
                   onClick={() =>
                     setInspectionEdit({
                       vehicleId: vehicle.id,
@@ -691,7 +785,7 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
                 </button>
               </td>
 
-              <td className="sticky left-[40px] z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-gray-50 w-[48px] min-w-[48px] max-w-[48px] text-xs">
+              <td className="sticky left-[64px] z-20 border px-1 py-3 text-center align-middle whitespace-nowrap bg-gray-50 w-[72px] min-w-[72px] max-w-[72px] text-sm">
                 {vehicle.name}
               </td>
 
@@ -712,10 +806,10 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
                 return (
                   <td
                     key={`${vehicle.id}-${day.key}`}
-                    className={`border p-1 align-top ${cellBg} w-[84px] min-w-[84px] max-w-[84px]`}
+                    className={`border p-1 align-top ${cellBg} w-[96px] min-w-[96px] max-w-[96px]`}
                   >
                     <button
-                      className="w-full min-h-[56px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-1"
+                      className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-2"
                       onClick={() =>
                         openReservationModal(
                           vehicle.id,
@@ -730,21 +824,21 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
                         {reservation ? (
                           <div className="space-y-1">
                             {reservation.site && (
-                              <div className="font-bold text-[11px] leading-tight">
+                              <div className="font-bold text-sm">
                                 {reservation.site}
                               </div>
                             )}
-                            <div className="text-[10px] text-gray-700 leading-tight">
+                            <div className="text-xs text-gray-700">
                               {reservation.userName ?? reservation.name ?? ""}
                             </div>
                             {reservation.projectNo && (
-                              <div className="text-[10px] text-gray-500 leading-tight">
+                              <div className="text-xs text-gray-500">
                                 {reservation.projectNo}
                               </div>
                             )}
                           </div>
                         ) : (
-                          <span className="text-gray-400 text-[10px]">＋予約</span>
+                          <span className="text-gray-400 text-xs">＋予約</span>
                         )}
                       </div>
                     </button>
@@ -756,13 +850,12 @@ const [showProjectSuggest, setShowProjectSuggest] = useState(false);
         </tbody>
       </table>
     </div>
+ 
+    <p className="mt-3 px-3 pb-3 text-xs text-gray-500">
+      sharedVehicles件数: {sharedVehicles.length} / reservations件数: {reservations.length}
+    </p>
   </div>
-</div>
-
-        <p className="mt-3 text-xs text-gray-500">
-          sharedVehicles件数: {sharedVehicles.length} / reservations件数: {reservations.length}
-        </p>
-      </div>
+ </div>
 
       {selectedSlot && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
