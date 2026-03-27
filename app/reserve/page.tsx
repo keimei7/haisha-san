@@ -28,9 +28,11 @@ type DayItem = {
 
 type Vehicle = {
   id: string;
-  inspection: string;
   name: string;
+  inspection: string;
   sort: number;
+  companyId?: string;
+  assignedUid?: string;
   assignedTo?: string;
 };
 
@@ -309,9 +311,9 @@ export default function ReservePage() {
     });
   }, [weekStart]);
 
-  const sharedVehicles = useMemo(() => {
-    return vehicles.filter((v) => !(v.assignedTo ?? "").trim());
-  }, [vehicles]);
+const sharedVehicles = useMemo(() => {
+  return vehicles.filter((v) => !(v.assignedUid ?? "").trim() && !(v.assignedTo ?? "").trim());
+}, [vehicles]);
 
   const nameHistory = useMemo(() => {
     return Array.from(

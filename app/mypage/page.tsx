@@ -22,6 +22,8 @@ type Vehicle = {
   name: string;
   inspection: string;
   sort: number;
+  companyId?: string;
+  assignedUid?: string;
   assignedTo?: string;
 };
 
@@ -213,9 +215,18 @@ export default function MyPage() {
   }, [vehicles]);
 
   const myCars = useMemo(() => {
-    if (!userName.trim()) return [];
-    return vehicles.filter((v) => (v.assignedTo ?? "").trim() === userName.trim());
-  }, [vehicles, userName]);
+  return vehicles.filter((v) => {
+    if (v.assignedUid && uid) {
+      return v.assignedUid === uid;
+    }
+
+    if (v.assignedTo && userName.trim()) {
+      return v.assignedTo.trim() === userName.trim();
+    }
+
+    return false;
+  });
+}, [vehicles, uid, userName]);
 
   const myReservedSharedCars = useMemo(() => {
     if (!uid) return [];
