@@ -30,27 +30,15 @@ export default function HomePage() {
     window.location.assign("/setup");
   };
 
- const handleLogin = async () => {
+const handleLogin = async () => {
   if (!canSubmit || loading) return;
 
   try {
     setLoading(true);
-
-    const result = await signInWithEmailAndPassword(
-      auth,
-      email.trim(),
-      password
-    );
-
-    const snap = await getDoc(doc(db, "users", result.user.uid));
-
-    if (snap.exists()) {
-      window.location.assign("/mypage");
-    } else {
-      window.location.assign("/setup");
-    }
+    await signInWithEmailAndPassword(auth, email.trim(), password);
+    window.location.assign("/setup");
   } catch (error: any) {
-    console.error("LOGIN ERROR:", error);
+    console.error("LOGIN ERROR", error);
     alert(`${error.code} / ${error.message}`);
   } finally {
     setLoading(false);
@@ -58,23 +46,20 @@ export default function HomePage() {
 };
 
   const handleSignup = async () => {
-    if (!canSubmit || loading) return;
+  if (!canSubmit || loading) return;
 
-    try {
-      setLoading(true);
-      const result = await createUserWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
-      await moveAfterAuth(result.user.uid);
-    } catch (error: any) {
-  console.error("SIGNUP ERROR", error);
-  alert(`${error.code} / ${error.message}`);
-} finally {
-  setLoading(false);
-}
-  };
+  try {
+    setLoading(true);
+    await createUserWithEmailAndPassword(auth, email.trim(), password);
+    window.location.assign("/setup");
+  } catch (error: any) {
+    console.error("SIGNUP ERROR", error);
+    alert(`${error.code} / ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
+  
 
   return (
     <main className="min-h-screen bg-white text-black flex items-center justify-center p-4">
