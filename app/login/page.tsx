@@ -1,5 +1,7 @@
 "use client";
-
+export const dynamic = "force-dynamic";
+import { db } from "@/lib/firebase";
+import { auth } from "@/lib/firebase-client";
 export default function LoginPage() {
   return (
     <main style={{ minHeight: "100vh", padding: 24 }}>
