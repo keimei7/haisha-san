@@ -30,27 +30,32 @@ export default function HomePage() {
     window.location.assign("/setup");
   };
 
-  const handleLogin = async () => {
-    if (!canSubmit || loading) return;
+ const handleLogin = async () => {
+  if (!canSubmit || loading) return;
 
-    try {
-      setLoading(true);
-      const result = await signInWithEmailAndPassword(
-        auth,
-        email.trim(),
-        password
-      );
-      await moveAfterAuth(result.user.uid);
-    } catch (error: any) {
-      if (error?.code === "auth/invalid-credential") {
-        alert("メールアドレスまたはパスワードが違います");
-      } else {
-        alert("ログインに失敗しました");
-      }
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+
+    const result = await signInWithEmailAndPassword(
+      auth,
+      email.trim(),
+      password
+    );
+
+    const snap = await getDoc(doc(db, "users", result.user.uid));
+
+    if (snap.exists()) {
+      window.location.assign("/mypage");
+    } else {
+      window.location.assign("/setup");
     }
-  };
+  } catch (error: any) {
+    console.error("LOGIN ERROR:", error);
+    alert(`${error.code} / ${error.message}`);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleSignup = async () => {
     if (!canSubmit || loading) return;
