@@ -376,60 +376,52 @@ export default function MyPage() {
             )}
           </div>
         </div>
+{myReservedSharedCars.length > 0 && (
+  <div className="rounded-2xl border p-4 space-y-3">
+    <div className="flex justify-between items-center">
+      <h2 className="font-bold text-lg">予約済み共有車</h2>
+      <div className="text-sm text-gray-500">{myReservedSharedCars.length}件</div>
+    </div>
 
-        <div className="rounded-2xl border p-4 space-y-3">
-          <div className="flex justify-between items-center">
-            <h2 className="font-bold text-lg">予約済み共有車</h2>
-            <div className="text-sm text-gray-500">{myReservedSharedCars.length}件</div>
-          </div>
-
-          {isLoading && (
-            <div className="text-sm text-gray-500">読み込み中...</div>
-          )}
-
-          {!isLoading && myReservedSharedCars.length === 0 && (
-            <div className="text-sm text-gray-500">予約された共有車はありません</div>
-          )}
-
-          <div className="space-y-3">
-            {myReservedSharedCars.map((item) => (
-              <div key={item.id} className="rounded-xl border p-3 space-y-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-bold text-lg whitespace-pre-line">
-                      {item.vehicle.name}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {formatDayKey(item.dayKey)}
-                    </div>
-                  </div>
-                </div>
-
-                {item.site && (
-                  <div className="text-gray-800">行先: {item.site}</div>
-                )}
-
-                {item.projectNo && (
-                  <div className="text-sm text-gray-600">
-                    用途・案件番号: {item.projectNo}
-                  </div>
-                )}
-
-                <div className="text-sm text-gray-500">
-                  車検: {item.vehicle.inspection || "未設定"}
-                </div>
-
-                <button
-                  className="w-full rounded-lg border py-2 text-sm"
-                  onClick={goToReservation}
-                >
-                  予約ページへ
-                </button>
+    <div className="space-y-3">
+      {myReservedSharedCars.map((item) => (
+        <div key={item.id} className="rounded-xl border p-3 space-y-2">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="font-bold text-lg whitespace-pre-line">
+                {item.vehicle.name}
               </div>
-            ))}
+              <div className="text-sm text-gray-600">
+                {formatDayKey(item.dayKey)}
+              </div>
+            </div>
           </div>
-        </div>
 
+          {item.site && (
+            <div className="text-gray-800">行先: {item.site}</div>
+          )}
+
+          {item.projectNo && (
+            <div className="text-sm text-gray-600">
+              用途・案件番号: {item.projectNo}
+            </div>
+          )}
+
+          <div className="text-sm text-gray-500">
+            車検: {item.vehicle.inspection || "未設定"}
+          </div>
+
+          <button
+            className="w-full rounded-lg border py-2 text-sm"
+            onClick={goToReservation}
+          >
+            予約ページへ
+          </button>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
         <div className="rounded-2xl border p-4 space-y-3">
           <div className="flex justify-between items-center">
             <h2 className="font-bold text-lg">マイカー</h2>
