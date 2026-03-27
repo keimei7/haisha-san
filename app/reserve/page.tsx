@@ -146,15 +146,14 @@ export default function ReservePage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
   const [showVehicleLog, setShowVehicleLog] = useState(false);
-  const [logMode, setLogMode] = useState<"vehicle" | "name" | "project">("vehicle");
-  const [selectedVehicleId, setSelectedVehicleId] = useState("");
-  const [selectedName, setSelectedName] = useState("");
-  const [selectedProject, setSelectedProject] = useState("");
+  const [logMode, setLogMode] = useState<"vehicle" | "name">("vehicle");
+const [selectedVehicleId, setSelectedVehicleId] = useState("");
+const [selectedName, setSelectedName] = useState("");
 
-  const [siteHistory, setSiteHistory] = useState<string[]>([]);
-  const [showSiteSuggest, setShowSiteSuggest] = useState(false);
-  const [projectHistory, setProjectHistory] = useState<string[]>([]);
-  const [showProjectSuggest, setShowProjectSuggest] = useState(false);
+const [siteHistory, setSiteHistory] = useState<string[]>([]);
+const [showSiteSuggest, setShowSiteSuggest] = useState(false);
+const [projectHistory, setProjectHistory] = useState<string[]>([]);
+const [showProjectSuggest, setShowProjectSuggest] = useState(false);
 
   const [selectedSlot, setSelectedSlot] = useState<{
     vehicleId: string;
@@ -464,7 +463,7 @@ export default function ReservePage() {
     }
   };
 
-  const exportCurrentWeekCsv = (mode: "all" | "reservedOnly" | "projectOnly") => {
+ const exportCurrentWeekCsv = (mode: "all" | "reservedOnly") => {
     const rows: string[][] = [];
 
     rows.push([
@@ -484,8 +483,7 @@ export default function ReservePage() {
         );
 
         if (mode === "reservedOnly" && !reservation) continue;
-        if (mode === "projectOnly" && !reservation?.projectNo?.trim()) continue;
-
+       
         rows.push([
           formatCsvDate(day.date),
           day.weekday,
@@ -501,11 +499,9 @@ export default function ReservePage() {
     const weekLabel = formatCsvDate(weekStart).replace(/\//g, "-");
 
     const fileName =
-      mode === "all"
-        ? `配車さん_${weekLabel}_週_全件.csv`
-        : mode === "reservedOnly"
-        ? `配車さん_${weekLabel}_週_予約ありのみ.csv`
-        : `配車さん_${weekLabel}_週_用途ありのみ.csv`;
+  mode === "all"
+    ? `配車さん_${weekLabel}_週_全件.csv`
+    : `配車さん_${weekLabel}_週_予約ありのみ.csv`;
 
     downloadCsv(fileName, rows);
   };
@@ -525,20 +521,17 @@ export default function ReservePage() {
   };
 
   const filteredLogs = reservations
-    .filter((r) => {
-      if (logMode === "vehicle") {
-        return selectedVehicleId ? r.vehicleId === selectedVehicleId : false;
-      }
-      if (logMode === "name") {
-        const displayName = r.userName ?? r.name ?? "";
-        return selectedName ? displayName === selectedName : false;
-      }
-      if (logMode === "project") {
-        return selectedProject ? r.projectNo === selectedProject : false;
-      }
-      return false;
-    })
-    .sort((a, b) => (a.dayKey > b.dayKey ? 1 : -1));
+  .filter((r) => {
+    if (logMode === "vehicle") {
+      return selectedVehicleId ? r.vehicleId === selectedVehicleId : false;
+    }
+    if (logMode === "name") {
+      const displayName = r.userName ?? r.name ?? "";
+      return selectedName ? displayName === selectedName : false;
+    }
+    return false;
+  })
+  .sort((a, b) => (a.dayKey > b.dayKey ? 1 : -1));
 
   if (!mounted) return null;
 
@@ -611,13 +604,7 @@ export default function ReservePage() {
           予約ありのみ
         </button>
 
-        <button
-          className="w-full rounded-lg border py-2 text-sm"
-          onClick={() => exportCurrentWeekCsv("projectOnly")}
-          type="button"
-        >
-          用途ありのみ
-        </button>
+      
       </div>
     </details>
   </div>
@@ -825,7 +812,7 @@ export default function ReservePage() {
                   onFocus={() => setShowSiteSuggest(true)}
                   onBlur={() => setTimeout(() => setShowSiteSuggest(false), 200)}
                   className="w-full border rounded-lg px-3 py-2"
-                  placeholder="例：岩田金物 / 機材センター / 現場名"
+                  placeholder="例：現場"
                 />
 
                 {showSiteSuggest && siteHistory.length > 0 && (
@@ -849,7 +836,7 @@ export default function ReservePage() {
               </div>
 
               <div className="relative">
-                <label className="text-sm text-gray-600">用途・案件番号（任意）</label>
+                <label className="text-sm text-gray-600">用途・備考</label>
                 <input
                   type="text"
                   value={formProjectNo}
@@ -996,53 +983,35 @@ export default function ReservePage() {
                 ×
               </button>
             </div>
+<div className="flex gap-2">
+  <button
+    onClick={() => {
+      setLogMode("vehicle");
+      setSelectedVehicleId("");
+      setSelectedName("");
+    }}
+    className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
+      logMode === "vehicle" ? "bg-blue-600 text-white" : "bg-white"
+    }`}
+    type="button"
+  >
+    車両
+  </button>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setLogMode("vehicle");
-                  setSelectedVehicleId("");
-                  setSelectedName("");
-                  setSelectedProject("");
-                }}
-                className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
-                  logMode === "vehicle" ? "bg-blue-600 text-white" : "bg-white"
-                }`}
-                type="button"
-              >
-                車両
-              </button>
-
-              <button
-                onClick={() => {
-                  setLogMode("name");
-                  setSelectedVehicleId("");
-                  setSelectedName("");
-                  setSelectedProject("");
-                }}
-                className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
-                  logMode === "name" ? "bg-blue-600 text-white" : "bg-white"
-                }`}
-                type="button"
-              >
-                社員
-              </button>
-
-              <button
-                onClick={() => {
-                  setLogMode("project");
-                  setSelectedVehicleId("");
-                  setSelectedName("");
-                  setSelectedProject("");
-                }}
-                className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
-                  logMode === "project" ? "bg-blue-600 text-white" : "bg-white"
-                }`}
-                type="button"
-              >
-                用途
-              </button>
-            </div>
+  <button
+    onClick={() => {
+      setLogMode("name");
+      setSelectedVehicleId("");
+      setSelectedName("");
+    }}
+    className={`flex-1 rounded-lg border px-3 py-2 text-sm ${
+      logMode === "name" ? "bg-blue-600 text-white" : "bg-white"
+    }`}
+    type="button"
+  >
+    社員
+  </button>
+</div>
 
             {logMode === "vehicle" && (
               <select
@@ -1074,20 +1043,7 @@ export default function ReservePage() {
               </select>
             )}
 
-            {logMode === "project" && (
-              <select
-                value={selectedProject}
-                onChange={(e) => setSelectedProject(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2"
-              >
-                <option value="">用途を選択</option>
-                {projectHistory.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            )}
+          
 
             <div className="space-y-2">
               {filteredLogs.map((r) => {
@@ -1109,13 +1065,12 @@ export default function ReservePage() {
                 );
               })}
 
-              {((logMode === "vehicle" && !selectedVehicleId) ||
-                (logMode === "name" && !selectedName) ||
-                (logMode === "project" && !selectedProject)) && (
-                <div className="text-sm text-gray-500 text-center py-6">
-                  条件を選択してください
-                </div>
-              )}
+             {((logMode === "vehicle" && !selectedVehicleId) ||
+  (logMode === "name" && !selectedName)) && (
+  <div className="text-sm text-gray-500 text-center py-6">
+    条件を選択してください
+  </div>
+)}
             </div>
           </div>
         </div>
