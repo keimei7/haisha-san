@@ -147,7 +147,11 @@ useEffect(() => {
   }, [vehicles, userName]);
 
 const myReservedSharedCars = useMemo(() => {
-  const uid = auth.currentUser?.uid;
+ const [uid, setUid] = useState<string | null>(null);
+
+useEffect(() => {
+  setUid(auth.currentUser?.uid ?? null);
+}, []);
   if (!uid) return [];
 
   return reservations
@@ -181,7 +185,11 @@ const saveUserName = async () => {
     return;
   }
 
-  const currentUser = auth.currentUser;
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+useEffect(() => {
+  setCurrentUser(auth.currentUser);
+}, []);
   if (!currentUser) {
     alert("ログイン情報がありません。もう一度ログインしてください");
     router.push("/login");
