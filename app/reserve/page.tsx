@@ -647,11 +647,11 @@ export default function ReservePage() {
     <table className="border-collapse text-sm min-w-[760px] w-full">
       <thead>
         <tr>
-          <th className="sticky top-0 left-0 z-30 border bg-red-500 text-white px-2 py-2 w-16">
+          <th className="sticky top-0 left-0 z-20 border bg-red-500 text-white px-2 py-2 w-16">
             車検
           </th>
 
-          <th className="sticky top-0 left-16 z-30 border bg-green-600 text-white px-2 py-2 w-28">
+          <th className="sticky top-0 left-16 z-20 border bg-green-600 text-white px-2 py-2 w-28">
             車種
           </th>
 
@@ -775,8 +775,8 @@ export default function ReservePage() {
       </div>
 
       {selectedSlot && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4">
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold">予約入力</h2>
@@ -988,7 +988,7 @@ export default function ReservePage() {
       )}
 
       {showVehicleLog && (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
+     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
           <div className="bg-white rounded-xl w-full max-w-md p-4 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h2 className="text-lg font-bold">車両実績</h2>
