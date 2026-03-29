@@ -14,24 +14,30 @@ type AssetItem = {
   name: string;
   inspection: string;
   tableId: string;
+  sort: number;
 };
 
 type ReservationItem = {
   id: string;
   assetId: string;
   dayKey: string;
-  name: string;
+  userName: string;
+  site: string;
+  note: string;
 };
 
 type DayItem = {
   key: string;
   label: string;
   weekday: string;
+  date: Date;
 };
 
 type SelectedSlot = {
   assetId: string;
+  assetName: string;
   dayKey: string;
+  dateLabel: string;
 } | null;
 
 type CreateTableModalProps = {
@@ -43,6 +49,18 @@ type AddAssetModalProps = {
   onClose: () => void;
   onAdd: (asset: AssetItem) => void;
   tableId: string;
+};
+
+type ReservationModalProps = {
+  slot: SelectedSlot;
+  existing?: ReservationItem;
+  onClose: () => void;
+  onSave: (payload: {
+    userName: string;
+    site: string;
+    note: string;
+  }) => void;
+  onDelete: () => void;
 };
 
 function getMonday(date: Date): Date {
@@ -63,6 +81,14 @@ function makeId(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function formatHeaderDate(date: Date): string {
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function formatWeekTitle(startDate: Date): string {
+  return `${startDate.getFullYear()}/${startDate.getMonth() + 1}/${startDate.getDate()} 週`;
+}
+
 function CreateTableModal({
   onClose,
   onCreate,
@@ -72,34 +98,44 @@ function CreateTableModal({
   const [meta2, setMeta2] = useState("車種");
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4">
-      <div className="bg-white rounded-xl p-4 w-full max-w-sm space-y-3">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200]">
+      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
         <h2 className="text-lg font-bold">テーブル作成</h2>
 
-        <input
-          className="w-full border rounded px-3 py-2"
-          placeholder="テーブル名"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-gray-600">テーブル名</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="例：共有車予約ページ"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
 
-        <input
-          className="w-full border rounded px-3 py-2"
-          placeholder="左ラベル1"
-          value={meta1}
-          onChange={(e) => setMeta1(e.target.value)}
-        />
+          <div>
+            <label className="text-sm text-gray-600">左ラベル1</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={meta1}
+              onChange={(e) => setMeta1(e.target.value)}
+            />
+          </div>
 
-        <input
-          className="w-full border rounded px-3 py-2"
-          placeholder="左ラベル2"
-          value={meta2}
-          onChange={(e) => setMeta2(e.target.value)}
-        />
+          <div>
+            <label className="text-sm text-gray-600">左ラベル2</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={meta2}
+              onChange={(e) => setMeta2(e.target.value)}
+            />
+          </div>
+        </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 pt-2">
           <button
-            className="flex-1 border rounded px-3 py-2"
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
+            disabled={!title.trim()}
             onClick={() => {
               if (!title.trim()) return;
               onCreate({
@@ -115,7 +151,7 @@ function CreateTableModal({
           </button>
 
           <button
-            className="px-3 py-2 border rounded"
+            className="rounded-lg border px-4 py-2"
             onClick={onClose}
             type="button"
           >
@@ -136,27 +172,36 @@ function AddAssetModal({
   const [inspection, setInspection] = useState("");
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4">
-      <div className="bg-white rounded-xl p-4 w-full max-w-sm space-y-3">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200]">
+      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
         <h2 className="text-lg font-bold">資産追加</h2>
 
-        <input
-          className="w-full border rounded px-3 py-2"
-          placeholder="名前"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-gray-600">名前</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="例：12tセルフ"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
 
-        <input
-          className="w-full border rounded px-3 py-2"
-          placeholder="車検・点検"
-          value={inspection}
-          onChange={(e) => setInspection(e.target.value)}
-        />
+          <div>
+            <label className="text-sm text-gray-600">点検・車検</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="例：2026/03/18"
+              value={inspection}
+              onChange={(e) => setInspection(e.target.value)}
+            />
+          </div>
+        </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 pt-2">
           <button
-            className="flex-1 border rounded px-3 py-2"
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
+            disabled={!name.trim()}
             onClick={() => {
               if (!name.trim()) return;
               onAdd({
@@ -164,6 +209,7 @@ function AddAssetModal({
                 name: name.trim(),
                 inspection: inspection.trim(),
                 tableId,
+                sort: Date.now(),
               });
             }}
             type="button"
@@ -172,13 +218,115 @@ function AddAssetModal({
           </button>
 
           <button
-            className="px-3 py-2 border rounded"
+            className="rounded-lg border px-4 py-2"
             onClick={onClose}
             type="button"
           >
             閉じる
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ReservationModal({
+  slot,
+  existing,
+  onClose,
+  onSave,
+  onDelete,
+}: ReservationModalProps) {
+  const [userName, setUserName] = useState(existing?.userName ?? "");
+  const [site, setSite] = useState(existing?.site ?? "");
+  const [note, setNote] = useState(existing?.note ?? "");
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
+      <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">予約入力</h2>
+            <p className="text-sm text-gray-500">
+              {slot.assetName}
+              <br />
+              {slot.dateLabel}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-2xl leading-none text-gray-500 hover:text-black px-2"
+            aria-label="閉じる"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-gray-600">予約者名</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              placeholder="例：あああ"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">行先</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={site}
+              onChange={(e) => setSite(e.target.value)}
+              placeholder="例：現場A"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">用途・備考</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="例：打合せ"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium"
+            onClick={() =>
+              onSave({
+                userName: userName.trim(),
+                site: site.trim(),
+                note: note.trim(),
+              })
+            }
+            type="button"
+          >
+            決定
+          </button>
+
+          <button
+            className="rounded-lg border px-4 py-2"
+            onClick={onClose}
+            type="button"
+          >
+            閉じる
+          </button>
+        </div>
+
+        <button
+          className="w-full border border-red-400 text-red-500 py-2 rounded-lg"
+          onClick={onDelete}
+          type="button"
+        >
+          この予約を削除
+        </button>
       </div>
     </div>
   );
@@ -197,7 +345,6 @@ export default function ReservePage() {
   const [showAddAsset, setShowAddAsset] = useState<boolean>(false);
 
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
-  const [formName, setFormName] = useState<string>("");
 
   const currentTable: TableItem | undefined = tables.find(
     (t) => t.id === currentTableId
@@ -208,28 +355,52 @@ export default function ReservePage() {
       const date = addDays(weekStart, i);
       return {
         key: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
-        label: `${date.getMonth() + 1}/${date.getDate()}`,
+        label: formatHeaderDate(date),
         weekday: ["月", "火", "水", "木", "金", "土", "日"][i],
+        date,
       };
     });
   }, [weekStart]);
 
   const tableAssets: AssetItem[] = useMemo(() => {
-    return assets.filter((a) => a.tableId === currentTableId);
+    return [...assets]
+      .filter((a) => a.tableId === currentTableId)
+      .sort((a, b) => a.sort - b.sort);
   }, [assets, currentTableId]);
 
   if (tables.length === 0) {
     return (
-      <main className="p-6 text-center space-y-4">
-        <h1 className="text-xl font-bold">AssetTableを作成</h1>
+      <main className="min-h-screen bg-white text-black p-3">
+        <div className="mx-auto max-w-md">
+          <div className="rounded-2xl border overflow-hidden bg-white">
+            <div className="py-3 flex items-center justify-center gap-2 border-b bg-white">
+              <img
+                src="/icon.png"
+                alt="配車さん"
+                className="w-12 h-12 object-contain"
+              />
+              <div className="font-bold text-2xl tracking-wide">配車さん</div>
+            </div>
 
-        <button
-          onClick={() => setShowCreateTable(true)}
-          className="px-4 py-2 border rounded"
-          type="button"
-        >
-          テーブルを作る
-        </button>
+            <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
+              AssetTable初期設定
+            </div>
+
+            <div className="p-6 text-center space-y-4">
+              <p className="text-sm text-gray-600">
+                まず最初のテーブルを作成してください
+              </p>
+
+              <button
+                onClick={() => setShowCreateTable(true)}
+                className="w-full rounded-xl border bg-white py-3 text-sm"
+                type="button"
+              >
+                テーブルを作る
+              </button>
+            </div>
+          </div>
+        </div>
 
         {showCreateTable && (
           <CreateTableModal
@@ -245,210 +416,272 @@ export default function ReservePage() {
     );
   }
 
-  if (tableAssets.length === 0) {
-    return (
-      <main className="p-6 text-center space-y-4">
-        <h1 className="text-xl font-bold">
-          {currentTable?.title ?? "AssetTable"}
-        </h1>
-
-        <p>資産がまだありません</p>
-
-        <button
-          onClick={() => setShowAddAsset(true)}
-          className="px-4 py-2 border rounded"
-          type="button"
-        >
-          資産を追加
-        </button>
-
-        {showAddAsset && (
-          <AddAssetModal
-            onClose={() => setShowAddAsset(false)}
-            onAdd={(asset) => {
-              setAssets((prev) => [...prev, asset]);
-              setShowAddAsset(false);
-            }}
-            tableId={currentTableId}
-          />
-        )}
-      </main>
-    );
-  }
-
   return (
-    <main className="p-3 space-y-3">
-      <div className="flex justify-between items-center">
-        <button onClick={() => setWeekStart(addDays(weekStart, -7))} type="button">
-          ←
-        </button>
-        <div className="font-bold">{currentTable?.title}</div>
-        <button onClick={() => setWeekStart(addDays(weekStart, 7))} type="button">
-          →
-        </button>
-      </div>
-
-      <div className="flex gap-2">
-        {tables.map((table) => (
-          <button
-            key={table.id}
-            onClick={() => setCurrentTableId(table.id)}
-            className={`px-3 py-1 border rounded ${
-              table.id === currentTableId ? "font-bold" : ""
-            }`}
-            type="button"
-          >
-            {table.title}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          onClick={() => setShowAddAsset(true)}
-          className="border px-3 py-1 rounded"
-          type="button"
-        >
-          ＋資産追加
-        </button>
-
-        <button
-          onClick={() => setShowCreateTable(true)}
-          className="border px-3 py-1 rounded"
-          type="button"
-        >
-          ＋テーブル追加
-        </button>
-      </div>
-
-      <table className="w-full border text-sm">
-        <thead>
-          <tr>
-            <th className="border px-2 py-2">{currentTable?.labelMeta1}</th>
-            <th className="border px-2 py-2">{currentTable?.labelMeta2}</th>
-            {days.map((d) => (
-              <th key={d.key} className="border px-2 py-2">
-                {d.label}
-                <br />
-                {d.weekday}
-              </th>
-            ))}
-          </tr>
-        </thead>
-
-        <tbody>
-          {tableAssets.map((asset) => (
-            <tr key={asset.id}>
-              <td className="border px-2 py-2">{asset.inspection}</td>
-              <td className="border px-2 py-2">{asset.name}</td>
-
-              {days.map((day) => {
-                const reservation = reservations.find(
-                  (x) => x.assetId === asset.id && x.dayKey === day.key
-                );
-
-                return (
-                  <td key={day.key} className="border px-2 py-2">
-                    <button
-                      onClick={() =>
-                        setSelectedSlot({
-                          assetId: asset.id,
-                          dayKey: day.key,
-                        })
-                      }
-                      type="button"
-                    >
-                      {reservation ? reservation.name : "＋"}
-                    </button>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {selectedSlot && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4">
-          <div className="bg-white rounded-xl p-4 w-full max-w-sm space-y-3">
-            <h2 className="text-lg font-bold">予約入力</h2>
-
-            <input
-              value={formName}
-              onChange={(e) => setFormName(e.target.value)}
-              placeholder="名前"
-              className="w-full border px-3 py-2 rounded"
+    <main className="min-h-screen bg-white text-black p-3">
+      <div className="mx-auto max-w-md">
+        <div className="mb-3 rounded-2xl border overflow-hidden bg-white">
+          <div className="py-3 flex items-center justify-center gap-2 border-b bg-white">
+            <img
+              src="/icon.png"
+              alt="配車さん"
+              className="w-12 h-12 object-contain"
             />
+            <div className="font-bold text-2xl tracking-wide">配車さん</div>
+          </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  if (!selectedSlot || !formName.trim()) return;
+          <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
+            {currentTable?.title ?? "AssetTable"}
+          </div>
 
-                  setReservations((prev) => {
-                    const filtered = prev.filter(
-                      (r) =>
-                        !(
-                          r.assetId === selectedSlot.assetId &&
-                          r.dayKey === selectedSlot.dayKey
-                        )
+          <div className="p-3 space-y-3 bg-white">
+            {tables.length > 1 && (
+              <div className="overflow-x-auto">
+                <div className="flex gap-2 min-w-max">
+                  {tables.map((table) => {
+                    const active = table.id === currentTableId;
+                    return (
+                      <button
+                        key={table.id}
+                        className={`rounded-full border px-3 py-1.5 text-sm ${
+                          active ? "bg-black text-white" : "bg-white text-black"
+                        }`}
+                        onClick={() => setCurrentTableId(table.id)}
+                        type="button"
+                      >
+                        {table.title}
+                      </button>
                     );
+                  })}
+                </div>
+              </div>
+            )}
 
-                    return [
-                      ...filtered,
-                      {
-                        id: makeId(),
-                        assetId: selectedSlot.assetId,
-                        dayKey: selectedSlot.dayKey,
-                        name: formName.trim(),
-                      },
-                    ];
-                  });
-
-                  setSelectedSlot(null);
-                  setFormName("");
-                }}
-                className="flex-1 border rounded px-3 py-2"
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                className="rounded-xl border bg-white py-2.5 text-sm"
+                onClick={() => setShowCreateTable(true)}
                 type="button"
               >
-                保存
+                ＋ テーブル追加
               </button>
 
               <button
-                onClick={() => {
-                  if (!selectedSlot) return;
-
-                  setReservations((prev) =>
-                    prev.filter(
-                      (r) =>
-                        !(
-                          r.assetId === selectedSlot.assetId &&
-                          r.dayKey === selectedSlot.dayKey
-                        )
-                    )
-                  );
-                  setSelectedSlot(null);
-                  setFormName("");
-                }}
-                className="border rounded px-3 py-2"
+                className="rounded-xl border bg-white py-2.5 text-sm"
+                onClick={() => setShowAddAsset(true)}
                 type="button"
               >
-                削除
-              </button>
-
-              <button
-                onClick={() => {
-                  setSelectedSlot(null);
-                  setFormName("");
-                }}
-                className="border rounded px-3 py-2"
-                type="button"
-              >
-                閉じる
+                ＋ 資産追加
               </button>
             </div>
           </div>
+
+          <div className="flex items-center justify-between px-3 py-3 bg-gray-50 border-t">
+            <button
+              className="rounded-xl border bg-white px-4 py-2"
+              onClick={() => setWeekStart(addDays(weekStart, -7))}
+              type="button"
+            >
+              ←
+            </button>
+
+            <div className="font-semibold text-lg">{formatWeekTitle(weekStart)}</div>
+
+            <button
+              className="rounded-xl border bg-white px-4 py-2"
+              onClick={() => setWeekStart(addDays(weekStart, 7))}
+              type="button"
+            >
+              →
+            </button>
+          </div>
         </div>
+
+        {tableAssets.length === 0 ? (
+          <div className="rounded-2xl border bg-white p-6 text-center space-y-3">
+            <p className="text-sm text-gray-600">このテーブルにはまだ資産がありません</p>
+            <button
+              onClick={() => setShowAddAsset(true)}
+              className="rounded-xl border bg-white px-4 py-2 text-sm"
+              type="button"
+            >
+              資産を追加する
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-xl border overflow-hidden bg-white">
+            <div className="overflow-x-auto">
+              <table className="border-collapse text-sm min-w-[760px] w-full">
+                <thead>
+                  <tr>
+                    <th className="border bg-red-500 text-white px-2 py-2 w-16">
+                      {currentTable?.labelMeta1 ?? "車検"}
+                    </th>
+
+                    <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
+                      {currentTable?.labelMeta2 ?? "車種"}
+                    </th>
+
+                    {days.map((day) => {
+                      const isSunday = day.date.getDay() === 0;
+                      const isSaturday = day.date.getDay() === 6;
+
+                      const headerBg = isSunday
+                        ? "bg-red-100"
+                        : isSaturday
+                        ? "bg-blue-100"
+                        : "bg-gray-100";
+
+                      const weekdayColor = isSunday
+                        ? "text-red-600"
+                        : isSaturday
+                        ? "text-blue-600"
+                        : "text-black";
+
+                      return (
+                        <th
+                          key={day.key}
+                          className={`border px-2 py-2 min-w-[92px] ${headerBg}`}
+                        >
+                          <div className="font-bold">{day.label}</div>
+                          <div className={weekdayColor}>{day.weekday}</div>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {tableAssets.map((asset) => (
+                    <tr key={asset.id}>
+                      <td className="border px-2 py-3 text-center align-middle whitespace-nowrap bg-white">
+                        {asset.inspection}
+                      </td>
+
+                      <td className="sticky left-0 z-10 border px-2 py-3 text-center align-middle whitespace-pre-line bg-gray-50">
+                        {asset.name}
+                      </td>
+
+                      {days.map((day) => {
+                        const isSunday = day.date.getDay() === 0;
+                        const isSaturday = day.date.getDay() === 6;
+
+                        const cellBg = isSunday
+                          ? "bg-red-50"
+                          : isSaturday
+                          ? "bg-blue-50"
+                          : "bg-white";
+
+                        const reservation = reservations.find(
+                          (r) => r.assetId === asset.id && r.dayKey === day.key
+                        );
+
+                        return (
+                          <td
+                            key={`${asset.id}-${day.key}`}
+                            className={`border p-1 align-top ${cellBg}`}
+                          >
+                            <button
+                              className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-2"
+                              onClick={() =>
+                                setSelectedSlot({
+                                  assetId: asset.id,
+                                  assetName: asset.name,
+                                  dayKey: day.key,
+                                  dateLabel: `${day.label}（${day.weekday}）`,
+                                })
+                              }
+                              type="button"
+                            >
+                              <div className="space-y-1">
+                                {reservation ? (
+                                  <div className="space-y-1">
+                                    {reservation.site && (
+                                      <div className="font-bold text-sm">
+                                        {reservation.site}
+                                      </div>
+                                    )}
+                                    <div className="text-xs text-gray-700">
+                                      {reservation.userName}
+                                    </div>
+                                    {reservation.note && (
+                                      <div className="text-xs text-gray-500">
+                                        {reservation.note}
+                                      </div>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-400 text-xs">＋予約</span>
+                                )}
+                              </div>
+                            </button>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <p className="mt-3 text-xs text-gray-500">
+          資産件数: {tableAssets.length} / 予約件数: {reservations.length}
+        </p>
+      </div>
+
+      {selectedSlot && (
+        <ReservationModal
+          slot={selectedSlot}
+          existing={reservations.find(
+            (r) =>
+              r.assetId === selectedSlot.assetId &&
+              r.dayKey === selectedSlot.dayKey
+          )}
+          onClose={() => setSelectedSlot(null)}
+          onSave={({ userName, site, note }) => {
+            if (!selectedSlot) return;
+
+            setReservations((prev) => {
+              const filtered = prev.filter(
+                (r) =>
+                  !(
+                    r.assetId === selectedSlot.assetId &&
+                    r.dayKey === selectedSlot.dayKey
+                  )
+              );
+
+              return [
+                ...filtered,
+                {
+                  id: makeId(),
+                  assetId: selectedSlot.assetId,
+                  dayKey: selectedSlot.dayKey,
+                  userName,
+                  site,
+                  note,
+                },
+              ];
+            });
+
+            setSelectedSlot(null);
+          }}
+          onDelete={() => {
+            if (!selectedSlot) return;
+
+            setReservations((prev) =>
+              prev.filter(
+                (r) =>
+                  !(
+                    r.assetId === selectedSlot.assetId &&
+                    r.dayKey === selectedSlot.dayKey
+                  )
+              )
+            );
+
+            setSelectedSlot(null);
+          }}
+        />
       )}
 
       {showCreateTable && (
