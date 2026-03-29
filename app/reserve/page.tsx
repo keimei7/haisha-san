@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
   collection,
@@ -189,14 +189,6 @@ export default function ReservePage() {
   const [formProjectNo, setFormProjectNo] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const [debugLog, setDebugLog] = useState<string[]>([]);
-  const autoDebugRanRef = useRef(false);
-
-  const appendDebug = (message: string) => {
-    console.log("[reserve debug]", message);
-    setDebugLog((prev) => [...prev, message]);
-  };
-
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -210,12 +202,10 @@ export default function ReservePage() {
         setUserName("");
         setCompanyId("");
         setUserRole("");
-        appendDebug("auth: no user");
         return;
       }
 
       setUid(currentUser.uid);
-      appendDebug(`auth: uid=${currentUser.uid}`);
 
       try {
         const userSnap = await getDoc(doc(db, "users", currentUser.uid));
@@ -223,7 +213,6 @@ export default function ReservePage() {
           setUserName("");
           setCompanyId("");
           setUserRole("");
-          appendDebug("users doc: not found");
           return;
         }
 
@@ -236,21 +225,43 @@ export default function ReservePage() {
         setCompanyId(resolvedCompanyId);
         setUserRole(resolvedRole);
         setSelectedUserUid(currentUser.uid);
-
-        appendDebug(
-          `users doc: name=${resolvedName || "(empty)"} companyId=${resolvedCompanyId || "(empty)"} role=${resolvedRole || "(empty)"}`
-        );
       } catch (error) {
         console.error("user read error:", error);
         setUserName("");
         setCompanyId("");
         setUserRole("");
-        appendDebug("users doc: read error");
       }
     });
 
     return () => unsubscribe();
   }, [mounted]);
+
+  useEffect(() => {
+    if (!companyId) return;
+
+    const fetchTables = async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(db, "tables"), where("companyId", "==", companyId))
+        );
+
+        const list: TableItem[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<TableItem, "id">),
+        }));
+
+        setTables(list);
+
+        if (list.length > 0) {
+          setCurrentTableId((prev) => prev || list[0].id);
+        }
+      } catch (error) {
+        console.error("tables read error:", error);
+      }
+    };
+
+    fetchTables();
+  }, [companyId]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -317,6 +328,7 @@ export default function ReservePage() {
       },
       (error) => {
         console.error("vehicles read error:", error);
+        alert("車両データの読み込みに失敗しました");
       }
     );
 
@@ -366,6 +378,7 @@ export default function ReservePage() {
       },
       (error) => {
         console.error("reservations read error:", error);
+        alert("予約データの読み込みに失敗しました");
       }
     );
 
@@ -399,69 +412,6 @@ export default function ReservePage() {
     setSiteHistory(sites);
   }, [reservations]);
 
-  const loadTables = async () => {
-    try {
-      appendDebug("tables: start load");
-
-      const snap = await getDocs(collection(db, "tables"));
-      appendDebug(`tables: raw count=${snap.size}`);
-
-      const list: TableItem[] = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<TableItem, "id">),
-      }));
-
-      setTables(list);
-
-      if (list.length > 0) {
-        setCurrentTableId((prev) => prev || list[0].id);
-        appendDebug(`tables: first id=${list[0].id} title=${list[0].title ?? "(empty)"}`);
-      } else {
-        appendDebug("tables: no docs");
-      }
-    } catch (error: any) {
-      console.error("tables read error:", error);
-      appendDebug(`tables: read error ${error?.code ?? ""} ${error?.message ?? ""}`);
-    }
-  };
-
-  const createDebugTable = async () => {
-    try {
-      appendDebug(`tables: create start companyId=${companyId || "(empty)"}`);
-
-      await setDoc(doc(db, "tables", "debug-table"), {
-        title: "DEBUGタイトル",
-        labelMeta1: "DEBUG左1",
-        labelMeta2: "DEBUG左2",
-        templateType: "road",
-        companyId: companyId || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-
-      appendDebug("tables: create success");
-    } catch (error: any) {
-      console.error("debug table create error:", error);
-      appendDebug(`tables: create error ${error?.code ?? ""} ${error?.message ?? ""}`);
-    }
-  };
-
-  useEffect(() => {
-    if (!companyId) return;
-    if (autoDebugRanRef.current) return;
-
-    autoDebugRanRef.current = true;
-
-    const run = async () => {
-      appendDebug("auto debug: begin");
-      await createDebugTable();
-      await loadTables();
-      appendDebug("auto debug: end");
-    };
-
-    run();
-  }, [companyId]);
-
   const currentTable = tables.find((t) => t.id === currentTableId);
 
   const days = useMemo<DayItem[]>(() => {
@@ -477,10 +427,13 @@ export default function ReservePage() {
   }, [weekStart]);
 
   const sharedVehicles = useMemo(() => {
-    return vehicles.filter(
-      (v) => !(v.assignedUid ?? "").trim() && !(v.assignedTo ?? "").trim()
-    );
-  }, [vehicles]);
+  return vehicles.filter(
+    (v) =>
+      !(v.assignedUid ?? "").trim() &&
+      !(v.assignedTo ?? "").trim() &&
+      v.tableId === currentTableId
+  );
+}, [vehicles, currentTableId]);
 
   const nameHistory = useMemo(() => {
     return Array.from(
@@ -662,47 +615,21 @@ export default function ReservePage() {
             <div className="font-bold text-2xl tracking-wide">配車さん</div>
           </div>
 
-          <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
-            {currentTable?.title ?? "DEBUG TITLE EMPTY"}
+         <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
+  TEST 12345
+</div>
+
+          <div className="text-xs text-blue-500 px-3 py-1">
+            companyId: {companyId || "empty"}
           </div>
-
-          <div className="px-3 py-2 border-b bg-gray-50 text-xs space-y-1">
-            <div>companyId: {companyId || "empty"}</div>
-            <div>tables.length: {tables.length}</div>
-            <div>currentTableId: {currentTableId || "empty"}</div>
-            <div>currentTable.title: {currentTable?.title ?? "none"}</div>
-            <div>currentTable.labelMeta1: {currentTable?.labelMeta1 ?? "none"}</div>
-            <div>currentTable.labelMeta2: {currentTable?.labelMeta2 ?? "none"}</div>
+          <div className="text-xs text-blue-500 px-3 py-1">
+            tables.length: {tables.length}
           </div>
-
-          <div className="p-3 space-y-2 bg-white border-b">
-            <button
-              className="w-full rounded-xl border bg-red-50 py-2.5 text-sm"
-              onClick={createDebugTable}
-              type="button"
-            >
-              DEBUG: tablesに書く
-            </button>
-
-            <button
-              className="w-full rounded-xl border bg-blue-50 py-2.5 text-sm"
-              onClick={loadTables}
-              type="button"
-            >
-              DEBUG: tablesを読む
-            </button>
-
-            <button
-              className="w-full rounded-xl border bg-white py-2.5 text-sm"
-              onClick={handleLogout}
-              type="button"
-            >
-              ログアウト
-            </button>
+          <div className="text-xs text-blue-500 px-3 py-1">
+            currentTableId: {currentTableId || "empty"}
           </div>
-
-          <div className="px-3 py-2 border-b bg-black text-white text-[11px] whitespace-pre-wrap max-h-48 overflow-y-auto">
-            {debugLog.length > 0 ? debugLog.join("\n") : "debug log empty"}
+          <div className="text-xs text-red-500 px-3 py-1">
+            table: {currentTable ? JSON.stringify(currentTable) : "no table"}
           </div>
 
           <div className="p-3 space-y-3 bg-white">
@@ -717,12 +644,20 @@ export default function ReservePage() {
 
               <button
                 className="rounded-xl border bg-white py-2.5 text-sm"
-                onClick={() => setShowVehicleLog(true)}
+                onClick={handleLogout}
                 type="button"
               >
-                車両実績を見る
+                ログアウト
               </button>
             </div>
+
+            <button
+              className="w-full rounded-xl border bg-white py-3 text-sm"
+              onClick={() => setShowVehicleLog(true)}
+              type="button"
+            >
+              車両実績を見る
+            </button>
 
             <details className="rounded-xl border bg-white">
               <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium select-none flex items-center justify-between">
@@ -777,11 +712,11 @@ export default function ReservePage() {
               <thead>
                 <tr>
                   <th className="border bg-red-500 text-white px-2 py-2 w-16">
-                    {currentTable?.labelMeta1 ?? "DEBUG LEFT 1 EMPTY"}
+                    {currentTable?.labelMeta1 ?? "車検"}
                   </th>
 
                   <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
-                    {currentTable?.labelMeta2 ?? "DEBUG LEFT 2 EMPTY"}
+                    {currentTable?.labelMeta2 ?? "車種"}
                   </th>
 
                   {days.map((day) => {
