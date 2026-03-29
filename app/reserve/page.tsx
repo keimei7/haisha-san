@@ -581,7 +581,8 @@ const currentTable = tables.find((t) => t.id === currentTableId);
           </div>
 <div className="text-xs text-red-500">
   table: {currentTable ? JSON.stringify(currentTable) : "no table"}
-</div>
+</div><div className="text-xs text-blue-500">companyId: {companyId || "empty"}</div>
+<div className="text-xs text-red-500">table: {currentTable ? JSON.stringify(currentTable) : "no table"}</div>
           <div className="p-3 space-y-3 bg-white">
             <div className="grid grid-cols-2 gap-2">
               <button
