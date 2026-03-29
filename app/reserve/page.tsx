@@ -192,7 +192,40 @@ export default function ReservePage() {
   useEffect(() => {
     setMounted(true);
   }, []);
+const FULL_DEBUG = async () => {
+  try {
+    alert("START");
 
+    // ① companyId確認
+    alert("companyId: " + companyId);
+
+    // ② 書き込み
+    await setDoc(doc(db, "tables", "debug-table"), {
+      title: "🔥TESTタイトル",
+      labelMeta1: "🔥TEST左1",
+      labelMeta2: "🔥TEST左2",
+      companyId: companyId,
+      createdAt: new Date().toISOString(),
+    });
+
+    alert("WRITE OK");
+
+    // ③ 読み込み
+    const snap = await getDocs(collection(db, "tables"));
+
+    alert("READ COUNT: " + snap.size);
+
+    const data = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+
+    alert(JSON.stringify(data, null, 2));
+
+  } catch (e: any) {
+    alert("ERROR: " + (e.code || "") + " / " + (e.message || ""));
+  }
+};
   useEffect(() => {
     if (!mounted) return;
 
@@ -964,7 +997,12 @@ useEffect(() => {
                 )}
               </div>
             </div>
-
+<button
+  className="w-full rounded-xl border bg-red-100 py-3 text-sm"
+  onClick={FULL_DEBUG}
+>
+  🔥 FULL DEBUG
+</button>
             <div className="flex gap-2 pt-2">
               <button
                 className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
