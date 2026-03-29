@@ -708,13 +708,13 @@ export default function ReservePage() {
             <table className="border-collapse text-sm min-w-[760px] w-full">
               <thead>
                 <tr>
-                  <th className="border bg-red-500 text-white px-2 py-2 w-16">
-                    {currentTable?.labelMeta1 ?? "車検"}
-                  </th>
+               <th className="border bg-red-500 text-white px-2 py-2 w-16">
+  AAAA
+</th>
 
-                  <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
-                    {currentTable?.labelMeta2 ?? "車種"}
-                  </th>
+<th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
+  BBBB
+</th>
 
                   {days.map((day) => {
                     const isSunday = day.date.getDay() === 0;
