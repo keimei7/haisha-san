@@ -6,12 +6,13 @@ import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
   collection,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
@@ -35,6 +36,7 @@ type Vehicle = {
   companyId?: string;
   assignedUid?: string;
   assignedTo?: string;
+  tableId?: string;
 };
 
 type Reservation = {
@@ -47,6 +49,7 @@ type Reservation = {
   site: string;
   projectNo: string;
   companyId?: string;
+  tableId?: string;
   createdAt?: unknown;
   updatedAt?: string;
 };
@@ -63,6 +66,16 @@ type UserDoc = {
 type MemberItem = {
   uid: string;
   name: string;
+};
+type TableItem = {
+  id: string;
+  title?: string;
+  labelMeta1?: string;
+  labelMeta2?: string;
+  templateType?: string;
+  companyId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 const weekdayJa = ["月", "火", "水", "木", "金", "土", "日"];
@@ -145,6 +158,9 @@ export default function ReservePage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
+  const [tables, setTables] = useState<TableItem[]>([]);
+  const [currentTableId, setCurrentTableId] = useState("");
+
   const [showVehicleLog, setShowVehicleLog] = useState(false);
   const [logMode, setLogMode] = useState<"vehicle" | "name">("vehicle");
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
@@ -219,6 +235,33 @@ export default function ReservePage() {
     return () => unsubscribe();
   }, [mounted]);
 
+ useEffect(() => {
+  if (!companyId) return;
+
+  const fetchTables = async () => {
+    try {
+      const snap = await getDocs(
+        query(collection(db, "tables"), where("companyId", "==", companyId))
+      );
+
+      const list: TableItem[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<TableItem, "id">),
+      }));
+
+      setTables(list);
+
+      if (list.length > 0) {
+        setCurrentTableId(list[0].id);
+      }
+    } catch (error) {
+      console.error("tables read error:", error);
+    }
+  };
+
+  fetchTables();
+}, [companyId]);
+
   useEffect(() => {
     if (!companyId) return;
 
@@ -265,6 +308,7 @@ export default function ReservePage() {
             companyId?: string;
             assignedUid?: string;
             assignedTo?: string;
+            tableId?: string;
           };
 
           return {
@@ -275,6 +319,7 @@ export default function ReservePage() {
             companyId: data.companyId ?? "",
             assignedUid: data.assignedUid ?? "",
             assignedTo: data.assignedTo ?? "",
+            tableId: data.tableId ?? "",
           };
         });
 
@@ -307,6 +352,7 @@ export default function ReservePage() {
             site?: string;
             projectNo?: string;
             companyId?: string;
+            tableId?: string;
             createdAt?: unknown;
             updatedAt?: string;
           };
@@ -321,6 +367,7 @@ export default function ReservePage() {
             site: data.site ?? "",
             projectNo: data.projectNo ?? "",
             companyId: data.companyId ?? "",
+            tableId: data.tableId ?? "",
             createdAt: data.createdAt,
             updatedAt: data.updatedAt ?? "",
           };
@@ -364,6 +411,8 @@ export default function ReservePage() {
     setSiteHistory(sites);
   }, [reservations]);
 
+  const currentTable = tables.find((t) => t.id === currentTableId);
+
   const days = useMemo<DayItem[]>(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const date = addDays(weekStart, i);
@@ -377,10 +426,13 @@ export default function ReservePage() {
   }, [weekStart]);
 
   const sharedVehicles = useMemo(() => {
-    return vehicles.filter(
-      (v) => !(v.assignedUid ?? "").trim() && !(v.assignedTo ?? "").trim()
-    );
-  }, [vehicles]);
+  return vehicles.filter(
+    (v) =>
+      !(v.assignedUid ?? "").trim() &&
+      !(v.assignedTo ?? "").trim() &&
+      v.tableId === currentTableId
+  );
+}, [vehicles, currentTableId]);
 
   const nameHistory = useMemo(() => {
     return Array.from(
@@ -403,10 +455,12 @@ export default function ReservePage() {
       router.push("/mypage");
       return;
     }
-
-    const existing = reservations.find(
-      (r) => r.vehicleId === vehicleId && r.dayKey === dayKey
-    );
+const existing = reservations.find(
+  (r) =>
+    r.vehicleId === vehicleId &&
+    r.dayKey === dayKey &&
+    r.tableId === currentTableId
+);
 
     setSelectedSlot({ vehicleId, vehicleName, dayKey, dateLabel });
     setSelectedUserUid(existing?.userUid ?? uid);
@@ -448,22 +502,36 @@ export default function ReservePage() {
     try {
       setSaving(true);
 
-      await setDoc(doc(db, "reservations", reservationId), {
-        vehicleId: selectedSlot.vehicleId,
-        dayKey: selectedSlot.dayKey,
-        userUid: selectedUserUid,
-        userName: selectedUser.name,
-        companyId,
-        site: trimmedSite,
-        projectNo: trimmedProjectNo,
-        updatedAt: new Date().toISOString(),
-      });
-
+     await setDoc(doc(db, "reservations", reservationId), {
+  vehicleId: selectedSlot.vehicleId,
+  dayKey: selectedSlot.dayKey,
+  userUid: selectedUserUid,
+  userName: selectedUser.name,
+  companyId,
+  tableId: currentTableId, // ← これ追加
+  site: trimmedSite,
+  projectNo: trimmedProjectNo,
+  updatedAt: new Date().toISOString(),
+});
       closeReservationModal();
     } catch (error) {
       console.error("reservation save error:", error);
       alert("予約の保存に失敗しました");
       setSaving(false);
+    }
+  };
+
+  const saveInspection = async () => {
+    if (!inspectionEdit) return;
+
+    try {
+      await updateDoc(doc(db, "vehicles", inspectionEdit.vehicleId), {
+        inspection: inspectionEdit.value.trim(),
+      });
+      setInspectionEdit(null);
+    } catch (error) {
+      console.error("inspection update error:", error);
+      alert("車検日の保存に失敗しました");
     }
   };
 
@@ -473,8 +541,8 @@ export default function ReservePage() {
     rows.push([
       "日付",
       "曜日",
-      "車種",
-      "車検",
+      currentTable?.labelMeta2 ?? "車種",
+      currentTable?.labelMeta1 ?? "車検",
       "予約者名",
       "行先",
       "用途・案件番号",
@@ -482,10 +550,12 @@ export default function ReservePage() {
 
     for (const day of days) {
       for (const vehicle of sharedVehicles) {
-        const reservation = reservations.find(
-          (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
-        );
-
+       const reservation = reservations.find(
+  (r) =>
+    r.vehicleId === vehicle.id &&
+    r.dayKey === day.key &&
+    r.tableId === currentTableId
+);
         if (mode === "reservedOnly" && !reservation) continue;
 
         rows.push([
@@ -509,32 +579,31 @@ export default function ReservePage() {
     downloadCsv(fileName, rows);
   };
 
-  const saveInspection = async () => {
-    if (!inspectionEdit) return;
+  const filteredLogs = reservations
+  .filter((r) => {
+    if (r.tableId !== currentTableId) return false;
 
+    if (logMode === "vehicle") {
+      return selectedVehicleId ? r.vehicleId === selectedVehicleId : false;
+    }
+    if (logMode === "name") {
+      const displayName = r.userName ?? r.name ?? "";
+      return selectedName ? displayName === selectedName : false;
+    }
+    return false;
+  })
+  .sort((a, b) => (a.dayKey > b.dayKey ? 1 : -1));
+
+  const handleLogout = async () => {
     try {
-      await updateDoc(doc(db, "vehicles", inspectionEdit.vehicleId), {
-        inspection: inspectionEdit.value.trim(),
-      });
-      setInspectionEdit(null);
+      await signOut(auth);
+      localStorage.removeItem("userName");
+      router.push("/login");
     } catch (error) {
-      console.error("inspection update error:", error);
-      alert("車検日の保存に失敗しました");
+      console.error("logout error:", error);
+      alert("ログアウトに失敗しました");
     }
   };
-
-  const filteredLogs = reservations
-    .filter((r) => {
-      if (logMode === "vehicle") {
-        return selectedVehicleId ? r.vehicleId === selectedVehicleId : false;
-      }
-      if (logMode === "name") {
-        const displayName = r.userName ?? r.name ?? "";
-        return selectedName ? displayName === selectedName : false;
-      }
-      return false;
-    })
-    .sort((a, b) => (a.dayKey > b.dayKey ? 1 : -1));
 
   if (!mounted) return null;
 
@@ -550,10 +619,10 @@ export default function ReservePage() {
             />
             <div className="font-bold text-2xl tracking-wide">配車さん</div>
           </div>
-
-          <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
-            共有車予約ページ
-          </div>
+<div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
+  {currentTable?.title ?? "共有車予約ページ"}
+</div>
+          
 
           <div className="p-3 space-y-3 bg-white">
             <div className="grid grid-cols-2 gap-2">
@@ -567,10 +636,10 @@ export default function ReservePage() {
 
               <button
                 className="rounded-xl border bg-white py-2.5 text-sm"
-                onClick={() => router.push("/manage")}
+                onClick={handleLogout}
                 type="button"
               >
-                ⚙️ 管理ページ
+                ログアウト
               </button>
             </div>
 
@@ -635,12 +704,12 @@ export default function ReservePage() {
               <thead>
                 <tr>
                   <th className="border bg-red-500 text-white px-2 py-2 w-16">
-                    車検
+                    {currentTable?.labelMeta1 ?? "車検"}
                   </th>
 
                   <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
-  車種
-</th>
+                    {currentTable?.labelMeta2 ?? "車種"}
+                  </th>
 
                   {days.map((day) => {
                     const isSunday = day.date.getDay() === 0;
@@ -690,9 +759,9 @@ export default function ReservePage() {
                       </button>
                     </td>
 
-                   <td className="sticky left-0 z-10 border px-2 py-3 text-center align-middle whitespace-pre-line bg-gray-50">
-  {vehicle.name}
-</td>
+                    <td className="sticky left-0 z-10 border px-2 py-3 text-center align-middle whitespace-pre-line bg-gray-50">
+                      {vehicle.name}
+                    </td>
 
                     {days.map((day) => {
                       const isSunday = day.date.getDay() === 0;
@@ -704,9 +773,12 @@ export default function ReservePage() {
                         ? "bg-blue-50"
                         : "bg-white";
 
-                      const reservation = reservations.find(
-                        (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
-                      );
+                    const reservation = reservations.find(
+  (r) =>
+    r.vehicleId === vehicle.id &&
+    r.dayKey === day.key &&
+    r.tableId === currentTableId
+);
 
                       return (
                         <td
@@ -894,34 +966,35 @@ export default function ReservePage() {
 
             <button
               className="w-full border border-red-400 text-red-500 py-2 rounded-lg disabled:opacity-50"
-              onClick={async () => {
-                if (!selectedSlot) return;
+             onClick={async () => {
+  if (!selectedSlot) return;
 
-                const ok = window.confirm("本当に削除しますか？");
-                if (!ok) return;
+  const ok = window.confirm("本当に削除しますか？");
+  if (!ok) return;
 
-                const existing = reservations.find(
-                  (r) =>
-                    r.vehicleId === selectedSlot.vehicleId &&
-                    r.dayKey === selectedSlot.dayKey
-                );
+  const existing = reservations.find(
+    (r) =>
+      r.vehicleId === selectedSlot.vehicleId &&
+      r.dayKey === selectedSlot.dayKey &&
+      r.tableId === currentTableId
+  );
 
-                if (!existing) {
-                  closeReservationModal();
-                  return;
-                }
+  if (!existing) {
+    closeReservationModal();
+    return;
+  }
 
-                setSaving(true);
+  setSaving(true);
 
-                try {
-                  await deleteDoc(doc(db, "reservations", existing.id));
-                  closeReservationModal();
-                } catch (error) {
-                  console.error("reservation delete error:", error);
-                  alert("予約の削除に失敗しました");
-                  setSaving(false);
-                }
-              }}
+  try {
+    await deleteDoc(doc(db, "reservations", existing.id));
+    closeReservationModal();
+  } catch (error) {
+    console.error("reservation delete error:", error);
+    alert("予約の削除に失敗しました");
+    setSaving(false);
+  }
+}}
               disabled={saving}
               type="button"
             >
