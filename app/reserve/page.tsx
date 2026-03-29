@@ -225,7 +225,9 @@ const FULL_DEBUG = async () => {
   } catch (e: any) {
     alert("ERROR: " + (e.code || "") + " / " + (e.message || ""));
   }
-};
+};useEffect(() => {
+  alert("🔥 JS動いてる");
+}, []);
   useEffect(() => {
     if (!mounted) return;
 
