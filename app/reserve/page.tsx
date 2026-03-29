@@ -15,6 +15,8 @@ type AssetItem = {
   inspection: string;
   tableId: string;
   sort: number;
+
+  assignedUser?: string; // ← これ追加
 };
 
 type ReservationItem = {
@@ -172,6 +174,7 @@ function AddAssetModal({
 }: AddAssetModalProps) {
   const [name, setName] = useState("");
   const [inspection, setInspection] = useState("");
+const [assignedUser, setAssignedUser] = useState("");
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200]">
@@ -337,6 +340,8 @@ function ReservationModal({
 export default function ReservePage() {
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
+  const myAssets = assets.filter(a => a.assignedUser === "自分");
+  const sharedAssets = assets.filter(a => !a.assignedUser);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
 
   const [currentTableId, setCurrentTableId] = useState<string>("");
