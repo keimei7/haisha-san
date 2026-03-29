@@ -579,7 +579,9 @@ const currentTable = tables.find((t) => t.id === currentTableId);
           <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
             共有車予約ページ
           </div>
-
+<div className="text-xs text-red-500">
+  table: {currentTable ? JSON.stringify(currentTable) : "no table"}
+</div>
           <div className="p-3 space-y-3 bg-white">
             <div className="grid grid-cols-2 gap-2">
               <button
