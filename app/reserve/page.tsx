@@ -1,7 +1,7 @@
 "use client";
 
 export const dynamic = "force-dynamic";
-
+import { getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
 import { useRouter } from "next/navigation";
@@ -149,7 +149,8 @@ export default function ReservePage() {
   const [logMode, setLogMode] = useState<"vehicle" | "name">("vehicle");
   const [selectedVehicleId, setSelectedVehicleId] = useState("");
   const [selectedName, setSelectedName] = useState("");
-
+const [tables, setTables] = useState<any[]>([]);
+const [currentTableId, setCurrentTableId] = useState("");
   const [siteHistory, setSiteHistory] = useState<string[]>([]);
   const [showSiteSuggest, setShowSiteSuggest] = useState(false);
   const [projectHistory, setProjectHistory] = useState<string[]>([]);
@@ -179,6 +180,7 @@ export default function ReservePage() {
   useEffect(() => {
     if (!mounted) return;
 
+const currentTable = tables.find((t) => t.id === currentTableId);
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (!currentUser) {
         setUid(null);
@@ -218,7 +220,28 @@ export default function ReservePage() {
 
     return () => unsubscribe();
   }, [mounted]);
+useEffect(() => {
+  if (!companyId) return;
 
+  const fetchTables = async () => {
+    const snap = await getDocs(
+      query(collection(db, "tables"), where("companyId", "==", companyId))
+    );
+
+    const list = snap.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+    }));
+
+    setTables(list);
+
+    if (list.length > 0) {
+      setCurrentTableId(list[0].id);
+    }
+  };
+
+  fetchTables();
+}, [companyId]);
   useEffect(() => {
     if (!companyId) return;
 
@@ -363,6 +386,8 @@ export default function ReservePage() {
     setProjectHistory(projects);
     setSiteHistory(sites);
   }, [reservations]);
+
+const currentTable = tables.find((t) => t.id === currentTableId);
 
   const days = useMemo<DayItem[]>(() => {
     return Array.from({ length: 7 }, (_, i) => {
