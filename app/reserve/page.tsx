@@ -67,6 +67,7 @@ type MemberItem = {
   uid: string;
   name: string;
 };
+
 type TableItem = {
   id: string;
   title?: string;
@@ -74,6 +75,7 @@ type TableItem = {
   labelMeta2?: string;
   templateType?: string;
   companyId?: string;
+  sort?: number;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -102,8 +104,8 @@ function getMonday(date: Date) {
   return d;
 }
 
-function makeReservationId(vehicleId: string, dayKey: string) {
-  return `${vehicleId}_${dayKey}`;
+function makeReservationId(tableId: string, vehicleId: string, dayKey: string) {
+  return `${tableId}_${vehicleId}_${dayKey}`;
 }
 
 function formatCsvDate(date: Date) {
@@ -157,7 +159,6 @@ export default function ReservePage() {
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-
   const [tables, setTables] = useState<TableItem[]>([]);
   const [currentTableId, setCurrentTableId] = useState("");
 
@@ -235,32 +236,36 @@ export default function ReservePage() {
     return () => unsubscribe();
   }, [mounted]);
 
- useEffect(() => {
-  if (!companyId) return;
+  useEffect(() => {
+    if (!companyId) return;
 
-  const fetchTables = async () => {
-    try {
-      const snap = await getDocs(
-        query(collection(db, "tables"), where("companyId", "==", companyId))
-      );
+    const fetchTables = async () => {
+      try {
+        const snap = await getDocs(
+          query(
+            collection(db, "tables"),
+            where("companyId", "==", companyId),
+            orderBy("sort", "asc")
+          )
+        );
 
-      const list: TableItem[] = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<TableItem, "id">),
-      }));
+        const list: TableItem[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<TableItem, "id">),
+        }));
 
-      setTables(list);
+        setTables(list);
 
-      if (list.length > 0) {
-        setCurrentTableId(list[0].id);
+        if (list.length > 0) {
+          setCurrentTableId((prev) => prev || list[0].id);
+        }
+      } catch (error) {
+        console.error("tables read error:", error);
       }
-    } catch (error) {
-      console.error("tables read error:", error);
-    }
-  };
+    };
 
-  fetchTables();
-}, [companyId]);
+    fetchTables();
+  }, [companyId]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -327,7 +332,7 @@ export default function ReservePage() {
       },
       (error) => {
         console.error("vehicles read error:", error);
-        alert("車両データの読み込みに失敗しました");
+        alert("資産データの読み込みに失敗しました");
       }
     );
 
@@ -385,7 +390,9 @@ export default function ReservePage() {
   }, [companyId]);
 
   useEffect(() => {
-    if (!reservations.length) {
+    const scopedReservations = reservations.filter((r) => r.tableId === currentTableId);
+
+    if (!scopedReservations.length) {
       setProjectHistory([]);
       setSiteHistory([]);
       return;
@@ -393,7 +400,7 @@ export default function ReservePage() {
 
     const projects = Array.from(
       new Set(
-        reservations
+        scopedReservations
           .map((r) => r.projectNo?.trim())
           .filter((p): p is string => !!p)
       )
@@ -401,7 +408,7 @@ export default function ReservePage() {
 
     const sites = Array.from(
       new Set(
-        reservations
+        scopedReservations
           .map((r) => r.site?.trim())
           .filter((s): s is string => !!s)
       )
@@ -409,7 +416,7 @@ export default function ReservePage() {
 
     setProjectHistory(projects);
     setSiteHistory(sites);
-  }, [reservations]);
+  }, [reservations, currentTableId]);
 
   const currentTable = tables.find((t) => t.id === currentTableId);
 
@@ -425,24 +432,28 @@ export default function ReservePage() {
     });
   }, [weekStart]);
 
-  const sharedVehicles = useMemo(() => {
-  return vehicles.filter(
-    (v) =>
-      !(v.assignedUid ?? "").trim() &&
-      !(v.assignedTo ?? "").trim() &&
-      v.tableId === currentTableId
-  );
-}, [vehicles, currentTableId]);
+  const currentTableVehicles = useMemo(() => {
+    return vehicles.filter(
+      (v) =>
+        !(v.assignedUid ?? "").trim() &&
+        !(v.assignedTo ?? "").trim() &&
+        v.tableId === currentTableId
+    );
+  }, [vehicles, currentTableId]);
+
+  const currentTableReservations = useMemo(() => {
+    return reservations.filter((r) => r.tableId === currentTableId);
+  }, [reservations, currentTableId]);
 
   const nameHistory = useMemo(() => {
     return Array.from(
       new Set(
-        reservations
+        currentTableReservations
           .map((r) => (r.userName ?? r.name)?.trim())
           .filter((n): n is string => !!n)
       )
     ).sort((a, b) => a.localeCompare(b, "ja"));
-  }, [reservations]);
+  }, [currentTableReservations]);
 
   const openReservationModal = (
     vehicleId: string,
@@ -455,12 +466,10 @@ export default function ReservePage() {
       router.push("/mypage");
       return;
     }
-const existing = reservations.find(
-  (r) =>
-    r.vehicleId === vehicleId &&
-    r.dayKey === dayKey &&
-    r.tableId === currentTableId
-);
+
+    const existing = currentTableReservations.find(
+      (r) => r.vehicleId === vehicleId && r.dayKey === dayKey
+    );
 
     setSelectedSlot({ vehicleId, vehicleName, dayKey, dateLabel });
     setSelectedUserUid(existing?.userUid ?? uid);
@@ -484,6 +493,10 @@ const existing = reservations.find(
       alert("会社情報が取得できませんでした");
       return;
     }
+    if (!currentTableId) {
+      alert("テーブルが選択されていません");
+      return;
+    }
 
     const trimmedSite = formSite.trim();
     const trimmedProjectNo = formProjectNo.trim();
@@ -495,6 +508,7 @@ const existing = reservations.find(
     }
 
     const reservationId = makeReservationId(
+      currentTableId,
       selectedSlot.vehicleId,
       selectedSlot.dayKey
     );
@@ -502,17 +516,18 @@ const existing = reservations.find(
     try {
       setSaving(true);
 
-     await setDoc(doc(db, "reservations", reservationId), {
-  vehicleId: selectedSlot.vehicleId,
-  dayKey: selectedSlot.dayKey,
-  userUid: selectedUserUid,
-  userName: selectedUser.name,
-  companyId,
-  tableId: currentTableId, // ← これ追加
-  site: trimmedSite,
-  projectNo: trimmedProjectNo,
-  updatedAt: new Date().toISOString(),
-});
+      await setDoc(doc(db, "reservations", reservationId), {
+        vehicleId: selectedSlot.vehicleId,
+        dayKey: selectedSlot.dayKey,
+        userUid: selectedUserUid,
+        userName: selectedUser.name,
+        companyId,
+        tableId: currentTableId,
+        site: trimmedSite,
+        projectNo: trimmedProjectNo,
+        updatedAt: new Date().toISOString(),
+      });
+
       closeReservationModal();
     } catch (error) {
       console.error("reservation save error:", error);
@@ -531,7 +546,7 @@ const existing = reservations.find(
       setInspectionEdit(null);
     } catch (error) {
       console.error("inspection update error:", error);
-      alert("車検日の保存に失敗しました");
+      alert("点検日の保存に失敗しました");
     }
   };
 
@@ -541,21 +556,19 @@ const existing = reservations.find(
     rows.push([
       "日付",
       "曜日",
-      currentTable?.labelMeta2 ?? "車種",
-      currentTable?.labelMeta1 ?? "車検",
+      currentTable?.labelMeta2 ?? "資産",
+      currentTable?.labelMeta1 ?? "点検",
       "予約者名",
-      "行先",
-      "用途・案件番号",
+      "持ち出し先",
+      "用途・備考",
     ]);
 
     for (const day of days) {
-      for (const vehicle of sharedVehicles) {
-       const reservation = reservations.find(
-  (r) =>
-    r.vehicleId === vehicle.id &&
-    r.dayKey === day.key &&
-    r.tableId === currentTableId
-);
+      for (const vehicle of currentTableVehicles) {
+        const reservation = currentTableReservations.find(
+          (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
+        );
+
         if (mode === "reservedOnly" && !reservation) continue;
 
         rows.push([
@@ -571,28 +584,27 @@ const existing = reservations.find(
     }
 
     const weekLabel = formatCsvDate(weekStart).replace(/\//g, "-");
+    const tableLabel = (currentTable?.title ?? "assettable").replace(/[\\/:*?"<>|]/g, "_");
     const fileName =
       mode === "all"
-        ? `配車さん_${weekLabel}_週_全件.csv`
-        : `配車さん_${weekLabel}_週_予約ありのみ.csv`;
+        ? `${tableLabel}_${weekLabel}_週_全件.csv`
+        : `${tableLabel}_${weekLabel}_週_予約ありのみ.csv`;
 
     downloadCsv(fileName, rows);
   };
 
-  const filteredLogs = reservations
-  .filter((r) => {
-    if (r.tableId !== currentTableId) return false;
-
-    if (logMode === "vehicle") {
-      return selectedVehicleId ? r.vehicleId === selectedVehicleId : false;
-    }
-    if (logMode === "name") {
-      const displayName = r.userName ?? r.name ?? "";
-      return selectedName ? displayName === selectedName : false;
-    }
-    return false;
-  })
-  .sort((a, b) => (a.dayKey > b.dayKey ? 1 : -1));
+  const filteredLogs = currentTableReservations
+    .filter((r) => {
+      if (logMode === "vehicle") {
+        return selectedVehicleId ? r.vehicleId === selectedVehicleId : false;
+      }
+      if (logMode === "name") {
+        const displayName = r.userName ?? r.name ?? "";
+        return selectedName ? displayName === selectedName : false;
+      }
+      return false;
+    })
+    .sort((a, b) => (a.dayKey > b.dayKey ? 1 : -1));
 
   const handleLogout = async () => {
     try {
@@ -619,12 +631,34 @@ const existing = reservations.find(
             />
             <div className="font-bold text-2xl tracking-wide">配車さん</div>
           </div>
-<div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
-  {currentTable?.title ?? "共有車予約ページ"}
-</div>
-          
+
+          <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
+            {currentTable?.title ?? "AssetTable"}
+          </div>
 
           <div className="p-3 space-y-3 bg-white">
+            {tables.length > 1 && (
+              <div className="overflow-x-auto">
+                <div className="flex gap-2 min-w-max">
+                  {tables.map((table) => {
+                    const active = table.id === currentTableId;
+                    return (
+                      <button
+                        key={table.id}
+                        className={`rounded-full border px-3 py-1.5 text-sm ${
+                          active ? "bg-black text-white" : "bg-white text-black"
+                        }`}
+                        onClick={() => setCurrentTableId(table.id)}
+                        type="button"
+                      >
+                        {table.title ?? "無題"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2">
               <button
                 className="rounded-xl border bg-white py-2.5 text-sm"
@@ -648,7 +682,7 @@ const existing = reservations.find(
               onClick={() => setShowVehicleLog(true)}
               type="button"
             >
-              車両実績を見る
+              資産実績を見る
             </button>
 
             <details className="rounded-xl border bg-white">
@@ -704,11 +738,11 @@ const existing = reservations.find(
               <thead>
                 <tr>
                   <th className="border bg-red-500 text-white px-2 py-2 w-16">
-                    {currentTable?.labelMeta1 ?? "車検"}
+                    {currentTable?.labelMeta1 ?? "点検"}
                   </th>
 
                   <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
-                    {currentTable?.labelMeta2 ?? "車種"}
+                    {currentTable?.labelMeta2 ?? "資産"}
                   </th>
 
                   {days.map((day) => {
@@ -741,7 +775,7 @@ const existing = reservations.find(
               </thead>
 
               <tbody>
-                {sharedVehicles.map((vehicle) => (
+                {currentTableVehicles.map((vehicle) => (
                   <tr key={vehicle.id}>
                     <td className="border px-2 py-3 text-center align-middle whitespace-nowrap bg-white">
                       <button
@@ -773,12 +807,9 @@ const existing = reservations.find(
                         ? "bg-blue-50"
                         : "bg-white";
 
-                    const reservation = reservations.find(
-  (r) =>
-    r.vehicleId === vehicle.id &&
-    r.dayKey === day.key &&
-    r.tableId === currentTableId
-);
+                      const reservation = currentTableReservations.find(
+                        (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
+                      );
 
                       return (
                         <td
@@ -830,7 +861,7 @@ const existing = reservations.find(
         </div>
 
         <p className="mt-3 text-xs text-gray-500">
-          sharedVehicles件数: {sharedVehicles.length} / reservations件数: {reservations.length}
+          資産件数: {currentTableVehicles.length} / 予約件数: {currentTableReservations.length}
         </p>
       </div>
 
@@ -874,7 +905,7 @@ const existing = reservations.find(
               </div>
 
               <div className="relative">
-                <label className="text-sm text-gray-600">行先</label>
+                <label className="text-sm text-gray-600">持ち出し先</label>
                 <input
                   type="text"
                   value={formSite}
@@ -885,7 +916,7 @@ const existing = reservations.find(
                   onFocus={() => setShowSiteSuggest(true)}
                   onBlur={() => setTimeout(() => setShowSiteSuggest(false), 200)}
                   className="w-full border rounded-lg px-3 py-2"
-                  placeholder="例：現場"
+                  placeholder="例：現場 / 倉庫 / 事務所"
                 />
 
                 {showSiteSuggest && siteHistory.length > 0 && (
@@ -920,7 +951,7 @@ const existing = reservations.find(
                   onFocus={() => setShowProjectSuggest(true)}
                   onBlur={() => setTimeout(() => setShowProjectSuggest(false), 200)}
                   className="w-full border rounded-lg px-3 py-2"
-                  placeholder="分かる場合のみ入力"
+                  placeholder="用途や備考を入力"
                 />
 
                 {showProjectSuggest && projectHistory.length > 0 && (
@@ -966,35 +997,34 @@ const existing = reservations.find(
 
             <button
               className="w-full border border-red-400 text-red-500 py-2 rounded-lg disabled:opacity-50"
-             onClick={async () => {
-  if (!selectedSlot) return;
+              onClick={async () => {
+                if (!selectedSlot) return;
 
-  const ok = window.confirm("本当に削除しますか？");
-  if (!ok) return;
+                const ok = window.confirm("本当に削除しますか？");
+                if (!ok) return;
 
-  const existing = reservations.find(
-    (r) =>
-      r.vehicleId === selectedSlot.vehicleId &&
-      r.dayKey === selectedSlot.dayKey &&
-      r.tableId === currentTableId
-  );
+                const existing = currentTableReservations.find(
+                  (r) =>
+                    r.vehicleId === selectedSlot.vehicleId &&
+                    r.dayKey === selectedSlot.dayKey
+                );
 
-  if (!existing) {
-    closeReservationModal();
-    return;
-  }
+                if (!existing) {
+                  closeReservationModal();
+                  return;
+                }
 
-  setSaving(true);
+                setSaving(true);
 
-  try {
-    await deleteDoc(doc(db, "reservations", existing.id));
-    closeReservationModal();
-  } catch (error) {
-    console.error("reservation delete error:", error);
-    alert("予約の削除に失敗しました");
-    setSaving(false);
-  }
-}}
+                try {
+                  await deleteDoc(doc(db, "reservations", existing.id));
+                  closeReservationModal();
+                } catch (error) {
+                  console.error("reservation delete error:", error);
+                  alert("予約の削除に失敗しました");
+                  setSaving(false);
+                }
+              }}
               disabled={saving}
               type="button"
             >
@@ -1008,12 +1038,16 @@ const existing = reservations.find(
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-[200]">
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl space-y-3">
             <div>
-              <h2 className="text-lg font-bold">車検日変更</h2>
+              <h2 className="text-lg font-bold">
+                {currentTable?.labelMeta1 ?? "点検日"}変更
+              </h2>
               <p className="text-sm text-gray-500">{inspectionEdit.vehicleName}</p>
             </div>
 
             <label className="block">
-              <div className="mb-1 text-sm font-medium">車検日</div>
+              <div className="mb-1 text-sm font-medium">
+                {currentTable?.labelMeta1 ?? "点検日"}
+              </div>
               <input
                 className="w-full rounded-lg border px-3 py-2"
                 value={inspectionEdit.value}
@@ -1023,7 +1057,7 @@ const existing = reservations.find(
                     value: e.target.value,
                   })
                 }
-                placeholder="例：3/18 または 済"
+                placeholder="例：2026/08"
               />
             </label>
 
@@ -1052,7 +1086,7 @@ const existing = reservations.find(
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
           <div className="bg-white rounded-xl w-full max-w-md p-4 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-bold">車両実績</h2>
+              <h2 className="text-lg font-bold">資産実績</h2>
               <button onClick={() => setShowVehicleLog(false)} type="button">
                 ×
               </button>
@@ -1070,7 +1104,7 @@ const existing = reservations.find(
                 }`}
                 type="button"
               >
-                車両
+                資産
               </button>
 
               <button
@@ -1094,8 +1128,8 @@ const existing = reservations.find(
                 onChange={(e) => setSelectedVehicleId(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2"
               >
-                <option value="">車両を選択</option>
-                {sharedVehicles.map((v) => (
+                <option value="">資産を選択</option>
+                {currentTableVehicles.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
                   </option>
@@ -1121,7 +1155,7 @@ const existing = reservations.find(
             <div className="space-y-2">
               {filteredLogs.map((r) => {
                 const vehicleName =
-                  vehicles.find((v) => v.id === r.vehicleId)?.name ?? "";
+                  currentTableVehicles.find((v) => v.id === r.vehicleId)?.name ?? "";
 
                 return (
                   <div key={r.id} className="border rounded-lg p-2 text-sm">
