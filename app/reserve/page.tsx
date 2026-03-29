@@ -286,7 +286,28 @@ export default function ReservePage() {
 
     return () => unsubscribe();
   }, [companyId, uid, selectedUserUid]);
+useEffect(() => {
+  if (!companyId) return;
 
+  const seedTable = async () => {
+    try {
+      await setDoc(doc(collection(db, "tables"), "debug-table"), {
+        title: "TESTタイトル",
+        labelMeta1: "TEST左1",
+        labelMeta2: "TEST左2",
+        templateType: "road",
+        companyId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+      console.log("debug table created");
+    } catch (error) {
+      console.error("debug table create error:", error);
+    }
+  };
+
+  seedTable();
+}, [companyId]);
   useEffect(() => {
     if (!companyId) return;
 
