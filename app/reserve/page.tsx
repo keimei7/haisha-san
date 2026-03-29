@@ -33,12 +33,14 @@ type DayItem = {
   date: Date;
 };
 
-type SelectedSlot = {
+type ReservationSlot = {
   assetId: string;
   assetName: string;
   dayKey: string;
   dateLabel: string;
-} | null;
+};
+
+type SelectedSlot = ReservationSlot | null;
 
 type CreateTableModalProps = {
   onClose: () => void;
@@ -52,7 +54,7 @@ type AddAssetModalProps = {
 };
 
 type ReservationModalProps = {
-  slot: SelectedSlot;
+  slot: ReservationSlot;
   existing?: ReservationItem;
   onClose: () => void;
   onSave: (payload: {
@@ -229,7 +231,6 @@ function AddAssetModal({
     </div>
   );
 }
-
 function ReservationModal({
   slot,
   existing,
@@ -237,10 +238,11 @@ function ReservationModal({
   onSave,
   onDelete,
 }: ReservationModalProps) {
+  if (!slot) return null;
+
   const [userName, setUserName] = useState(existing?.userName ?? "");
   const [site, setSite] = useState(existing?.site ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
-
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
       <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl">
