@@ -34,9 +34,9 @@ type Vehicle = {
   inspection: string;
   sort: number;
   companyId?: string;
+  assetType?: string;
   assignedUid?: string;
   assignedTo?: string;
-  tableId?: string;
 };
 
 type Reservation = {
@@ -49,7 +49,6 @@ type Reservation = {
   site: string;
   projectNo: string;
   companyId?: string;
-  tableId?: string;
   createdAt?: unknown;
   updatedAt?: string;
 };
@@ -75,6 +74,8 @@ type TableItem = {
   labelMeta2?: string;
   templateType?: string;
   companyId?: string;
+  assetType?: string;
+  assignmentMode?: "shared" | "assigned";
   sort?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -104,8 +105,8 @@ function getMonday(date: Date) {
   return d;
 }
 
-function makeReservationId(tableId: string, vehicleId: string, dayKey: string) {
-  return `${tableId}_${vehicleId}_${dayKey}`;
+function makeReservationId(vehicleId: string, dayKey: string) {
+  return `${vehicleId}_${dayKey}`;
 }
 
 function formatCsvDate(date: Date) {
@@ -175,8 +176,8 @@ export default function ReservePage() {
   const [selectedSlot, setSelectedSlot] = useState<{
     vehicleId: string;
     vehicleName: string;
-    dayKey: string;
     dateLabel: string;
+    dayKey: string;
   } | null>(null);
 
   const [inspectionEdit, setInspectionEdit] = useState<{
@@ -311,9 +312,9 @@ export default function ReservePage() {
             name?: string;
             sort?: number;
             companyId?: string;
+            assetType?: string;
             assignedUid?: string;
             assignedTo?: string;
-            tableId?: string;
           };
 
           return {
@@ -322,9 +323,9 @@ export default function ReservePage() {
             name: data.name ?? "",
             sort: data.sort ?? 0,
             companyId: data.companyId ?? "",
+            assetType: data.assetType ?? "vehicle",
             assignedUid: data.assignedUid ?? "",
             assignedTo: data.assignedTo ?? "",
-            tableId: data.tableId ?? "",
           };
         });
 
@@ -332,7 +333,7 @@ export default function ReservePage() {
       },
       (error) => {
         console.error("vehicles read error:", error);
-        alert("資産データの読み込みに失敗しました");
+        alert("車両データの読み込みに失敗しました");
       }
     );
 
@@ -357,7 +358,6 @@ export default function ReservePage() {
             site?: string;
             projectNo?: string;
             companyId?: string;
-            tableId?: string;
             createdAt?: unknown;
             updatedAt?: string;
           };
@@ -372,7 +372,6 @@ export default function ReservePage() {
             site: data.site ?? "",
             projectNo: data.projectNo ?? "",
             companyId: data.companyId ?? "",
-            tableId: data.tableId ?? "",
             createdAt: data.createdAt,
             updatedAt: data.updatedAt ?? "",
           };
@@ -389,35 +388,6 @@ export default function ReservePage() {
     return () => unsubscribe();
   }, [companyId]);
 
-  useEffect(() => {
-    const scopedReservations = reservations.filter((r) => r.tableId === currentTableId);
-
-    if (!scopedReservations.length) {
-      setProjectHistory([]);
-      setSiteHistory([]);
-      return;
-    }
-
-    const projects = Array.from(
-      new Set(
-        scopedReservations
-          .map((r) => r.projectNo?.trim())
-          .filter((p): p is string => !!p)
-      )
-    );
-
-    const sites = Array.from(
-      new Set(
-        scopedReservations
-          .map((r) => r.site?.trim())
-          .filter((s): s is string => !!s)
-      )
-    );
-
-    setProjectHistory(projects);
-    setSiteHistory(sites);
-  }, [reservations, currentTableId]);
-
   const currentTable = tables.find((t) => t.id === currentTableId);
 
   const days = useMemo<DayItem[]>(() => {
@@ -433,17 +403,52 @@ export default function ReservePage() {
   }, [weekStart]);
 
   const currentTableVehicles = useMemo(() => {
-    return vehicles.filter(
-      (v) =>
-        !(v.assignedUid ?? "").trim() &&
-        !(v.assignedTo ?? "").trim() &&
-        v.tableId === currentTableId
-    );
-  }, [vehicles, currentTableId]);
+    if (!currentTable) return [];
+
+    return vehicles.filter((v) => {
+      if ((v.assetType ?? "vehicle") !== (currentTable.assetType ?? "vehicle")) {
+        return false;
+      }
+
+      if (currentTable.assignmentMode === "assigned") {
+        return v.assignedUid === uid;
+      }
+
+      return !(v.assignedUid ?? "").trim() && !(v.assignedTo ?? "").trim();
+    });
+  }, [vehicles, currentTable, uid]);
 
   const currentTableReservations = useMemo(() => {
-    return reservations.filter((r) => r.tableId === currentTableId);
-  }, [reservations, currentTableId]);
+    const vehicleIds = new Set(currentTableVehicles.map((v) => v.id));
+    return reservations.filter((r) => vehicleIds.has(r.vehicleId));
+  }, [reservations, currentTableVehicles]);
+
+  useEffect(() => {
+    if (!currentTableReservations.length) {
+      setProjectHistory([]);
+      setSiteHistory([]);
+      return;
+    }
+
+    const projects = Array.from(
+      new Set(
+        currentTableReservations
+          .map((r) => r.projectNo?.trim())
+          .filter((p): p is string => !!p)
+      )
+    );
+
+    const sites = Array.from(
+      new Set(
+        currentTableReservations
+          .map((r) => r.site?.trim())
+          .filter((s): s is string => !!s)
+      )
+    );
+
+    setProjectHistory(projects);
+    setSiteHistory(sites);
+  }, [currentTableReservations]);
 
   const nameHistory = useMemo(() => {
     return Array.from(
@@ -493,10 +498,6 @@ export default function ReservePage() {
       alert("会社情報が取得できませんでした");
       return;
     }
-    if (!currentTableId) {
-      alert("テーブルが選択されていません");
-      return;
-    }
 
     const trimmedSite = formSite.trim();
     const trimmedProjectNo = formProjectNo.trim();
@@ -508,7 +509,6 @@ export default function ReservePage() {
     }
 
     const reservationId = makeReservationId(
-      currentTableId,
       selectedSlot.vehicleId,
       selectedSlot.dayKey
     );
@@ -522,7 +522,6 @@ export default function ReservePage() {
         userUid: selectedUserUid,
         userName: selectedUser.name,
         companyId,
-        tableId: currentTableId,
         site: trimmedSite,
         projectNo: trimmedProjectNo,
         updatedAt: new Date().toISOString(),
@@ -546,7 +545,7 @@ export default function ReservePage() {
       setInspectionEdit(null);
     } catch (error) {
       console.error("inspection update error:", error);
-      alert("点検日の保存に失敗しました");
+      alert("点検情報の保存に失敗しました");
     }
   };
 
@@ -556,8 +555,8 @@ export default function ReservePage() {
     rows.push([
       "日付",
       "曜日",
-      currentTable?.labelMeta2 ?? "資産",
-      currentTable?.labelMeta1 ?? "点検",
+      currentTable?.labelMeta2 ?? "車種",
+      currentTable?.labelMeta1 ?? "車検",
       "予約者名",
       "持ち出し先",
       "用途・備考",
@@ -738,11 +737,11 @@ export default function ReservePage() {
               <thead>
                 <tr>
                   <th className="border bg-red-500 text-white px-2 py-2 w-16">
-                    {currentTable?.labelMeta1 ?? "点検"}
+                    {currentTable?.labelMeta1 ?? "車検"}
                   </th>
 
                   <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
-                    {currentTable?.labelMeta2 ?? "資産"}
+                    {currentTable?.labelMeta2 ?? "車種"}
                   </th>
 
                   {days.map((day) => {
@@ -1039,14 +1038,14 @@ export default function ReservePage() {
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl space-y-3">
             <div>
               <h2 className="text-lg font-bold">
-                {currentTable?.labelMeta1 ?? "点検日"}変更
+                {currentTable?.labelMeta1 ?? "車検日"}変更
               </h2>
               <p className="text-sm text-gray-500">{inspectionEdit.vehicleName}</p>
             </div>
 
             <label className="block">
               <div className="mb-1 text-sm font-medium">
-                {currentTable?.labelMeta1 ?? "点検日"}
+                {currentTable?.labelMeta1 ?? "車検日"}
               </div>
               <input
                 className="w-full rounded-lg border px-3 py-2"
