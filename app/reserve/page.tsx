@@ -241,9 +241,7 @@ export default function ReservePage() {
 
     const fetchTables = async () => {
       try {
-        const snap = await getDocs(
-          query(collection(db, "tables"), where("companyId", "==", companyId))
-        );
+       const snap = await getDocs(collection(db, "tables"));
 
         const list: TableItem[] = snap.docs.map((d) => ({
           id: d.id,
