@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 import { db } from "@/lib/firebase";
 import { auth } from "@/lib/firebase-client";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
   collection,
@@ -189,45 +189,18 @@ export default function ReservePage() {
   const [formProjectNo, setFormProjectNo] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const autoDebugRanRef = useRef(false);
+
+  const appendDebug = (message: string) => {
+    console.log("[reserve debug]", message);
+    setDebugLog((prev) => [...prev, message]);
+  };
+
   useEffect(() => {
     setMounted(true);
   }, []);
-const FULL_DEBUG = async () => {
-  try {
-    alert("START");
 
-    // ① companyId確認
-    alert("companyId: " + companyId);
-
-    // ② 書き込み
-    await setDoc(doc(db, "tables", "debug-table"), {
-      title: "🔥TESTタイトル",
-      labelMeta1: "🔥TEST左1",
-      labelMeta2: "🔥TEST左2",
-      companyId: companyId,
-      createdAt: new Date().toISOString(),
-    });
-
-    alert("WRITE OK");
-
-    // ③ 読み込み
-    const snap = await getDocs(collection(db, "tables"));
-
-    alert("READ COUNT: " + snap.size);
-
-    const data = snap.docs.map((d) => ({
-      id: d.id,
-      ...d.data(),
-    }));
-
-    alert(JSON.stringify(data, null, 2));
-
-  } catch (e: any) {
-    alert("ERROR: " + (e.code || "") + " / " + (e.message || ""));
-  }
-};useEffect(() => {
-  alert("🔥 JS動いてる");
-}, []);
   useEffect(() => {
     if (!mounted) return;
 
@@ -237,10 +210,12 @@ const FULL_DEBUG = async () => {
         setUserName("");
         setCompanyId("");
         setUserRole("");
+        appendDebug("auth: no user");
         return;
       }
 
       setUid(currentUser.uid);
+      appendDebug(`auth: uid=${currentUser.uid}`);
 
       try {
         const userSnap = await getDoc(doc(db, "users", currentUser.uid));
@@ -248,6 +223,7 @@ const FULL_DEBUG = async () => {
           setUserName("");
           setCompanyId("");
           setUserRole("");
+          appendDebug("users doc: not found");
           return;
         }
 
@@ -260,41 +236,21 @@ const FULL_DEBUG = async () => {
         setCompanyId(resolvedCompanyId);
         setUserRole(resolvedRole);
         setSelectedUserUid(currentUser.uid);
+
+        appendDebug(
+          `users doc: name=${resolvedName || "(empty)"} companyId=${resolvedCompanyId || "(empty)"} role=${resolvedRole || "(empty)"}`
+        );
       } catch (error) {
         console.error("user read error:", error);
         setUserName("");
         setCompanyId("");
         setUserRole("");
+        appendDebug("users doc: read error");
       }
     });
 
     return () => unsubscribe();
   }, [mounted]);
-
-  useEffect(() => {
-    if (!companyId) return;
-
-    const fetchTables = async () => {
-      try {
-       const snap = await getDocs(collection(db, "tables"));
-
-        const list: TableItem[] = snap.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<TableItem, "id">),
-        }));
-
-        setTables(list);
-
-        if (list.length > 0) {
-          setCurrentTableId((prev) => prev || list[0].id);
-        }
-      } catch (error) {
-        console.error("tables read error:", error);
-      }
-    };
-
-    fetchTables();
-  }, [companyId]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -321,28 +277,7 @@ const FULL_DEBUG = async () => {
 
     return () => unsubscribe();
   }, [companyId, uid, selectedUserUid]);
-useEffect(() => {
-  if (!companyId) return;
 
-  const seedTable = async () => {
-    try {
-      await setDoc(doc(collection(db, "tables"), "debug-table"), {
-        title: "TESTタイトル",
-        labelMeta1: "TEST左1",
-        labelMeta2: "TEST左2",
-        templateType: "road",
-        companyId,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      console.log("debug table created");
-    } catch (error) {
-      console.error("debug table create error:", error);
-    }
-  };
-
-  seedTable();
-}, [companyId]);
   useEffect(() => {
     if (!companyId) return;
 
@@ -382,7 +317,6 @@ useEffect(() => {
       },
       (error) => {
         console.error("vehicles read error:", error);
-        alert("車両データの読み込みに失敗しました");
       }
     );
 
@@ -432,7 +366,6 @@ useEffect(() => {
       },
       (error) => {
         console.error("reservations read error:", error);
-        alert("予約データの読み込みに失敗しました");
       }
     );
 
@@ -465,6 +398,69 @@ useEffect(() => {
     setProjectHistory(projects);
     setSiteHistory(sites);
   }, [reservations]);
+
+  const loadTables = async () => {
+    try {
+      appendDebug("tables: start load");
+
+      const snap = await getDocs(collection(db, "tables"));
+      appendDebug(`tables: raw count=${snap.size}`);
+
+      const list: TableItem[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<TableItem, "id">),
+      }));
+
+      setTables(list);
+
+      if (list.length > 0) {
+        setCurrentTableId((prev) => prev || list[0].id);
+        appendDebug(`tables: first id=${list[0].id} title=${list[0].title ?? "(empty)"}`);
+      } else {
+        appendDebug("tables: no docs");
+      }
+    } catch (error: any) {
+      console.error("tables read error:", error);
+      appendDebug(`tables: read error ${error?.code ?? ""} ${error?.message ?? ""}`);
+    }
+  };
+
+  const createDebugTable = async () => {
+    try {
+      appendDebug(`tables: create start companyId=${companyId || "(empty)"}`);
+
+      await setDoc(doc(db, "tables", "debug-table"), {
+        title: "DEBUGタイトル",
+        labelMeta1: "DEBUG左1",
+        labelMeta2: "DEBUG左2",
+        templateType: "road",
+        companyId: companyId || "",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+
+      appendDebug("tables: create success");
+    } catch (error: any) {
+      console.error("debug table create error:", error);
+      appendDebug(`tables: create error ${error?.code ?? ""} ${error?.message ?? ""}`);
+    }
+  };
+
+  useEffect(() => {
+    if (!companyId) return;
+    if (autoDebugRanRef.current) return;
+
+    autoDebugRanRef.current = true;
+
+    const run = async () => {
+      appendDebug("auto debug: begin");
+      await createDebugTable();
+      await loadTables();
+      appendDebug("auto debug: end");
+    };
+
+    run();
+  }, [companyId]);
 
   const currentTable = tables.find((t) => t.id === currentTableId);
 
@@ -666,21 +662,47 @@ useEffect(() => {
             <div className="font-bold text-2xl tracking-wide">配車さん</div>
           </div>
 
-         <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
-  TEST 12345
-</div>
+          <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
+            {currentTable?.title ?? "DEBUG TITLE EMPTY"}
+          </div>
 
-          <div className="text-xs text-blue-500 px-3 py-1">
-            companyId: {companyId || "empty"}
+          <div className="px-3 py-2 border-b bg-gray-50 text-xs space-y-1">
+            <div>companyId: {companyId || "empty"}</div>
+            <div>tables.length: {tables.length}</div>
+            <div>currentTableId: {currentTableId || "empty"}</div>
+            <div>currentTable.title: {currentTable?.title ?? "none"}</div>
+            <div>currentTable.labelMeta1: {currentTable?.labelMeta1 ?? "none"}</div>
+            <div>currentTable.labelMeta2: {currentTable?.labelMeta2 ?? "none"}</div>
           </div>
-          <div className="text-xs text-blue-500 px-3 py-1">
-            tables.length: {tables.length}
+
+          <div className="p-3 space-y-2 bg-white border-b">
+            <button
+              className="w-full rounded-xl border bg-red-50 py-2.5 text-sm"
+              onClick={createDebugTable}
+              type="button"
+            >
+              DEBUG: tablesに書く
+            </button>
+
+            <button
+              className="w-full rounded-xl border bg-blue-50 py-2.5 text-sm"
+              onClick={loadTables}
+              type="button"
+            >
+              DEBUG: tablesを読む
+            </button>
+
+            <button
+              className="w-full rounded-xl border bg-white py-2.5 text-sm"
+              onClick={handleLogout}
+              type="button"
+            >
+              ログアウト
+            </button>
           </div>
-          <div className="text-xs text-blue-500 px-3 py-1">
-            currentTableId: {currentTableId || "empty"}
-          </div>
-          <div className="text-xs text-red-500 px-3 py-1">
-            table: {currentTable ? JSON.stringify(currentTable) : "no table"}
+
+          <div className="px-3 py-2 border-b bg-black text-white text-[11px] whitespace-pre-wrap max-h-48 overflow-y-auto">
+            {debugLog.length > 0 ? debugLog.join("\n") : "debug log empty"}
           </div>
 
           <div className="p-3 space-y-3 bg-white">
@@ -695,20 +717,12 @@ useEffect(() => {
 
               <button
                 className="rounded-xl border bg-white py-2.5 text-sm"
-                onClick={handleLogout}
+                onClick={() => setShowVehicleLog(true)}
                 type="button"
               >
-                ログアウト
+                車両実績を見る
               </button>
             </div>
-
-            <button
-              className="w-full rounded-xl border bg-white py-3 text-sm"
-              onClick={() => setShowVehicleLog(true)}
-              type="button"
-            >
-              車両実績を見る
-            </button>
 
             <details className="rounded-xl border bg-white">
               <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium select-none flex items-center justify-between">
@@ -762,13 +776,13 @@ useEffect(() => {
             <table className="border-collapse text-sm min-w-[760px] w-full">
               <thead>
                 <tr>
-               <th className="border bg-red-500 text-white px-2 py-2 w-16">
-  AAAA
-</th>
+                  <th className="border bg-red-500 text-white px-2 py-2 w-16">
+                    {currentTable?.labelMeta1 ?? "DEBUG LEFT 1 EMPTY"}
+                  </th>
 
-<th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
-  BBBB
-</th>
+                  <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
+                    {currentTable?.labelMeta2 ?? "DEBUG LEFT 2 EMPTY"}
+                  </th>
 
                   {days.map((day) => {
                     const isSunday = day.date.getDay() === 0;
@@ -999,12 +1013,7 @@ useEffect(() => {
                 )}
               </div>
             </div>
-<button
-  className="w-full rounded-xl border bg-red-100 py-3 text-sm"
-  onClick={FULL_DEBUG}
->
-  🔥 FULL DEBUG
-</button>
+
             <div className="flex gap-2 pt-2">
               <button
                 className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
