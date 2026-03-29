@@ -75,6 +75,7 @@ type TableItem = {
   labelMeta2?: string;
   templateType?: string;
   companyId?: string;
+  sort?: number;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -103,8 +104,8 @@ function getMonday(date: Date) {
   return d;
 }
 
-function makeReservationId(vehicleId: string, dayKey: string) {
-  return `${vehicleId}_${dayKey}`;
+function makeReservationId(tableId: string, vehicleId: string, dayKey: string) {
+  return `${tableId}_${vehicleId}_${dayKey}`;
 }
 
 function formatCsvDate(date: Date) {
@@ -158,7 +159,6 @@ export default function ReservePage() {
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-
   const [tables, setTables] = useState<TableItem[]>([]);
   const [currentTableId, setCurrentTableId] = useState("");
 
@@ -242,7 +242,11 @@ export default function ReservePage() {
     const fetchTables = async () => {
       try {
         const snap = await getDocs(
-          query(collection(db, "tables"), where("companyId", "==", companyId))
+          query(
+            collection(db, "tables"),
+            where("companyId", "==", companyId),
+            orderBy("sort", "asc")
+          )
         );
 
         const list: TableItem[] = snap.docs.map((d) => ({
@@ -328,7 +332,7 @@ export default function ReservePage() {
       },
       (error) => {
         console.error("vehicles read error:", error);
-        alert("車両データの読み込みに失敗しました");
+        alert("資産データの読み込みに失敗しました");
       }
     );
 
@@ -386,7 +390,9 @@ export default function ReservePage() {
   }, [companyId]);
 
   useEffect(() => {
-    if (!reservations.length) {
+    const scopedReservations = reservations.filter((r) => r.tableId === currentTableId);
+
+    if (!scopedReservations.length) {
       setProjectHistory([]);
       setSiteHistory([]);
       return;
@@ -394,7 +400,7 @@ export default function ReservePage() {
 
     const projects = Array.from(
       new Set(
-        reservations
+        scopedReservations
           .map((r) => r.projectNo?.trim())
           .filter((p): p is string => !!p)
       )
@@ -402,7 +408,7 @@ export default function ReservePage() {
 
     const sites = Array.from(
       new Set(
-        reservations
+        scopedReservations
           .map((r) => r.site?.trim())
           .filter((s): s is string => !!s)
       )
@@ -410,7 +416,7 @@ export default function ReservePage() {
 
     setProjectHistory(projects);
     setSiteHistory(sites);
-  }, [reservations]);
+  }, [reservations, currentTableId]);
 
   const currentTable = tables.find((t) => t.id === currentTableId);
 
@@ -426,24 +432,28 @@ export default function ReservePage() {
     });
   }, [weekStart]);
 
-  const sharedVehicles = useMemo(() => {
-  return vehicles.filter(
-    (v) =>
-      !(v.assignedUid ?? "").trim() &&
-      !(v.assignedTo ?? "").trim() &&
-      v.tableId === currentTableId
-  );
-}, [vehicles, currentTableId]);
+  const currentTableVehicles = useMemo(() => {
+    return vehicles.filter(
+      (v) =>
+        !(v.assignedUid ?? "").trim() &&
+        !(v.assignedTo ?? "").trim() &&
+        v.tableId === currentTableId
+    );
+  }, [vehicles, currentTableId]);
+
+  const currentTableReservations = useMemo(() => {
+    return reservations.filter((r) => r.tableId === currentTableId);
+  }, [reservations, currentTableId]);
 
   const nameHistory = useMemo(() => {
     return Array.from(
       new Set(
-        reservations
+        currentTableReservations
           .map((r) => (r.userName ?? r.name)?.trim())
           .filter((n): n is string => !!n)
       )
     ).sort((a, b) => a.localeCompare(b, "ja"));
-  }, [reservations]);
+  }, [currentTableReservations]);
 
   const openReservationModal = (
     vehicleId: string,
@@ -457,7 +467,7 @@ export default function ReservePage() {
       return;
     }
 
-    const existing = reservations.find(
+    const existing = currentTableReservations.find(
       (r) => r.vehicleId === vehicleId && r.dayKey === dayKey
     );
 
@@ -483,6 +493,10 @@ export default function ReservePage() {
       alert("会社情報が取得できませんでした");
       return;
     }
+    if (!currentTableId) {
+      alert("テーブルが選択されていません");
+      return;
+    }
 
     const trimmedSite = formSite.trim();
     const trimmedProjectNo = formProjectNo.trim();
@@ -494,6 +508,7 @@ export default function ReservePage() {
     }
 
     const reservationId = makeReservationId(
+      currentTableId,
       selectedSlot.vehicleId,
       selectedSlot.dayKey
     );
@@ -507,6 +522,7 @@ export default function ReservePage() {
         userUid: selectedUserUid,
         userName: selectedUser.name,
         companyId,
+        tableId: currentTableId,
         site: trimmedSite,
         projectNo: trimmedProjectNo,
         updatedAt: new Date().toISOString(),
@@ -530,7 +546,7 @@ export default function ReservePage() {
       setInspectionEdit(null);
     } catch (error) {
       console.error("inspection update error:", error);
-      alert("車検日の保存に失敗しました");
+      alert("点検日の保存に失敗しました");
     }
   };
 
@@ -540,16 +556,16 @@ export default function ReservePage() {
     rows.push([
       "日付",
       "曜日",
-      currentTable?.labelMeta2 ?? "車種",
-      currentTable?.labelMeta1 ?? "車検",
+      currentTable?.labelMeta2 ?? "資産",
+      currentTable?.labelMeta1 ?? "点検",
       "予約者名",
-      "行先",
-      "用途・案件番号",
+      "持ち出し先",
+      "用途・備考",
     ]);
 
     for (const day of days) {
-      for (const vehicle of sharedVehicles) {
-        const reservation = reservations.find(
+      for (const vehicle of currentTableVehicles) {
+        const reservation = currentTableReservations.find(
           (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
         );
 
@@ -568,15 +584,16 @@ export default function ReservePage() {
     }
 
     const weekLabel = formatCsvDate(weekStart).replace(/\//g, "-");
+    const tableLabel = (currentTable?.title ?? "assettable").replace(/[\\/:*?"<>|]/g, "_");
     const fileName =
       mode === "all"
-        ? `配車さん_${weekLabel}_週_全件.csv`
-        : `配車さん_${weekLabel}_週_予約ありのみ.csv`;
+        ? `${tableLabel}_${weekLabel}_週_全件.csv`
+        : `${tableLabel}_${weekLabel}_週_予約ありのみ.csv`;
 
     downloadCsv(fileName, rows);
   };
 
-  const filteredLogs = reservations
+  const filteredLogs = currentTableReservations
     .filter((r) => {
       if (logMode === "vehicle") {
         return selectedVehicleId ? r.vehicleId === selectedVehicleId : false;
@@ -615,24 +632,33 @@ export default function ReservePage() {
             <div className="font-bold text-2xl tracking-wide">配車さん</div>
           </div>
 
-         <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
-  TEST 12345
-</div>
-
-          <div className="text-xs text-blue-500 px-3 py-1">
-            companyId: {companyId || "empty"}
-          </div>
-          <div className="text-xs text-blue-500 px-3 py-1">
-            tables.length: {tables.length}
-          </div>
-          <div className="text-xs text-blue-500 px-3 py-1">
-            currentTableId: {currentTableId || "empty"}
-          </div>
-          <div className="text-xs text-red-500 px-3 py-1">
-            table: {currentTable ? JSON.stringify(currentTable) : "no table"}
+          <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
+            {currentTable?.title ?? "AssetTable"}
           </div>
 
           <div className="p-3 space-y-3 bg-white">
+            {tables.length > 1 && (
+              <div className="overflow-x-auto">
+                <div className="flex gap-2 min-w-max">
+                  {tables.map((table) => {
+                    const active = table.id === currentTableId;
+                    return (
+                      <button
+                        key={table.id}
+                        className={`rounded-full border px-3 py-1.5 text-sm ${
+                          active ? "bg-black text-white" : "bg-white text-black"
+                        }`}
+                        onClick={() => setCurrentTableId(table.id)}
+                        type="button"
+                      >
+                        {table.title ?? "無題"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2">
               <button
                 className="rounded-xl border bg-white py-2.5 text-sm"
@@ -656,7 +682,7 @@ export default function ReservePage() {
               onClick={() => setShowVehicleLog(true)}
               type="button"
             >
-              車両実績を見る
+              資産実績を見る
             </button>
 
             <details className="rounded-xl border bg-white">
@@ -712,11 +738,11 @@ export default function ReservePage() {
               <thead>
                 <tr>
                   <th className="border bg-red-500 text-white px-2 py-2 w-16">
-                    {currentTable?.labelMeta1 ?? "車検"}
+                    {currentTable?.labelMeta1 ?? "点検"}
                   </th>
 
                   <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
-                    {currentTable?.labelMeta2 ?? "車種"}
+                    {currentTable?.labelMeta2 ?? "資産"}
                   </th>
 
                   {days.map((day) => {
@@ -749,7 +775,7 @@ export default function ReservePage() {
               </thead>
 
               <tbody>
-                {sharedVehicles.map((vehicle) => (
+                {currentTableVehicles.map((vehicle) => (
                   <tr key={vehicle.id}>
                     <td className="border px-2 py-3 text-center align-middle whitespace-nowrap bg-white">
                       <button
@@ -781,7 +807,7 @@ export default function ReservePage() {
                         ? "bg-blue-50"
                         : "bg-white";
 
-                      const reservation = reservations.find(
+                      const reservation = currentTableReservations.find(
                         (r) => r.vehicleId === vehicle.id && r.dayKey === day.key
                       );
 
@@ -835,7 +861,7 @@ export default function ReservePage() {
         </div>
 
         <p className="mt-3 text-xs text-gray-500">
-          sharedVehicles件数: {sharedVehicles.length} / reservations件数: {reservations.length}
+          資産件数: {currentTableVehicles.length} / 予約件数: {currentTableReservations.length}
         </p>
       </div>
 
@@ -879,7 +905,7 @@ export default function ReservePage() {
               </div>
 
               <div className="relative">
-                <label className="text-sm text-gray-600">行先</label>
+                <label className="text-sm text-gray-600">持ち出し先</label>
                 <input
                   type="text"
                   value={formSite}
@@ -890,7 +916,7 @@ export default function ReservePage() {
                   onFocus={() => setShowSiteSuggest(true)}
                   onBlur={() => setTimeout(() => setShowSiteSuggest(false), 200)}
                   className="w-full border rounded-lg px-3 py-2"
-                  placeholder="例：現場"
+                  placeholder="例：現場 / 倉庫 / 事務所"
                 />
 
                 {showSiteSuggest && siteHistory.length > 0 && (
@@ -925,7 +951,7 @@ export default function ReservePage() {
                   onFocus={() => setShowProjectSuggest(true)}
                   onBlur={() => setTimeout(() => setShowProjectSuggest(false), 200)}
                   className="w-full border rounded-lg px-3 py-2"
-                  placeholder="分かる場合のみ入力"
+                  placeholder="用途や備考を入力"
                 />
 
                 {showProjectSuggest && projectHistory.length > 0 && (
@@ -977,7 +1003,7 @@ export default function ReservePage() {
                 const ok = window.confirm("本当に削除しますか？");
                 if (!ok) return;
 
-                const existing = reservations.find(
+                const existing = currentTableReservations.find(
                   (r) =>
                     r.vehicleId === selectedSlot.vehicleId &&
                     r.dayKey === selectedSlot.dayKey
@@ -1012,12 +1038,16 @@ export default function ReservePage() {
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-[200]">
           <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-xl space-y-3">
             <div>
-              <h2 className="text-lg font-bold">車検日変更</h2>
+              <h2 className="text-lg font-bold">
+                {currentTable?.labelMeta1 ?? "点検日"}変更
+              </h2>
               <p className="text-sm text-gray-500">{inspectionEdit.vehicleName}</p>
             </div>
 
             <label className="block">
-              <div className="mb-1 text-sm font-medium">車検日</div>
+              <div className="mb-1 text-sm font-medium">
+                {currentTable?.labelMeta1 ?? "点検日"}
+              </div>
               <input
                 className="w-full rounded-lg border px-3 py-2"
                 value={inspectionEdit.value}
@@ -1027,7 +1057,7 @@ export default function ReservePage() {
                     value: e.target.value,
                   })
                 }
-                placeholder="例：3/18 または 済"
+                placeholder="例：2026/08"
               />
             </label>
 
@@ -1056,7 +1086,7 @@ export default function ReservePage() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
           <div className="bg-white rounded-xl w-full max-w-md p-4 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center">
-              <h2 className="text-lg font-bold">車両実績</h2>
+              <h2 className="text-lg font-bold">資産実績</h2>
               <button onClick={() => setShowVehicleLog(false)} type="button">
                 ×
               </button>
@@ -1074,7 +1104,7 @@ export default function ReservePage() {
                 }`}
                 type="button"
               >
-                車両
+                資産
               </button>
 
               <button
@@ -1098,8 +1128,8 @@ export default function ReservePage() {
                 onChange={(e) => setSelectedVehicleId(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2"
               >
-                <option value="">車両を選択</option>
-                {sharedVehicles.map((v) => (
+                <option value="">資産を選択</option>
+                {currentTableVehicles.map((v) => (
                   <option key={v.id} value={v.id}>
                     {v.name}
                   </option>
@@ -1125,7 +1155,7 @@ export default function ReservePage() {
             <div className="space-y-2">
               {filteredLogs.map((r) => {
                 const vehicleName =
-                  vehicles.find((v) => v.id === r.vehicleId)?.name ?? "";
+                  currentTableVehicles.find((v) => v.id === r.vehicleId)?.name ?? "";
 
                 return (
                   <div key={r.id} className="border rounded-lg p-2 text-sm">
