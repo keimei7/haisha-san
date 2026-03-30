@@ -115,8 +115,8 @@ function CreateTableModal({
   const [meta2, setMeta2] = useState("車種");
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200]">
-      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
+  <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
         <h2 className="text-lg font-bold">テーブル作成</h2>
 
         <div className="space-y-3">
@@ -194,8 +194,8 @@ function AddAssetModal({
   const [assignedUser, setAssignedUser] = useState("");
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200]">
-      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
+   <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
+  <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
         <h2 className="text-lg font-bold">資産追加</h2>
 
         <div className="space-y-3">
@@ -287,8 +287,8 @@ function ReservationModal({
   const [note, setNote] = useState(existing?.note ?? "");
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
-      <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl">
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4 pointer-events-auto">
+  <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">予約入力</h2>
