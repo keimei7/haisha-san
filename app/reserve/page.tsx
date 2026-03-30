@@ -12,6 +12,7 @@ import {
   onSnapshot,
   query,
   setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { auth } from "@/lib/firebase-client";
@@ -215,7 +216,98 @@ function CreateTableModal({
     </div>
   );
 }
+function EditTableModal({
+  table,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  table: TableItem;
+  onClose: () => void;
+  onSave: (payload: {
+    title: string;
+    labelMeta1: string;
+    labelMeta2: string;
+  }) => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
+}) {
+  const [title, setTitle] = useState(table.title);
+  const [meta1, setMeta1] = useState(table.labelMeta1);
+  const [meta2, setMeta2] = useState(table.labelMeta2);
 
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
+      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
+        <h2 className="text-lg font-bold">テーブル編集</h2>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-gray-600">テーブル名</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">左ラベル1</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={meta1}
+              onChange={(e) => setMeta1(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">左ラベル2</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={meta2}
+              onChange={(e) => setMeta2(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium"
+            onClick={() => {
+              if (!title.trim()) {
+                alert("テーブル名を入れてください");
+                return;
+              }
+              onSave({
+                title: title.trim(),
+                labelMeta1: meta1.trim() || "車検",
+                labelMeta2: meta2.trim() || "車種",
+              });
+            }}
+            type="button"
+          >
+            保存
+          </button>
+
+          <button
+            className="rounded-lg border px-4 py-2"
+            onClick={onClose}
+            type="button"
+          >
+            閉じる
+          </button>
+        </div>
+
+        <button
+          className="w-full border border-red-400 text-red-500 py-2 rounded-lg"
+          onClick={onDelete}
+          type="button"
+        >
+          このテーブルを削除
+        </button>
+      </div>
+    </div>
+  );
+}
 function AddAssetModal({
   onClose,
   onAdd,
@@ -435,7 +527,7 @@ export default function ReservePage() {
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [memberOptions, setMemberOptions] = useState<string[]>([]);
-
+  const [showEditTable, setShowEditTable] = useState(false);
   const [currentTableId, setCurrentTableId] = useState<string>("");
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
 
@@ -448,7 +540,12 @@ export default function ReservePage() {
   const [loadingReservations, setLoadingReservations] = useState(true);
 
   const [dragState, setDragState] = useState<DragState>(null);
-
+const [tapStart, setTapStart] = useState<{
+  assetId: string;
+  assetName: string;
+  index: number;
+} | null>(null);
+const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   useEffect(() => {
   const unsub = onAuthStateChanged(auth, async (user) => {
     try {
@@ -882,9 +979,21 @@ export default function ReservePage() {
             <div className="font-bold text-2xl tracking-wide">配車さん</div>
           </div>
 
-          <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
-            {currentTable?.title ?? "AssetTable"}
-          </div>
+         <div className="bg-yellow-300 border-b px-3 py-3 flex items-center justify-between gap-2">
+  <div className="font-bold text-xl truncate">
+    {currentTable?.title ?? "AssetTable"}
+  </div>
+
+  {currentTable && (
+    <button
+      className="shrink-0 rounded-lg border border-black/20 bg-white px-3 py-1 text-sm"
+      onClick={() => setShowEditTable(true)}
+      type="button"
+    >
+      編集
+    </button>
+  )}
+</div>
 
           <div className="p-3 space-y-3 bg-white">
             {tables.length > 1 && (
@@ -1030,20 +1139,25 @@ export default function ReservePage() {
                           ? "bg-blue-50"
                           : "bg-white";
 
-                        const reservation = reservations.find(
-                          (r) => r.assetId === asset.id && r.dayKey === day.key
-                        );
+                       const reservation = reservations.find(
+  (r) => r.assetId === asset.id && r.dayKey === day.key
+);
 
-                        const isDragged =
-                          dragState?.assetId === asset.id &&
-                          dragSelectedDayKeys.includes(day.key);
+const isDragged =
+  dragState?.assetId === asset.id &&
+  dragSelectedDayKeys.includes(day.key);
 
-                        const cellBg = isDragged
-                          ? "bg-yellow-100"
-                          : reservation
-                          ? "bg-blue-50"
-                          : defaultBg;
+const isTapSelected =
+  tapStart?.assetId === asset.id &&
+  tapStart.index === dayIndex;
 
+const cellBg = isTapSelected
+  ? "bg-green-200"
+  : isDragged
+  ? "bg-yellow-100"
+  : reservation
+  ? "bg-blue-50"
+  : defaultBg;
                         return (
                           <td
                             key={`${asset.id}-${day.key}`}
@@ -1053,14 +1167,44 @@ export default function ReservePage() {
                             }
                             onMouseUp={() => handleCellMouseUp(asset.id)}
                           >
-                            <button
-                              className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-2"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                handleCellMouseDown(asset.id, asset.name, dayIndex);
-                              }}
-                              type="button"
-                            >
+                           <button
+  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-2"
+  onMouseDown={(e) => {
+    if (isMobile) return;
+    e.preventDefault();
+    handleCellMouseDown(asset.id, asset.name, dayIndex);
+  }}
+  onClick={() => {
+    if (!isMobile) return;
+
+    if (!tapStart) {
+      setTapStart({
+        assetId: asset.id,
+        assetName: asset.name,
+        index: dayIndex,
+      });
+      return;
+    }
+
+    if (tapStart.assetId !== asset.id) {
+      setTapStart({
+        assetId: asset.id,
+        assetName: asset.name,
+        index: dayIndex,
+      });
+      return;
+    }
+
+    openSlotFromIndices(
+      asset.id,
+      asset.name,
+      tapStart.index,
+      dayIndex
+    );
+    setTapStart(null);
+  }}
+  type="button"
+>
                               <div className="space-y-1">
                                 {reservation ? (
                                   <div className="space-y-1">
@@ -1220,7 +1364,37 @@ export default function ReservePage() {
           }}
         />
       )}
+{showEditTable && currentTable && (
+  <EditTableModal
+    table={currentTable}
+    onClose={() => setShowEditTable(false)}
+    onSave={async ({ title, labelMeta1, labelMeta2 }) => {
+      try {
+        await updateDoc(doc(db, "tables", currentTable.id), {
+          title,
+          labelMeta1,
+          labelMeta2,
+        });
+        setShowEditTable(false);
+      } catch (error) {
+        console.error("table update error:", error);
+        alert(`テーブル更新に失敗しました: ${String(error)}`);
+      }
+    }}
+    onDelete={async () => {
+      const ok = window.confirm("このテーブルを削除しますか？");
+      if (!ok) return;
 
+      try {
+        await deleteDoc(doc(db, "tables", currentTable.id));
+        setShowEditTable(false);
+      } catch (error) {
+        console.error("table delete error:", error);
+        alert(`テーブル削除に失敗しました: ${String(error)}`);
+      }
+    }}
+  />
+)}
       {showAddAsset && (
         <AddAssetModal
           onClose={() => setShowAddAsset(false)}
