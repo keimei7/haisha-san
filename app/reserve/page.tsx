@@ -1,6 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  addDoc,
+  orderBy,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 type TableItem = {
   id: string;
@@ -367,7 +376,7 @@ export default function ReservePage() {
   const [assets, setAssets] = useState<AssetItem[]>([]);
  
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
-
+const [companyId] = useState("RDBznoOY2ng7FXF6cEWj");
   const [currentTableId, setCurrentTableId] = useState<string>("");
 
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
@@ -376,7 +385,75 @@ export default function ReservePage() {
   const [showAddAsset, setShowAddAsset] = useState<boolean>(false);
 
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
-const memberOptions = ["あああ", "いいい", "ううう"];
+  const [memberOptions, setMemberOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+  const fetchMembers = async () => {
+    try {
+      const q = query(
+        collection(db, "users"),
+        where("companyId", "==", companyId)
+      );
+
+      const snap = await getDocs(q);
+
+      const names = snap.docs
+        .map((doc) => {
+          const data = doc.data() as {
+            displayName?: string;
+            name?: string;
+          };
+          return data.displayName ?? data.name ?? "";
+        })
+        .filter((name) => !!name);
+
+      setMemberOptions(names);
+    } catch (error) {
+      console.error("member fetch error:", error);
+      setMemberOptions([]);
+    }
+  };
+useEffect(() => {
+  const fetchTables = async () => {
+    try {
+      const q = query(
+        collection(db, "tables"),
+        where("companyId", "==", companyId),
+        orderBy("sort", "asc")
+      );
+
+      const snap = await getDocs(q);
+
+      const list: TableItem[] = snap.docs.map((doc) => {
+        const data = doc.data() as {
+          title?: string;
+          labelMeta1?: string;
+          labelMeta2?: string;
+        };
+
+        return {
+          id: doc.id,
+          title: data.title ?? "無題",
+          labelMeta1: data.labelMeta1 ?? "車検",
+          labelMeta2: data.labelMeta2 ?? "車種",
+        };
+      });
+
+      setTables(list);
+
+      if (list.length > 0 && !currentTableId) {
+        setCurrentTableId(list[0].id);
+      }
+    } catch (error) {
+      console.error("tables fetch error:", error);
+      setTables([]);
+    }
+  };
+
+  fetchTables();
+}, [companyId, currentTableId]);
+  fetchMembers();
+}, [companyId]);
   const currentTable: TableItem | undefined = tables.find(
     (t) => t.id === currentTableId
   );
@@ -393,6 +470,7 @@ const memberOptions = ["あああ", "いいい", "ううう"];
     });
   }, [weekStart]);
 
+  
 const currentTableAssets: AssetItem[] = useMemo(() => {
   return [...assets]
     .filter((a) => a.tableId === currentTableId)
@@ -444,11 +522,29 @@ if (tables.length === 0) {
         {showCreateTable && (
           <CreateTableModal
             onClose={() => setShowCreateTable(false)}
-            onCreate={(table) => {
-              setTables([table]);
-              setCurrentTableId(table.id);
-              setShowCreateTable(false);
-            }}
+            onCreate={async (table) => {
+  try {
+    const docRef = await addDoc(collection(db, "tables"), {
+      title: table.title,
+      labelMeta1: table.labelMeta1,
+      labelMeta2: table.labelMeta2,
+      companyId,
+      sort: Date.now(),
+    });
+
+    setTables((prev) => [
+      ...prev,
+      {
+        ...table,
+        id: docRef.id,
+      },
+    ]);
+    setCurrentTableId(docRef.id);
+    setShowCreateTable(false);
+  } catch (error) {
+    console.error("table create error:", error);
+  }
+}}
           />
         )}
       </main>
@@ -749,11 +845,29 @@ if (tables.length === 0) {
       {showCreateTable && (
         <CreateTableModal
           onClose={() => setShowCreateTable(false)}
-          onCreate={(table) => {
-            setTables((prev) => [...prev, table]);
-            setCurrentTableId(table.id);
-            setShowCreateTable(false);
-          }}
+          onCreate={async (table) => {
+  try {
+    const docRef = await addDoc(collection(db, "tables"), {
+      title: table.title,
+      labelMeta1: table.labelMeta1,
+      labelMeta2: table.labelMeta2,
+      companyId,
+      sort: Date.now(),
+    });
+
+    setTables((prev) => [
+      ...prev,
+      {
+        ...table,
+        id: docRef.id,
+      },
+    ]);
+    setCurrentTableId(docRef.id);
+    setShowCreateTable(false);
+  } catch (error) {
+    console.error("table create error:", error);
+  }
+}}
         />
       )}
 
