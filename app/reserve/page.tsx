@@ -8,15 +8,13 @@ type TableItem = {
   labelMeta1: string;
   labelMeta2: string;
 };
-
 type AssetItem = {
   id: string;
   name: string;
   inspection: string;
   tableId: string;
   sort: number;
-
-  assignedUser?: string; // ← これ追加
+  assignedUser?: string;
 };
 
 type ReservationItem = {
@@ -53,6 +51,7 @@ type AddAssetModalProps = {
   onClose: () => void;
   onAdd: (asset: AssetItem) => void;
   tableId: string;
+  memberOptions: string[];
 };
 
 type ReservationModalProps = {
@@ -171,11 +170,11 @@ function AddAssetModal({
   onClose,
   onAdd,
   tableId,
+  memberOptions,
 }: AddAssetModalProps) {
   const [name, setName] = useState("");
   const [inspection, setInspection] = useState("");
 const [assignedUser, setAssignedUser] = useState("");
-
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200]">
       <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
@@ -191,7 +190,21 @@ const [assignedUser, setAssignedUser] = useState("");
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-
+<div>
+  <label className="text-sm text-gray-600">割り当て</label>
+  <select
+    className="w-full border rounded-lg px-3 py-2"
+    value={assignedUser}
+    onChange={(e) => setAssignedUser(e.target.value)}
+  >
+    <option value="">共有車</option>
+    {memberOptions.map((member) => (
+      <option key={member} value={member}>
+        {member}
+      </option>
+    ))}
+  </select>
+</div>
           <div>
             <label className="text-sm text-gray-600">点検・車検</label>
             <input
@@ -209,13 +222,14 @@ const [assignedUser, setAssignedUser] = useState("");
             disabled={!name.trim()}
             onClick={() => {
               if (!name.trim()) return;
-              onAdd({
-                id: makeId(),
-                name: name.trim(),
-                inspection: inspection.trim(),
-                tableId,
-                sort: Date.now(),
-              });
+            onAdd({
+  id: makeId(),
+  name: name.trim(),
+  inspection: inspection.trim(),
+  tableId,
+  sort: Date.now(),
+  assignedUser: assignedUser || undefined,
+});
             }}
             type="button"
           >
@@ -340,8 +354,7 @@ function ReservationModal({
 export default function ReservePage() {
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
-  const myAssets = assets.filter(a => a.assignedUser === "自分");
-  const sharedAssets = assets.filter(a => !a.assignedUser);
+ 
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
 
   const [currentTableId, setCurrentTableId] = useState<string>("");
@@ -352,7 +365,7 @@ export default function ReservePage() {
   const [showAddAsset, setShowAddAsset] = useState<boolean>(false);
 
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
-
+const memberOptions = ["あああ", "いいい", "ううう"];
   const currentTable: TableItem | undefined = tables.find(
     (t) => t.id === currentTableId
   );
@@ -369,13 +382,21 @@ export default function ReservePage() {
     });
   }, [weekStart]);
 
-  const tableAssets: AssetItem[] = useMemo(() => {
-    return [...assets]
-      .filter((a) => a.tableId === currentTableId)
-      .sort((a, b) => a.sort - b.sort);
-  }, [assets, currentTableId]);
+const currentTableAssets: AssetItem[] = useMemo(() => {
+  return [...assets]
+    .filter((a) => a.tableId === currentTableId)
+    .sort((a, b) => a.sort - b.sort);
+}, [assets, currentTableId]);
 
-  if (tables.length === 0) {
+const sharedAssets: AssetItem[] = useMemo(() => {
+  return currentTableAssets.filter((a) => !a.assignedUser);
+}, [currentTableAssets]);
+
+const myAssets: AssetItem[] = useMemo(() => {
+  return currentTableAssets.filter((a) => !!a.assignedUser);
+}, [currentTableAssets]);
+
+if (tables.length === 0) {
     return (
       <main className="min-h-screen bg-white text-black p-3">
         <div className="mx-auto max-w-md">
@@ -503,7 +524,7 @@ export default function ReservePage() {
           </div>
         </div>
 
-        {tableAssets.length === 0 ? (
+      {currentTableAssets.length === 0 ? (
           <div className="rounded-2xl border bg-white p-6 text-center space-y-3">
             <p className="text-sm text-gray-600">このテーブルにはまだ資産がありません</p>
             <button
@@ -558,7 +579,29 @@ export default function ReservePage() {
                 </thead>
 
                 <tbody>
-                  {tableAssets.map((asset) => (
+      {myAssets.length > 0 && (
+  <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
+    <h3 className="font-bold">マイカー</h3>
+
+    <div className="space-y-2">
+      {myAssets.map((asset) => (
+        <div
+          key={asset.id}
+          className="rounded-xl border px-3 py-3 flex items-center justify-between"
+        >
+          <div>
+            <div className="font-medium">{asset.name}</div>
+            <div className="text-sm text-gray-500">
+              {asset.inspection || "点検情報なし"}
+            </div>
+          </div>
+          <div className="text-sm text-gray-500">{asset.assignedUser}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+           {sharedAssets.map((asset) => (
                     <tr key={asset.id}>
                       <td className="border px-2 py-3 text-center align-middle whitespace-nowrap bg-white">
                         {asset.inspection}
@@ -633,7 +676,7 @@ export default function ReservePage() {
         )}
 
         <p className="mt-3 text-xs text-gray-500">
-          資産件数: {tableAssets.length} / 予約件数: {reservations.length}
+       資産件数: {currentTableAssets.length} / 共有車: {sharedAssets.length} / マイカー: {myAssets.length} / 予約件数: {reservations.length}
         </p>
       </div>
 
@@ -703,14 +746,15 @@ export default function ReservePage() {
       )}
 
       {showAddAsset && (
-        <AddAssetModal
-          onClose={() => setShowAddAsset(false)}
-          onAdd={(asset) => {
-            setAssets((prev) => [...prev, asset]);
-            setShowAddAsset(false);
-          }}
-          tableId={currentTableId}
-        />
+     <AddAssetModal
+  onClose={() => setShowAddAsset(false)}
+  onAdd={(asset) => {
+    setAssets((prev) => [...prev, asset]);
+    setShowAddAsset(false);
+  }}
+  tableId={currentTableId}
+  memberOptions={memberOptions}
+/>
       )}
     </main>
   );
