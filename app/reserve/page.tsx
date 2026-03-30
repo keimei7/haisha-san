@@ -150,22 +150,25 @@ function CreateTableModal({
         </div>
 
         <div className="flex gap-2 pt-2">
-          <button
-            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
-            disabled={!title.trim()}
-            onClick={() => {
-              if (!title.trim()) return;
-              onCreate({
-                id: "",
-                title: title.trim(),
-                labelMeta1: meta1.trim() || "車検",
-                labelMeta2: meta2.trim() || "車種",
-              });
-            }}
-            type="button"
-          >
-            作成
-          </button>
+        <button
+  className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium"
+  onClick={() => {
+    console.log("title=", title);
+    if (!title.trim()) {
+      alert("テーブル名を入れてください");
+      return;
+    }
+    onCreate({
+      id: "",
+      title: title.trim(),
+      labelMeta1: meta1.trim() || "車検",
+      labelMeta2: meta2.trim() || "車種",
+    });
+  }}
+  type="button"
+>
+  作成
+</button>
 
           <button
             className="rounded-lg border px-4 py-2"
