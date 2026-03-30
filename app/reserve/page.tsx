@@ -57,6 +57,7 @@ type AddAssetModalProps = {
 type ReservationModalProps = {
   slot: ReservationSlot;
   existing?: ReservationItem;
+  memberOptions: string[];
   onClose: () => void;
   onSave: (payload: {
     userName: string;
@@ -252,6 +253,7 @@ const [assignedUser, setAssignedUser] = useState("");
 function ReservationModal({
   slot,
   existing,
+  memberOptions,
   onClose,
   onSave,
   onDelete,
@@ -285,17 +287,25 @@ function ReservationModal({
         </div>
 
         <div className="space-y-3">
-          <div>
-            <label className="text-sm text-gray-600">予約者名</label>
-            <input
-              className="w-full border rounded-lg px-3 py-2"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              placeholder="例：あああ"
-            />
-          </div>
-
-          <div>
+         <div>
+  <label className="text-sm text-gray-600">予約者名</label>
+  <div className="relative">
+    <select
+      className="w-full border rounded-lg px-3 py-2 pr-10 appearance-none bg-white"
+      value={userName}
+      onChange={(e) => setUserName(e.target.value)}
+    >
+      <option value="">選択してください</option>
+      {memberOptions.map((member) => (
+        <option key={member} value={member}>
+          {member}
+        </option>
+      ))}
+    </select>
+    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
+      ▼
+    </div>
+  </div>
             <label className="text-sm text-gray-600">行先</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
@@ -683,56 +693,57 @@ if (tables.length === 0) {
 
       {selectedSlot && (
         <ReservationModal
-          slot={selectedSlot}
-          existing={reservations.find(
-            (r) =>
-              r.assetId === selectedSlot.assetId &&
-              r.dayKey === selectedSlot.dayKey
-          )}
-          onClose={() => setSelectedSlot(null)}
-          onSave={({ userName, site, note }) => {
-            if (!selectedSlot) return;
+  slot={selectedSlot}
+  existing={reservations.find(
+    (r) =>
+      r.assetId === selectedSlot.assetId &&
+      r.dayKey === selectedSlot.dayKey
+  )}
+  memberOptions={memberOptions}
+  onClose={() => setSelectedSlot(null)}
+  onSave={({ userName, site, note }) => {
+    if (!selectedSlot) return;
 
-            setReservations((prev) => {
-              const filtered = prev.filter(
-                (r) =>
-                  !(
-                    r.assetId === selectedSlot.assetId &&
-                    r.dayKey === selectedSlot.dayKey
-                  )
-              );
+    setReservations((prev) => {
+      const filtered = prev.filter(
+        (r) =>
+          !(
+            r.assetId === selectedSlot.assetId &&
+            r.dayKey === selectedSlot.dayKey
+          )
+      );
 
-              return [
-                ...filtered,
-                {
-                  id: makeId(),
-                  assetId: selectedSlot.assetId,
-                  dayKey: selectedSlot.dayKey,
-                  userName,
-                  site,
-                  note,
-                },
-              ];
-            });
+      return [
+        ...filtered,
+        {
+          id: makeId(),
+          assetId: selectedSlot.assetId,
+          dayKey: selectedSlot.dayKey,
+          userName,
+          site,
+          note,
+        },
+      ];
+    });
 
-            setSelectedSlot(null);
-          }}
-          onDelete={() => {
-            if (!selectedSlot) return;
+    setSelectedSlot(null);
+  }}
+  onDelete={() => {
+    if (!selectedSlot) return;
 
-            setReservations((prev) =>
-              prev.filter(
-                (r) =>
-                  !(
-                    r.assetId === selectedSlot.assetId &&
-                    r.dayKey === selectedSlot.dayKey
-                  )
-              )
-            );
+    setReservations((prev) =>
+      prev.filter(
+        (r) =>
+          !(
+            r.assetId === selectedSlot.assetId &&
+            r.dayKey === selectedSlot.dayKey
+          )
+      )
+    );
 
-            setSelectedSlot(null);
-          }}
-        />
+    setSelectedSlot(null);
+  }}
+/>
       )}
 
       {showCreateTable && (
