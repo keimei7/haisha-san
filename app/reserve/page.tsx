@@ -7,7 +7,6 @@ import {
   query,
   where,
   addDoc,
-  orderBy,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -16,7 +15,9 @@ type TableItem = {
   title: string;
   labelMeta1: string;
   labelMeta2: string;
+  sort?: number;
 };
+
 type AssetItem = {
   id: string;
   name: string;
@@ -53,7 +54,7 @@ type SelectedSlot = ReservationSlot | null;
 
 type CreateTableModalProps = {
   onClose: () => void;
-  onCreate: (table: TableItem) => void;
+  onCreate: (table: TableItem) => void | Promise<void>;
 };
 
 type AddAssetModalProps = {
@@ -184,7 +185,7 @@ function AddAssetModal({
 }: AddAssetModalProps) {
   const [name, setName] = useState("");
   const [inspection, setInspection] = useState("");
-const [assignedUser, setAssignedUser] = useState("");
+  const [assignedUser, setAssignedUser] = useState("");
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200]">
@@ -201,21 +202,28 @@ const [assignedUser, setAssignedUser] = useState("");
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-<div>
-  <label className="text-sm text-gray-600">割り当て</label>
-  <select
-    className="w-full border rounded-lg px-3 py-2"
-    value={assignedUser}
-    onChange={(e) => setAssignedUser(e.target.value)}
-  >
-    <option value="">共有車</option>
-    {memberOptions.map((member) => (
-      <option key={member} value={member}>
-        {member}
-      </option>
-    ))}
-  </select>
-</div>
+
+          <div>
+            <label className="text-sm text-gray-600">割り当て</label>
+            <div className="relative">
+              <select
+                className="w-full border rounded-lg px-3 py-2 pr-10 appearance-none bg-white"
+                value={assignedUser}
+                onChange={(e) => setAssignedUser(e.target.value)}
+              >
+                <option value="">共有車</option>
+                {memberOptions.map((member) => (
+                  <option key={member} value={member}>
+                    {member}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
+                ▼
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="text-sm text-gray-600">点検・車検</label>
             <input
@@ -233,14 +241,14 @@ const [assignedUser, setAssignedUser] = useState("");
             disabled={!name.trim()}
             onClick={() => {
               if (!name.trim()) return;
-            onAdd({
-  id: makeId(),
-  name: name.trim(),
-  inspection: inspection.trim(),
-  tableId,
-  sort: Date.now(),
-  assignedUser: assignedUser || undefined,
-});
+              onAdd({
+                id: makeId(),
+                name: name.trim(),
+                inspection: inspection.trim(),
+                tableId,
+                sort: Date.now(),
+                assignedUser: assignedUser || undefined,
+              });
             }}
             type="button"
           >
@@ -259,6 +267,7 @@ const [assignedUser, setAssignedUser] = useState("");
     </div>
   );
 }
+
 function ReservationModal({
   slot,
   existing,
@@ -267,11 +276,10 @@ function ReservationModal({
   onSave,
   onDelete,
 }: ReservationModalProps) {
-  if (!slot) return null;
-
   const [userName, setUserName] = useState(existing?.userName ?? "");
   const [site, setSite] = useState(existing?.site ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4">
       <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl">
@@ -296,25 +304,28 @@ function ReservationModal({
         </div>
 
         <div className="space-y-3">
-         <div>
-  <label className="text-sm text-gray-600">予約者名</label>
-  <div className="relative">
-    <select
-      className="w-full border rounded-lg px-3 py-2 pr-10 appearance-none bg-white"
-      value={userName}
-      onChange={(e) => setUserName(e.target.value)}
-    >
-      <option value="">選択してください</option>
-      {memberOptions.map((member) => (
-        <option key={member} value={member}>
-          {member}
-        </option>
-      ))}
-    </select>
-    <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
-      ▼
-    </div>
-  </div>
+          <div>
+            <label className="text-sm text-gray-600">予約者名</label>
+            <div className="relative">
+              <select
+                className="w-full border rounded-lg px-3 py-2 pr-10 appearance-none bg-white"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+              >
+                <option value="">選択してください</option>
+                {memberOptions.map((member) => (
+                  <option key={member} value={member}>
+                    {member}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
+                ▼
+              </div>
+            </div>
+          </div>
+
+          <div>
             <label className="text-sm text-gray-600">行先</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
@@ -374,9 +385,9 @@ function ReservationModal({
 export default function ReservePage() {
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
- 
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
-const [companyId] = useState("RDBznoOY2ng7FXF6cEWj");
+
+  const [companyId] = useState("RDBznoOY2ng7FXF6cEWj");
   const [currentTableId, setCurrentTableId] = useState<string>("");
 
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
@@ -388,72 +399,80 @@ const [companyId] = useState("RDBznoOY2ng7FXF6cEWj");
   const [memberOptions, setMemberOptions] = useState<string[]>([]);
 
   useEffect(() => {
-  const fetchMembers = async () => {
-    try {
-      const q = query(
-        collection(db, "users"),
-        where("companyId", "==", companyId)
-      );
+    const fetchMembers = async () => {
+      try {
+        const q = query(
+          collection(db, "users"),
+          where("companyId", "==", companyId)
+        );
 
-      const snap = await getDocs(q);
+        const snap = await getDocs(q);
 
-      const names = snap.docs
-        .map((doc) => {
-          const data = doc.data() as {
-            displayName?: string;
-            name?: string;
-          };
-          return data.displayName ?? data.name ?? "";
-        })
-        .filter((name) => !!name);
+        const names = snap.docs
+          .map((doc) => {
+            const data = doc.data() as {
+              displayName?: string;
+              name?: string;
+            };
+            return data.displayName ?? data.name ?? "";
+          })
+          .filter((name) => !!name);
 
-      setMemberOptions(names);
-    } catch (error) {
-      console.error("member fetch error:", error);
-      setMemberOptions([]);
-    }
-  };
-useEffect(() => {
-  const fetchTables = async () => {
-    try {
-      const q = query(
-        collection(db, "tables"),
-        where("companyId", "==", companyId),
-        orderBy("sort", "asc")
-      );
-
-      const snap = await getDocs(q);
-
-      const list: TableItem[] = snap.docs.map((doc) => {
-        const data = doc.data() as {
-          title?: string;
-          labelMeta1?: string;
-          labelMeta2?: string;
-        };
-
-        return {
-          id: doc.id,
-          title: data.title ?? "無題",
-          labelMeta1: data.labelMeta1 ?? "車検",
-          labelMeta2: data.labelMeta2 ?? "車種",
-        };
-      });
-
-      setTables(list);
-
-      if (list.length > 0 && !currentTableId) {
-        setCurrentTableId(list[0].id);
+        setMemberOptions(names);
+      } catch (error) {
+        console.error("member fetch error:", error);
+        setMemberOptions([]);
       }
-    } catch (error) {
-      console.error("tables fetch error:", error);
-      setTables([]);
-    }
-  };
+    };
 
-  fetchTables();
-}, [companyId, currentTableId]);
-  fetchMembers();
-}, [companyId]);
+    if (!companyId) return;
+    fetchMembers();
+  }, [companyId]);
+
+  useEffect(() => {
+    const fetchTables = async () => {
+      try {
+        const q = query(
+          collection(db, "tables"),
+          where("companyId", "==", companyId)
+        );
+
+        const snap = await getDocs(q);
+
+        const list: TableItem[] = snap.docs
+          .map((doc) => {
+            const data = doc.data() as {
+              title?: string;
+              labelMeta1?: string;
+              labelMeta2?: string;
+              sort?: number;
+            };
+
+            return {
+              id: doc.id,
+              title: data.title ?? "無題",
+              labelMeta1: data.labelMeta1 ?? "車検",
+              labelMeta2: data.labelMeta2 ?? "車種",
+              sort: data.sort ?? 0,
+            };
+          })
+          .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
+
+        setTables(list);
+
+        if (list.length > 0 && !currentTableId) {
+          setCurrentTableId(list[0].id);
+        }
+      } catch (error) {
+        console.error("tables fetch error:", error);
+        setTables([]);
+      }
+    };
+
+    if (!companyId) return;
+    fetchTables();
+  }, [companyId, currentTableId]);
+
   const currentTable: TableItem | undefined = tables.find(
     (t) => t.id === currentTableId
   );
@@ -470,22 +489,21 @@ useEffect(() => {
     });
   }, [weekStart]);
 
-  
-const currentTableAssets: AssetItem[] = useMemo(() => {
-  return [...assets]
-    .filter((a) => a.tableId === currentTableId)
-    .sort((a, b) => a.sort - b.sort);
-}, [assets, currentTableId]);
+  const currentTableAssets: AssetItem[] = useMemo(() => {
+    return [...assets]
+      .filter((a) => a.tableId === currentTableId)
+      .sort((a, b) => a.sort - b.sort);
+  }, [assets, currentTableId]);
 
-const sharedAssets: AssetItem[] = useMemo(() => {
-  return currentTableAssets.filter((a) => !a.assignedUser);
-}, [currentTableAssets]);
+  const sharedAssets: AssetItem[] = useMemo(() => {
+    return currentTableAssets.filter((a) => !a.assignedUser);
+  }, [currentTableAssets]);
 
-const myAssets: AssetItem[] = useMemo(() => {
-  return currentTableAssets.filter((a) => !!a.assignedUser);
-}, [currentTableAssets]);
+  const myAssets: AssetItem[] = useMemo(() => {
+    return currentTableAssets.filter((a) => !!a.assignedUser);
+  }, [currentTableAssets]);
 
-if (tables.length === 0) {
+  if (tables.length === 0) {
     return (
       <main className="min-h-screen bg-white text-black p-3">
         <div className="mx-auto max-w-md">
@@ -523,28 +541,28 @@ if (tables.length === 0) {
           <CreateTableModal
             onClose={() => setShowCreateTable(false)}
             onCreate={async (table) => {
-  try {
-    const docRef = await addDoc(collection(db, "tables"), {
-      title: table.title,
-      labelMeta1: table.labelMeta1,
-      labelMeta2: table.labelMeta2,
-      companyId,
-      sort: Date.now(),
-    });
+              try {
+                const docRef = await addDoc(collection(db, "tables"), {
+                  title: table.title,
+                  labelMeta1: table.labelMeta1,
+                  labelMeta2: table.labelMeta2,
+                  companyId,
+                  sort: Date.now(),
+                });
 
-    setTables((prev) => [
-      ...prev,
-      {
-        ...table,
-        id: docRef.id,
-      },
-    ]);
-    setCurrentTableId(docRef.id);
-    setShowCreateTable(false);
-  } catch (error) {
-    console.error("table create error:", error);
-  }
-}}
+                setTables((prev) => [
+                  ...prev,
+                  {
+                    ...table,
+                    id: docRef.id,
+                  },
+                ]);
+                setCurrentTableId(docRef.id);
+                setShowCreateTable(false);
+              } catch (error) {
+                console.error("table create error:", error);
+              }
+            }}
           />
         )}
       </main>
@@ -619,7 +637,9 @@ if (tables.length === 0) {
               ←
             </button>
 
-            <div className="font-semibold text-lg">{formatWeekTitle(weekStart)}</div>
+            <div className="font-semibold text-lg">
+              {formatWeekTitle(weekStart)}
+            </div>
 
             <button
               className="rounded-xl border bg-white px-4 py-2"
@@ -631,9 +651,11 @@ if (tables.length === 0) {
           </div>
         </div>
 
-      {currentTableAssets.length === 0 ? (
+        {currentTableAssets.length === 0 ? (
           <div className="rounded-2xl border bg-white p-6 text-center space-y-3">
-            <p className="text-sm text-gray-600">このテーブルにはまだ資産がありません</p>
+            <p className="text-sm text-gray-600">
+              このテーブルにはまだ資産がありません
+            </p>
             <button
               onClick={() => setShowAddAsset(true)}
               className="rounded-xl border bg-white px-4 py-2 text-sm"
@@ -686,8 +708,7 @@ if (tables.length === 0) {
                 </thead>
 
                 <tbody>
-     
-           {sharedAssets.map((asset) => (
+                  {sharedAssets.map((asset) => (
                     <tr key={asset.id}>
                       <td className="border px-2 py-3 text-center align-middle whitespace-nowrap bg-white">
                         {asset.inspection}
@@ -746,7 +767,9 @@ if (tables.length === 0) {
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400 text-xs">＋予約</span>
+                                  <span className="text-gray-400 text-xs">
+                                    ＋予約
+                                  </span>
                                 )}
                               </div>
                             </button>
@@ -760,127 +783,132 @@ if (tables.length === 0) {
             </div>
           </div>
         )}
-{myAssets.length > 0 && (
-  <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
-    <h3 className="font-bold">マイカー</h3>
 
-    <div className="space-y-2">
-      {myAssets.map((asset) => (
-        <div
-          key={asset.id}
-          className="rounded-xl border px-3 py-3 flex items-center justify-between"
-        >
-          <div>
-            <div className="font-medium">{asset.name}</div>
-            <div className="text-sm text-gray-500">
-              {asset.inspection || "点検情報なし"}
+        {myAssets.length > 0 && (
+          <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
+            <h3 className="font-bold">マイカー</h3>
+
+            <div className="space-y-2">
+              {myAssets.map((asset) => (
+                <div
+                  key={asset.id}
+                  className="rounded-xl border px-3 py-3 flex items-center justify-between"
+                >
+                  <div>
+                    <div className="font-medium">{asset.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {asset.inspection || "点検情報なし"}
+                    </div>
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {asset.assignedUser}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="text-sm text-gray-500">{asset.assignedUser}</div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+        )}
+
         <p className="mt-3 text-xs text-gray-500">
-       資産件数: {currentTableAssets.length} / 共有車: {sharedAssets.length} / マイカー: {myAssets.length} / 予約件数: {reservations.length}
+          資産件数: {currentTableAssets.length} / 共有車: {sharedAssets.length} /
+          マイカー: {myAssets.length} / 予約件数: {reservations.length}
         </p>
       </div>
 
       {selectedSlot && (
         <ReservationModal
-  slot={selectedSlot}
-  existing={reservations.find(
-    (r) =>
-      r.assetId === selectedSlot.assetId &&
-      r.dayKey === selectedSlot.dayKey
-  )}
-  memberOptions={memberOptions}
-  onClose={() => setSelectedSlot(null)}
-  onSave={({ userName, site, note }) => {
-    if (!selectedSlot) return;
+          slot={selectedSlot}
+          existing={reservations.find(
+            (r) =>
+              r.assetId === selectedSlot.assetId &&
+              r.dayKey === selectedSlot.dayKey
+          )}
+          memberOptions={memberOptions}
+          onClose={() => setSelectedSlot(null)}
+          onSave={({ userName, site, note }) => {
+            if (!selectedSlot) return;
 
-    setReservations((prev) => {
-      const filtered = prev.filter(
-        (r) =>
-          !(
-            r.assetId === selectedSlot.assetId &&
-            r.dayKey === selectedSlot.dayKey
-          )
-      );
+            setReservations((prev) => {
+              const filtered = prev.filter(
+                (r) =>
+                  !(
+                    r.assetId === selectedSlot.assetId &&
+                    r.dayKey === selectedSlot.dayKey
+                  )
+              );
 
-      return [
-        ...filtered,
-        {
-          id: makeId(),
-          assetId: selectedSlot.assetId,
-          dayKey: selectedSlot.dayKey,
-          userName,
-          site,
-          note,
-        },
-      ];
-    });
+              return [
+                ...filtered,
+                {
+                  id: makeId(),
+                  assetId: selectedSlot.assetId,
+                  dayKey: selectedSlot.dayKey,
+                  userName,
+                  site,
+                  note,
+                },
+              ];
+            });
 
-    setSelectedSlot(null);
-  }}
-  onDelete={() => {
-    if (!selectedSlot) return;
+            setSelectedSlot(null);
+          }}
+          onDelete={() => {
+            if (!selectedSlot) return;
 
-    setReservations((prev) =>
-      prev.filter(
-        (r) =>
-          !(
-            r.assetId === selectedSlot.assetId &&
-            r.dayKey === selectedSlot.dayKey
-          )
-      )
-    );
+            setReservations((prev) =>
+              prev.filter(
+                (r) =>
+                  !(
+                    r.assetId === selectedSlot.assetId &&
+                    r.dayKey === selectedSlot.dayKey
+                  )
+              )
+            );
 
-    setSelectedSlot(null);
-  }}
-/>
+            setSelectedSlot(null);
+          }}
+        />
       )}
 
       {showCreateTable && (
         <CreateTableModal
           onClose={() => setShowCreateTable(false)}
           onCreate={async (table) => {
-  try {
-    const docRef = await addDoc(collection(db, "tables"), {
-      title: table.title,
-      labelMeta1: table.labelMeta1,
-      labelMeta2: table.labelMeta2,
-      companyId,
-      sort: Date.now(),
-    });
+            try {
+              const docRef = await addDoc(collection(db, "tables"), {
+                title: table.title,
+                labelMeta1: table.labelMeta1,
+                labelMeta2: table.labelMeta2,
+                companyId,
+                sort: Date.now(),
+              });
 
-    setTables((prev) => [
-      ...prev,
-      {
-        ...table,
-        id: docRef.id,
-      },
-    ]);
-    setCurrentTableId(docRef.id);
-    setShowCreateTable(false);
-  } catch (error) {
-    console.error("table create error:", error);
-  }
-}}
+              setTables((prev) => [
+                ...prev,
+                {
+                  ...table,
+                  id: docRef.id,
+                },
+              ]);
+              setCurrentTableId(docRef.id);
+              setShowCreateTable(false);
+            } catch (error) {
+              console.error("table create error:", error);
+            }
+          }}
         />
       )}
 
       {showAddAsset && (
-     <AddAssetModal
-  onClose={() => setShowAddAsset(false)}
-  onAdd={(asset) => {
-    setAssets((prev) => [...prev, asset]);
-    setShowAddAsset(false);
-  }}
-  tableId={currentTableId}
-  memberOptions={memberOptions}
-/>
+        <AddAssetModal
+          onClose={() => setShowAddAsset(false)}
+          onAdd={(asset) => {
+            setAssets((prev) => [...prev, asset]);
+            setShowAddAsset(false);
+          }}
+          tableId={currentTableId}
+          memberOptions={memberOptions}
+        />
       )}
     </main>
   );
