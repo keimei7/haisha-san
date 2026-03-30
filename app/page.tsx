@@ -23,7 +23,7 @@ export default function HomePage() {
     const snap = await getDoc(doc(db, "users", uid));
 
     if (snap.exists()) {
-      window.location.assign("/mypage");
+      window.location.assign("/reserve");
       return;
     }
 

@@ -29,7 +29,7 @@ export default function SetupPage() {
           const userData = userSnap.data() as UserDoc;
 
           if (userData.companyId) {
-            window.location.replace("/mypage");
+            window.location.replace("/reserve");
             return;
           }
         }

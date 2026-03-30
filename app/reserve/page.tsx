@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import {
   addDoc,
@@ -15,7 +16,6 @@ import {
 } from "firebase/firestore";
 import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
-
 type TableItem = {
   id: string;
   title: string;
@@ -426,6 +426,7 @@ function ReservationModal({
 }
 
 export default function ReservePage() {
+  const router = useRouter();
   const [uid, setUid] = useState<string>("");
   const [companyId, setCompanyId] = useState<string>("");
   const [authLoading, setAuthLoading] = useState(true);
@@ -449,39 +450,40 @@ export default function ReservePage() {
   const [dragState, setDragState] = useState<DragState>(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      try {
-        if (!user) {
-          setUid("");
-          setCompanyId("");
-          setAuthLoading(false);
-          return;
-        }
-
-        setUid(user.uid);
-
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
-
-        if (!userSnap.exists()) {
-          console.error("users/{uid} が存在しません");
-          setCompanyId("");
-          setAuthLoading(false);
-          return;
-        }
-
-        const data = userSnap.data() as UserDoc;
-        setCompanyId(data.companyId ?? "");
-        setAuthLoading(false);
-      } catch (error) {
-        console.error("auth/company read error:", error);
+  const unsub = onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) {
+        setUid("");
         setCompanyId("");
         setAuthLoading(false);
+        router.push("/login");
+        return;
       }
-    });
 
-    return () => unsub();
-  }, []);
+      setUid(user.uid);
+
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        console.error("users/{uid} が存在しません");
+        setCompanyId("");
+        setAuthLoading(false);
+        return;
+      }
+
+      const data = userSnap.data() as UserDoc;
+      setCompanyId(data.companyId ?? "");
+      setAuthLoading(false);
+    } catch (error) {
+      console.error("auth/company read error:", error);
+      setCompanyId("");
+      setAuthLoading(false);
+    }
+  });
+
+  return () => unsub();
+}, [router]);
 
   useEffect(() => {
     if (!companyId) return;

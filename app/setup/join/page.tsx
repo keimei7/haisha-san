@@ -56,7 +56,7 @@ export default function JoinPage() {
 });
 
       localStorage.setItem("userName", displayName.trim());
-      window.location.assign("/mypage");
+      window.location.assign("/reserve");
     } catch (error: any) {
       console.error("JOIN ERROR", error);
       alert(`${error.code} / ${error.message}`);

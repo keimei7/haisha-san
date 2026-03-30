@@ -100,7 +100,7 @@ export default function ManagePage() {
       } catch (error) {
         console.error("manage user read error:", error);
         alert("ユーザ情報の読み込みに失敗しました");
-        router.replace("/mypage");
+        router.replace("/reserve");
       }
     });
 
@@ -333,7 +333,7 @@ export default function ManagePage() {
             <div className="font-bold text-lg">⚙️ 管理ページ</div>
             <button
               className="rounded-lg border px-3 py-2 text-sm"
-              onClick={() => router.push("/mypage")}
+              onClick={() => router.push("/reserve")}
               type="button"
             >
               ← マイページ

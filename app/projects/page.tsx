@@ -226,7 +226,7 @@ export default function ManagePage() {
 
             <button
               className="rounded-lg border px-3 py-2 text-sm"
-              onClick={() => router.push("/mypage")}
+              onClick={() => router.push("/reserve")}
             >
               ← マイページ
             </button>
