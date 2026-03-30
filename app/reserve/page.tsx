@@ -1,15 +1,15 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  collection,
-  getDocs,
-  query,
-  where,
   addDoc,
+  collection,
   deleteDoc,
   doc,
+  onSnapshot,
+  query,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -49,20 +49,36 @@ type DayItem = {
 type ReservationSlot = {
   assetId: string;
   assetName: string;
-  dayKey: string;
+  dayKeys: string[];
   dateLabel: string;
 };
 
 type SelectedSlot = ReservationSlot | null;
 
+type DragState = {
+  assetId: string;
+  assetName: string;
+  startIndex: number;
+  currentIndex: number;
+} | null;
+
 type CreateTableModalProps = {
   onClose: () => void;
-  onCreate: (table: TableItem) => void | Promise<void>;
+  onCreate: (table: {
+    title: string;
+    labelMeta1: string;
+    labelMeta2: string;
+  }) => void | Promise<void>;
 };
 
 type AddAssetModalProps = {
   onClose: () => void;
-  onAdd: (asset: AssetItem) => void | Promise<void>;
+  onAdd: (asset: {
+    name: string;
+    inspection: string;
+    tableId: string;
+    assignedUser?: string;
+  }) => void | Promise<void>;
   tableId: string;
   memberOptions: string[];
 };
@@ -94,16 +110,26 @@ function addDays(base: Date, days: number): Date {
   return d;
 }
 
-function makeReservationDocId(assetId: string, dayKey: string): string {
-  return `${assetId}_${dayKey}`;
-}
-
 function formatHeaderDate(date: Date): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
 function formatWeekTitle(startDate: Date): string {
   return `${startDate.getFullYear()}/${startDate.getMonth() + 1}/${startDate.getDate()} 週`;
+}
+
+function makeDayKey(date: Date): string {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function makeReservationDocId(assetId: string, dayKey: string): string {
+  return `${assetId}_${dayKey}`;
+}
+
+function rangeFromIndices(a: number, b: number): number[] {
+  const min = Math.min(a, b);
+  const max = Math.max(a, b);
+  return Array.from({ length: max - min + 1 }, (_, i) => min + i);
 }
 
 function CreateTableModal({
@@ -115,8 +141,8 @@ function CreateTableModal({
   const [meta2, setMeta2] = useState("車種");
 
   return (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
-  <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
+      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
         <h2 className="text-lg font-bold">テーブル作成</h2>
 
         <div className="space-y-3">
@@ -150,28 +176,26 @@ function CreateTableModal({
         </div>
 
         <div className="flex gap-2 pt-2">
-        <button
-  className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium"
-  onClick={() => {
-    console.log("title=", title);
-    if (!title.trim()) {
-      alert("テーブル名を入れてください");
-      return;
-    }
-    onCreate({
-      id: "",
-      title: title.trim(),
-      labelMeta1: meta1.trim() || "車検",
-      labelMeta2: meta2.trim() || "車種",
-    });
-  }}
-  type="button"
->
-  作成
-</button>
+          <button
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium relative z-[300]"
+            onClick={() => {
+              if (!title.trim()) {
+                alert("テーブル名を入れてください");
+                return;
+              }
+              onCreate({
+                title: title.trim(),
+                labelMeta1: meta1.trim() || "車検",
+                labelMeta2: meta2.trim() || "車種",
+              });
+            }}
+            type="button"
+          >
+            作成
+          </button>
 
           <button
-            className="rounded-lg border px-4 py-2"
+            className="rounded-lg border px-4 py-2 relative z-[300]"
             onClick={onClose}
             type="button"
           >
@@ -194,8 +218,8 @@ function AddAssetModal({
   const [assignedUser, setAssignedUser] = useState("");
 
   return (
-   <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
-  <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
+      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
         <h2 className="text-lg font-bold">資産追加</h2>
 
         <div className="space-y-3">
@@ -243,16 +267,16 @@ function AddAssetModal({
 
         <div className="flex gap-2 pt-2">
           <button
-            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium disabled:opacity-50"
-            disabled={!name.trim()}
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium relative z-[300]"
             onClick={() => {
-              if (!name.trim()) return;
+              if (!name.trim()) {
+                alert("名前を入れてください");
+                return;
+              }
               onAdd({
-                id: "",
                 name: name.trim(),
                 inspection: inspection.trim(),
                 tableId,
-                sort: Date.now(),
                 assignedUser: assignedUser || undefined,
               });
             }}
@@ -262,7 +286,7 @@ function AddAssetModal({
           </button>
 
           <button
-            className="rounded-lg border px-4 py-2"
+            className="rounded-lg border px-4 py-2 relative z-[300]"
             onClick={onClose}
             type="button"
           >
@@ -287,8 +311,8 @@ function ReservationModal({
   const [note, setNote] = useState(existing?.note ?? "");
 
   return (
-  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4 pointer-events-auto">
-  <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4 pointer-events-auto">
+      <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">予約入力</h2>
@@ -302,7 +326,7 @@ function ReservationModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-2xl leading-none text-gray-500 hover:text-black px-2"
+            className="text-2xl leading-none text-gray-500 hover:text-black px-2 relative z-[300]"
             aria-label="閉じる"
           >
             ×
@@ -354,21 +378,25 @@ function ReservationModal({
 
         <div className="flex gap-2 pt-2">
           <button
-            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium"
-            onClick={() =>
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium relative z-[300]"
+            onClick={() => {
+              if (!userName.trim()) {
+                alert("予約者を選択してください");
+                return;
+              }
               onSave({
                 userName: userName.trim(),
                 site: site.trim(),
                 note: note.trim(),
-              })
-            }
+              });
+            }}
             type="button"
           >
             決定
           </button>
 
           <button
-            className="rounded-lg border px-4 py-2"
+            className="rounded-lg border px-4 py-2 relative z-[300]"
             onClick={onClose}
             type="button"
           >
@@ -377,7 +405,7 @@ function ReservationModal({
         </div>
 
         <button
-          className="w-full border border-red-400 text-red-500 py-2 rounded-lg"
+          className="w-full border border-red-400 text-red-500 py-2 rounded-lg relative z-[300]"
           onClick={onDelete}
           type="button"
         >
@@ -392,59 +420,61 @@ export default function ReservePage() {
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
+  const [memberOptions, setMemberOptions] = useState<string[]>([]);
 
   const [companyId] = useState("RDBznoOY2ng7FXF6cEWj");
   const [currentTableId, setCurrentTableId] = useState<string>("");
 
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
 
-  const [showCreateTable, setShowCreateTable] = useState<boolean>(false);
-  const [showAddAsset, setShowAddAsset] = useState<boolean>(false);
-
+  const [showCreateTable, setShowCreateTable] = useState(false);
+  const [showAddAsset, setShowAddAsset] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
-  const [memberOptions, setMemberOptions] = useState<string[]>([]);
+
+  const [loadingTables, setLoadingTables] = useState(true);
+  const [loadingAssets, setLoadingAssets] = useState(true);
+  const [loadingReservations, setLoadingReservations] = useState(true);
+
+  const [dragState, setDragState] = useState<DragState>(null);
 
   useEffect(() => {
-    const fetchMembers = async () => {
-      try {
-        const q = query(
-          collection(db, "users"),
-          where("companyId", "==", companyId)
-        );
-
-        const snap = await getDocs(q);
-
-        const names = snap.docs
-          .map((docSnap) => {
-            const data = docSnap.data() as {
-              displayName?: string;
-              name?: string;
-            };
-            return data.displayName ?? data.name ?? "";
-          })
-          .filter((name) => !!name);
-
-        setMemberOptions(names);
-      } catch (error) {
-        console.error("member fetch error:", error);
-        setMemberOptions([]);
-      }
-    };
-
     if (!companyId) return;
-    fetchMembers();
+
+    const q = query(
+      collection(db, "users"),
+      where("companyId", "==", companyId)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      const names = snap.docs
+        .map((docSnap) => {
+          const data = docSnap.data() as {
+            displayName?: string;
+            name?: string;
+          };
+          return data.displayName ?? data.name ?? "";
+        })
+        .filter(Boolean);
+
+      setMemberOptions(names);
+    });
+
+    return () => unsub();
   }, [companyId]);
 
   useEffect(() => {
-    const fetchTables = async () => {
-      try {
-        const q = query(
-          collection(db, "tables"),
-          where("companyId", "==", companyId)
-        );
+    if (!companyId) return;
 
-        const snap = await getDocs(q);
+    setLoadingTables(true);
 
+    const q = query(
+      collection(db, "tables"),
+      where("companyId", "==", companyId)
+    );
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
         const list: TableItem[] = snap.docs
           .map((docSnap) => {
             const data = docSnap.data() as {
@@ -466,29 +496,37 @@ export default function ReservePage() {
 
         setTables(list);
 
-        if (list.length > 0 && !currentTableId) {
-          setCurrentTableId(list[0].id);
+        if (list.length > 0) {
+          setCurrentTableId((prev) => prev || list[0].id);
+        } else {
+          setCurrentTableId("");
         }
-      } catch (error) {
-        console.error("tables fetch error:", error);
-        setTables([]);
-      }
-    };
 
-    if (!companyId) return;
-    fetchTables();
-  }, [companyId, currentTableId]);
+        setLoadingTables(false);
+      },
+      (error) => {
+        console.error("tables snapshot error:", error);
+        setTables([]);
+        setLoadingTables(false);
+      }
+    );
+
+    return () => unsub();
+  }, [companyId]);
 
   useEffect(() => {
-    const fetchAssets = async () => {
-      try {
-        const q = query(
-          collection(db, "assets"),
-          where("companyId", "==", companyId)
-        );
+    if (!companyId) return;
 
-        const snap = await getDocs(q);
+    setLoadingAssets(true);
 
+    const q = query(
+      collection(db, "assets"),
+      where("companyId", "==", companyId)
+    );
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
         const list: AssetItem[] = snap.docs.map((docSnap) => {
           const data = docSnap.data() as {
             name?: string;
@@ -509,26 +547,31 @@ export default function ReservePage() {
         });
 
         setAssets(list);
-      } catch (error) {
-        console.error("assets fetch error:", error);
+        setLoadingAssets(false);
+      },
+      (error) => {
+        console.error("assets snapshot error:", error);
         setAssets([]);
+        setLoadingAssets(false);
       }
-    };
+    );
 
-    if (!companyId) return;
-    fetchAssets();
+    return () => unsub();
   }, [companyId]);
 
   useEffect(() => {
-    const fetchReservations = async () => {
-      try {
-        const q = query(
-          collection(db, "reservations"),
-          where("companyId", "==", companyId)
-        );
+    if (!companyId) return;
 
-        const snap = await getDocs(q);
+    setLoadingReservations(true);
 
+    const q = query(
+      collection(db, "reservations"),
+      where("companyId", "==", companyId)
+    );
+
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
         const list: ReservationItem[] = snap.docs.map((docSnap) => {
           const data = docSnap.data() as {
             assetId?: string;
@@ -549,25 +592,25 @@ export default function ReservePage() {
         });
 
         setReservations(list);
-      } catch (error) {
-        console.error("reservations fetch error:", error);
+        setLoadingReservations(false);
+      },
+      (error) => {
+        console.error("reservations snapshot error:", error);
         setReservations([]);
+        setLoadingReservations(false);
       }
-    };
+    );
 
-    if (!companyId) return;
-    fetchReservations();
+    return () => unsub();
   }, [companyId]);
 
-  const currentTable: TableItem | undefined = tables.find(
-    (t) => t.id === currentTableId
-  );
+  const currentTable = tables.find((t) => t.id === currentTableId);
 
   const days: DayItem[] = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const date = addDays(weekStart, i);
       return {
-        key: `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`,
+        key: makeDayKey(date),
         label: formatHeaderDate(date),
         weekday: ["月", "火", "水", "木", "金", "土", "日"][i],
         date,
@@ -575,19 +618,111 @@ export default function ReservePage() {
     });
   }, [weekStart]);
 
-  const currentTableAssets: AssetItem[] = useMemo(() => {
+  const currentTableAssets = useMemo(() => {
     return [...assets]
       .filter((a) => a.tableId === currentTableId)
       .sort((a, b) => a.sort - b.sort);
   }, [assets, currentTableId]);
 
-  const sharedAssets: AssetItem[] = useMemo(() => {
+  const sharedAssets = useMemo(() => {
     return currentTableAssets.filter((a) => !a.assignedUser);
   }, [currentTableAssets]);
 
-  const myAssets: AssetItem[] = useMemo(() => {
+  const myAssets = useMemo(() => {
     return currentTableAssets.filter((a) => !!a.assignedUser);
   }, [currentTableAssets]);
+
+  const dragSelectedDayKeys = useMemo(() => {
+    if (!dragState) return [];
+    return rangeFromIndices(dragState.startIndex, dragState.currentIndex)
+      .map((index) => days[index]?.key)
+      .filter(Boolean);
+  }, [dragState, days]);
+
+  const isLoading = loadingTables || loadingAssets || loadingReservations;
+
+  const openSlotFromIndices = (
+    assetId: string,
+    assetName: string,
+    startIndex: number,
+    endIndex: number
+  ) => {
+    const indices = rangeFromIndices(startIndex, endIndex);
+    const selectedDays = indices.map((index) => days[index]).filter(Boolean);
+
+    if (selectedDays.length === 0) return;
+
+    const first = selectedDays[0];
+    const last = selectedDays[selectedDays.length - 1];
+
+    const dateLabel =
+      selectedDays.length === 1
+        ? `${first.label}（${first.weekday}）`
+        : `${first.label}（${first.weekday}）〜 ${last.label}（${last.weekday}）`;
+
+    setSelectedSlot({
+      assetId,
+      assetName,
+      dayKeys: selectedDays.map((d) => d.key),
+      dateLabel,
+    });
+  };
+
+  const handleCellMouseDown = (
+    assetId: string,
+    assetName: string,
+    dayIndex: number
+  ) => {
+    setDragState({
+      assetId,
+      assetName,
+      startIndex: dayIndex,
+      currentIndex: dayIndex,
+    });
+  };
+
+  const handleCellMouseEnter = (
+    assetId: string,
+    dayIndex: number
+  ) => {
+    setDragState((prev) => {
+      if (!prev) return prev;
+      if (prev.assetId !== assetId) return prev;
+      return {
+        ...prev,
+        currentIndex: dayIndex,
+      };
+    });
+  };
+
+  const handleCellMouseUp = (assetId: string) => {
+    if (!dragState) return;
+    if (dragState.assetId !== assetId) return;
+
+    openSlotFromIndices(
+      dragState.assetId,
+      dragState.assetName,
+      dragState.startIndex,
+      dragState.currentIndex
+    );
+    setDragState(null);
+  };
+
+  useEffect(() => {
+    const clearDrag = () => setDragState(null);
+    window.addEventListener("mouseup", clearDrag);
+    return () => window.removeEventListener("mouseup", clearDrag);
+  }, []);
+
+  if (loadingTables && tables.length === 0) {
+    return (
+      <main className="min-h-screen bg-white text-black p-6">
+        <div className="mx-auto max-w-md text-center text-gray-500">
+          読み込み中...
+        </div>
+      </main>
+    );
+  }
 
   if (tables.length === 0) {
     return (
@@ -636,17 +771,11 @@ export default function ReservePage() {
                   sort: Date.now(),
                 });
 
-                setTables((prev) => [
-                  ...prev,
-                  {
-                    ...table,
-                    id: docRef.id,
-                  },
-                ]);
                 setCurrentTableId(docRef.id);
                 setShowCreateTable(false);
               } catch (error) {
                 console.error("table create error:", error);
+                alert("テーブル作成に失敗しました");
               }
             }}
           />
@@ -712,6 +841,10 @@ export default function ReservePage() {
                 ＋ 資産追加
               </button>
             </div>
+
+            {isLoading && (
+              <div className="text-xs text-gray-500">同期中...</div>
+            )}
           </div>
 
           <div className="flex items-center justify-between px-3 py-3 bg-gray-50 border-t">
@@ -753,7 +886,7 @@ export default function ReservePage() {
         ) : (
           <div className="rounded-xl border overflow-hidden bg-white">
             <div className="overflow-x-auto">
-              <table className="border-collapse text-sm min-w-[760px] w-full">
+              <table className="border-collapse text-sm min-w-[760px] w-full select-none">
                 <thead>
                   <tr>
                     <th className="border bg-red-500 text-white px-2 py-2 w-16">
@@ -804,11 +937,11 @@ export default function ReservePage() {
                         {asset.name}
                       </td>
 
-                      {days.map((day) => {
+                      {days.map((day, dayIndex) => {
                         const isSunday = day.date.getDay() === 0;
                         const isSaturday = day.date.getDay() === 6;
 
-                        const cellBg = isSunday
+                        const defaultBg = isSunday
                           ? "bg-red-50"
                           : isSaturday
                           ? "bg-blue-50"
@@ -818,21 +951,31 @@ export default function ReservePage() {
                           (r) => r.assetId === asset.id && r.dayKey === day.key
                         );
 
+                        const isDragged =
+                          dragState?.assetId === asset.id &&
+                          dragSelectedDayKeys.includes(day.key);
+
+                        const cellBg = isDragged
+                          ? "bg-yellow-100"
+                          : reservation
+                          ? "bg-blue-50"
+                          : defaultBg;
+
                         return (
                           <td
                             key={`${asset.id}-${day.key}`}
                             className={`border p-1 align-top ${cellBg}`}
+                            onMouseEnter={() =>
+                              handleCellMouseEnter(asset.id, dayIndex)
+                            }
+                            onMouseUp={() => handleCellMouseUp(asset.id)}
                           >
                             <button
                               className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-2"
-                              onClick={() =>
-                                setSelectedSlot({
-                                  assetId: asset.id,
-                                  assetName: asset.name,
-                                  dayKey: day.key,
-                                  dateLabel: `${day.label}（${day.weekday}）`,
-                                })
-                              }
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleCellMouseDown(asset.id, asset.name, dayIndex);
+                              }}
                               type="button"
                             >
                               <div className="space-y-1">
@@ -866,6 +1009,10 @@ export default function ReservePage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            <div className="px-3 py-2 text-xs text-gray-500 border-t">
+              セルをドラッグすると複数日まとめて予約できます
             </div>
           </div>
         )}
@@ -904,82 +1051,52 @@ export default function ReservePage() {
       {selectedSlot && (
         <ReservationModal
           slot={selectedSlot}
-          existing={reservations.find(
-            (r) =>
-              r.assetId === selectedSlot.assetId &&
-              r.dayKey === selectedSlot.dayKey
-          )}
+          existing={
+            selectedSlot.dayKeys.length === 1
+              ? reservations.find(
+                  (r) =>
+                    r.assetId === selectedSlot.assetId &&
+                    r.dayKey === selectedSlot.dayKeys[0]
+                )
+              : undefined
+          }
           memberOptions={memberOptions}
           onClose={() => setSelectedSlot(null)}
           onSave={async ({ userName, site, note }) => {
             if (!selectedSlot) return;
 
-            const reservationId = makeReservationDocId(
-              selectedSlot.assetId,
-              selectedSlot.dayKey
-            );
-
             try {
-              await setDoc(doc(db, "reservations", reservationId), {
-                assetId: selectedSlot.assetId,
-                dayKey: selectedSlot.dayKey,
-                userName,
-                site,
-                note,
-                companyId,
-              });
-
-              setReservations((prev) => {
-                const filtered = prev.filter(
-                  (r) =>
-                    !(
-                      r.assetId === selectedSlot.assetId &&
-                      r.dayKey === selectedSlot.dayKey
-                    )
-                );
-
-                return [
-                  ...filtered,
-                  {
-                    id: reservationId,
+              await Promise.all(
+                selectedSlot.dayKeys.map((dayKey) =>
+                  setDoc(doc(db, "reservations", makeReservationDocId(selectedSlot.assetId, dayKey)), {
                     assetId: selectedSlot.assetId,
-                    dayKey: selectedSlot.dayKey,
+                    dayKey,
                     userName,
                     site,
                     note,
-                  },
-                ];
-              });
-
+                    companyId,
+                  })
+                )
+              );
               setSelectedSlot(null);
             } catch (error) {
               console.error("reservation save error:", error);
+              alert("予約保存に失敗しました");
             }
           }}
           onDelete={async () => {
             if (!selectedSlot) return;
 
-            const reservationId = makeReservationDocId(
-              selectedSlot.assetId,
-              selectedSlot.dayKey
-            );
-
             try {
-              await deleteDoc(doc(db, "reservations", reservationId));
-
-              setReservations((prev) =>
-                prev.filter(
-                  (r) =>
-                    !(
-                      r.assetId === selectedSlot.assetId &&
-                      r.dayKey === selectedSlot.dayKey
-                    )
+              await Promise.all(
+                selectedSlot.dayKeys.map((dayKey) =>
+                  deleteDoc(doc(db, "reservations", makeReservationDocId(selectedSlot.assetId, dayKey)))
                 )
               );
-
               setSelectedSlot(null);
             } catch (error) {
               console.error("reservation delete error:", error);
+              alert("予約削除に失敗しました");
             }
           }}
         />
@@ -998,17 +1115,11 @@ export default function ReservePage() {
                 sort: Date.now(),
               });
 
-              setTables((prev) => [
-                ...prev,
-                {
-                  ...table,
-                  id: docRef.id,
-                },
-              ]);
               setCurrentTableId(docRef.id);
               setShowCreateTable(false);
             } catch (error) {
               console.error("table create error:", error);
+              alert("テーブル作成に失敗しました");
             }
           }}
         />
@@ -1019,7 +1130,7 @@ export default function ReservePage() {
           onClose={() => setShowAddAsset(false)}
           onAdd={async (asset) => {
             try {
-              const docRef = await addDoc(collection(db, "assets"), {
+              await addDoc(collection(db, "assets"), {
                 name: asset.name,
                 inspection: asset.inspection,
                 tableId: asset.tableId,
@@ -1028,16 +1139,10 @@ export default function ReservePage() {
                 companyId,
               });
 
-              setAssets((prev) => [
-                ...prev,
-                {
-                  ...asset,
-                  id: docRef.id,
-                },
-              ]);
               setShowAddAsset(false);
             } catch (error) {
               console.error("asset add error:", error);
+              alert("資産追加に失敗しました");
             }
           }}
           tableId={currentTableId}
