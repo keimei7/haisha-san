@@ -7,6 +7,9 @@ import {
   query,
   where,
   addDoc,
+  deleteDoc,
+  doc,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
@@ -59,7 +62,7 @@ type CreateTableModalProps = {
 
 type AddAssetModalProps = {
   onClose: () => void;
-  onAdd: (asset: AssetItem) => void;
+  onAdd: (asset: AssetItem) => void | Promise<void>;
   tableId: string;
   memberOptions: string[];
 };
@@ -73,8 +76,8 @@ type ReservationModalProps = {
     userName: string;
     site: string;
     note: string;
-  }) => void;
-  onDelete: () => void;
+  }) => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
 };
 
 function getMonday(date: Date): Date {
@@ -91,8 +94,8 @@ function addDays(base: Date, days: number): Date {
   return d;
 }
 
-function makeId(): string {
-  return Math.random().toString(36).slice(2, 10);
+function makeReservationDocId(assetId: string, dayKey: string): string {
+  return `${assetId}_${dayKey}`;
 }
 
 function formatHeaderDate(date: Date): string {
@@ -153,7 +156,7 @@ function CreateTableModal({
             onClick={() => {
               if (!title.trim()) return;
               onCreate({
-                id: makeId(),
+                id: "",
                 title: title.trim(),
                 labelMeta1: meta1.trim() || "車検",
                 labelMeta2: meta2.trim() || "車種",
@@ -242,7 +245,7 @@ function AddAssetModal({
             onClick={() => {
               if (!name.trim()) return;
               onAdd({
-                id: makeId(),
+                id: "",
                 name: name.trim(),
                 inspection: inspection.trim(),
                 tableId,
@@ -409,8 +412,8 @@ export default function ReservePage() {
         const snap = await getDocs(q);
 
         const names = snap.docs
-          .map((doc) => {
-            const data = doc.data() as {
+          .map((docSnap) => {
+            const data = docSnap.data() as {
               displayName?: string;
               name?: string;
             };
@@ -440,8 +443,8 @@ export default function ReservePage() {
         const snap = await getDocs(q);
 
         const list: TableItem[] = snap.docs
-          .map((doc) => {
-            const data = doc.data() as {
+          .map((docSnap) => {
+            const data = docSnap.data() as {
               title?: string;
               labelMeta1?: string;
               labelMeta2?: string;
@@ -449,7 +452,7 @@ export default function ReservePage() {
             };
 
             return {
-              id: doc.id,
+              id: docSnap.id,
               title: data.title ?? "無題",
               labelMeta1: data.labelMeta1 ?? "車検",
               labelMeta2: data.labelMeta2 ?? "車種",
@@ -472,6 +475,86 @@ export default function ReservePage() {
     if (!companyId) return;
     fetchTables();
   }, [companyId, currentTableId]);
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      try {
+        const q = query(
+          collection(db, "assets"),
+          where("companyId", "==", companyId)
+        );
+
+        const snap = await getDocs(q);
+
+        const list: AssetItem[] = snap.docs.map((docSnap) => {
+          const data = docSnap.data() as {
+            name?: string;
+            inspection?: string;
+            tableId?: string;
+            sort?: number;
+            assignedUser?: string | null;
+          };
+
+          return {
+            id: docSnap.id,
+            name: data.name ?? "",
+            inspection: data.inspection ?? "",
+            tableId: data.tableId ?? "",
+            sort: data.sort ?? 0,
+            assignedUser: data.assignedUser ?? undefined,
+          };
+        });
+
+        setAssets(list);
+      } catch (error) {
+        console.error("assets fetch error:", error);
+        setAssets([]);
+      }
+    };
+
+    if (!companyId) return;
+    fetchAssets();
+  }, [companyId]);
+
+  useEffect(() => {
+    const fetchReservations = async () => {
+      try {
+        const q = query(
+          collection(db, "reservations"),
+          where("companyId", "==", companyId)
+        );
+
+        const snap = await getDocs(q);
+
+        const list: ReservationItem[] = snap.docs.map((docSnap) => {
+          const data = docSnap.data() as {
+            assetId?: string;
+            dayKey?: string;
+            userName?: string;
+            site?: string;
+            note?: string;
+          };
+
+          return {
+            id: docSnap.id,
+            assetId: data.assetId ?? "",
+            dayKey: data.dayKey ?? "",
+            userName: data.userName ?? "",
+            site: data.site ?? "",
+            note: data.note ?? "",
+          };
+        });
+
+        setReservations(list);
+      } catch (error) {
+        console.error("reservations fetch error:", error);
+        setReservations([]);
+      }
+    };
+
+    if (!companyId) return;
+    fetchReservations();
+  }, [companyId]);
 
   const currentTable: TableItem | undefined = tables.find(
     (t) => t.id === currentTableId
@@ -825,47 +908,76 @@ export default function ReservePage() {
           )}
           memberOptions={memberOptions}
           onClose={() => setSelectedSlot(null)}
-          onSave={({ userName, site, note }) => {
+          onSave={async ({ userName, site, note }) => {
             if (!selectedSlot) return;
 
-            setReservations((prev) => {
-              const filtered = prev.filter(
-                (r) =>
-                  !(
-                    r.assetId === selectedSlot.assetId &&
-                    r.dayKey === selectedSlot.dayKey
-                  )
-              );
-
-              return [
-                ...filtered,
-                {
-                  id: makeId(),
-                  assetId: selectedSlot.assetId,
-                  dayKey: selectedSlot.dayKey,
-                  userName,
-                  site,
-                  note,
-                },
-              ];
-            });
-
-            setSelectedSlot(null);
-          }}
-          onDelete={() => {
-            if (!selectedSlot) return;
-
-            setReservations((prev) =>
-              prev.filter(
-                (r) =>
-                  !(
-                    r.assetId === selectedSlot.assetId &&
-                    r.dayKey === selectedSlot.dayKey
-                  )
-              )
+            const reservationId = makeReservationDocId(
+              selectedSlot.assetId,
+              selectedSlot.dayKey
             );
 
-            setSelectedSlot(null);
+            try {
+              await setDoc(doc(db, "reservations", reservationId), {
+                assetId: selectedSlot.assetId,
+                dayKey: selectedSlot.dayKey,
+                userName,
+                site,
+                note,
+                companyId,
+              });
+
+              setReservations((prev) => {
+                const filtered = prev.filter(
+                  (r) =>
+                    !(
+                      r.assetId === selectedSlot.assetId &&
+                      r.dayKey === selectedSlot.dayKey
+                    )
+                );
+
+                return [
+                  ...filtered,
+                  {
+                    id: reservationId,
+                    assetId: selectedSlot.assetId,
+                    dayKey: selectedSlot.dayKey,
+                    userName,
+                    site,
+                    note,
+                  },
+                ];
+              });
+
+              setSelectedSlot(null);
+            } catch (error) {
+              console.error("reservation save error:", error);
+            }
+          }}
+          onDelete={async () => {
+            if (!selectedSlot) return;
+
+            const reservationId = makeReservationDocId(
+              selectedSlot.assetId,
+              selectedSlot.dayKey
+            );
+
+            try {
+              await deleteDoc(doc(db, "reservations", reservationId));
+
+              setReservations((prev) =>
+                prev.filter(
+                  (r) =>
+                    !(
+                      r.assetId === selectedSlot.assetId &&
+                      r.dayKey === selectedSlot.dayKey
+                    )
+                )
+              );
+
+              setSelectedSlot(null);
+            } catch (error) {
+              console.error("reservation delete error:", error);
+            }
           }}
         />
       )}
@@ -902,9 +1014,28 @@ export default function ReservePage() {
       {showAddAsset && (
         <AddAssetModal
           onClose={() => setShowAddAsset(false)}
-          onAdd={(asset) => {
-            setAssets((prev) => [...prev, asset]);
-            setShowAddAsset(false);
+          onAdd={async (asset) => {
+            try {
+              const docRef = await addDoc(collection(db, "assets"), {
+                name: asset.name,
+                inspection: asset.inspection,
+                tableId: asset.tableId,
+                assignedUser: asset.assignedUser ?? null,
+                sort: Date.now(),
+                companyId,
+              });
+
+              setAssets((prev) => [
+                ...prev,
+                {
+                  ...asset,
+                  id: docRef.id,
+                },
+              ]);
+              setShowAddAsset(false);
+            } catch (error) {
+              console.error("asset add error:", error);
+            }
           }}
           tableId={currentTableId}
           memberOptions={memberOptions}
