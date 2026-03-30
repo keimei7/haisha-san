@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   addDoc,
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   query,
   setDoc,
   where,
 } from "firebase/firestore";
+import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
 
 type TableItem = {
@@ -61,6 +64,12 @@ type DragState = {
   startIndex: number;
   currentIndex: number;
 } | null;
+
+type UserDoc = {
+  companyId?: string;
+  displayName?: string;
+  name?: string;
+};
 
 type CreateTableModalProps = {
   onClose: () => void;
@@ -417,14 +426,16 @@ function ReservationModal({
 }
 
 export default function ReservePage() {
+  const [uid, setUid] = useState<string>("");
+  const [companyId, setCompanyId] = useState<string>("");
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [memberOptions, setMemberOptions] = useState<string[]>([]);
 
-  const [companyId] = useState("RDBznoOY2ng7FXF6cEWj");
   const [currentTableId, setCurrentTableId] = useState<string>("");
-
   const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
 
   const [showCreateTable, setShowCreateTable] = useState(false);
@@ -438,6 +449,41 @@ export default function ReservePage() {
   const [dragState, setDragState] = useState<DragState>(null);
 
   useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      try {
+        if (!user) {
+          setUid("");
+          setCompanyId("");
+          setAuthLoading(false);
+          return;
+        }
+
+        setUid(user.uid);
+
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          console.error("users/{uid} が存在しません");
+          setCompanyId("");
+          setAuthLoading(false);
+          return;
+        }
+
+        const data = userSnap.data() as UserDoc;
+        setCompanyId(data.companyId ?? "");
+        setAuthLoading(false);
+      } catch (error) {
+        console.error("auth/company read error:", error);
+        setCompanyId("");
+        setAuthLoading(false);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
     if (!companyId) return;
 
     const q = query(
@@ -445,19 +491,23 @@ export default function ReservePage() {
       where("companyId", "==", companyId)
     );
 
-    const unsub = onSnapshot(q, (snap) => {
-      const names = snap.docs
-        .map((docSnap) => {
-          const data = docSnap.data() as {
-            displayName?: string;
-            name?: string;
-          };
-          return data.displayName ?? data.name ?? "";
-        })
-        .filter(Boolean);
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const names = snap.docs
+          .map((docSnap) => {
+            const data = docSnap.data() as UserDoc;
+            return data.displayName ?? data.name ?? "";
+          })
+          .filter(Boolean);
 
-      setMemberOptions(names);
-    });
+        setMemberOptions(names);
+      },
+      (error) => {
+        console.error("users snapshot error:", error);
+        setMemberOptions([]);
+      }
+    );
 
     return () => unsub();
   }, [companyId]);
@@ -497,7 +547,9 @@ export default function ReservePage() {
         setTables(list);
 
         if (list.length > 0) {
-          setCurrentTableId((prev) => prev || list[0].id);
+          setCurrentTableId((prev) =>
+            prev && list.some((t) => t.id === prev) ? prev : list[0].id
+          );
         } else {
           setCurrentTableId("");
         }
@@ -639,7 +691,8 @@ export default function ReservePage() {
       .filter(Boolean);
   }, [dragState, days]);
 
-  const isLoading = loadingTables || loadingAssets || loadingReservations;
+  const isLoading =
+    authLoading || loadingTables || loadingAssets || loadingReservations;
 
   const openSlotFromIndices = (
     assetId: string,
@@ -681,10 +734,7 @@ export default function ReservePage() {
     });
   };
 
-  const handleCellMouseEnter = (
-    assetId: string,
-    dayIndex: number
-  ) => {
+  const handleCellMouseEnter = (assetId: string, dayIndex: number) => {
     setDragState((prev) => {
       if (!prev) return prev;
       if (prev.assetId !== assetId) return prev;
@@ -713,6 +763,39 @@ export default function ReservePage() {
     window.addEventListener("mouseup", clearDrag);
     return () => window.removeEventListener("mouseup", clearDrag);
   }, []);
+
+  if (authLoading) {
+    return (
+      <main className="min-h-screen bg-white text-black p-6">
+        <div className="mx-auto max-w-md text-center text-gray-500">
+          認証確認中...
+        </div>
+      </main>
+    );
+  }
+
+  if (!uid) {
+    return (
+      <main className="min-h-screen bg-white text-black p-6">
+        <div className="mx-auto max-w-md text-center text-gray-500">
+          ログインしてください
+        </div>
+      </main>
+    );
+  }
+
+  if (!companyId) {
+    return (
+      <main className="min-h-screen bg-white text-black p-6">
+        <div className="mx-auto max-w-md text-center text-gray-500 space-y-2">
+          <div>companyId が取得できませんでした</div>
+          <div className="text-xs">
+            users/{uid} に companyId が入っているか確認してください
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (loadingTables && tables.length === 0) {
     return (
@@ -775,7 +858,7 @@ export default function ReservePage() {
                 setShowCreateTable(false);
               } catch (error) {
                 console.error("table create error:", error);
-                alert("テーブル作成に失敗しました");
+                alert(`テーブル作成に失敗しました: ${String(error)}`);
               }
             }}
           />
@@ -842,9 +925,7 @@ export default function ReservePage() {
               </button>
             </div>
 
-            {isLoading && (
-              <div className="text-xs text-gray-500">同期中...</div>
-            )}
+            {isLoading && <div className="text-xs text-gray-500">同期中...</div>}
           </div>
 
           <div className="flex items-center justify-between px-3 py-3 bg-gray-50 border-t">
@@ -1068,20 +1149,27 @@ export default function ReservePage() {
             try {
               await Promise.all(
                 selectedSlot.dayKeys.map((dayKey) =>
-                  setDoc(doc(db, "reservations", makeReservationDocId(selectedSlot.assetId, dayKey)), {
-                    assetId: selectedSlot.assetId,
-                    dayKey,
-                    userName,
-                    site,
-                    note,
-                    companyId,
-                  })
+                  setDoc(
+                    doc(
+                      db,
+                      "reservations",
+                      makeReservationDocId(selectedSlot.assetId, dayKey)
+                    ),
+                    {
+                      assetId: selectedSlot.assetId,
+                      dayKey,
+                      userName,
+                      site,
+                      note,
+                      companyId,
+                    }
+                  )
                 )
               );
               setSelectedSlot(null);
             } catch (error) {
               console.error("reservation save error:", error);
-              alert("予約保存に失敗しました");
+              alert(`予約保存に失敗しました: ${String(error)}`);
             }
           }}
           onDelete={async () => {
@@ -1090,13 +1178,19 @@ export default function ReservePage() {
             try {
               await Promise.all(
                 selectedSlot.dayKeys.map((dayKey) =>
-                  deleteDoc(doc(db, "reservations", makeReservationDocId(selectedSlot.assetId, dayKey)))
+                  deleteDoc(
+                    doc(
+                      db,
+                      "reservations",
+                      makeReservationDocId(selectedSlot.assetId, dayKey)
+                    )
+                  )
                 )
               );
               setSelectedSlot(null);
             } catch (error) {
               console.error("reservation delete error:", error);
-              alert("予約削除に失敗しました");
+              alert(`予約削除に失敗しました: ${String(error)}`);
             }
           }}
         />
@@ -1119,7 +1213,7 @@ export default function ReservePage() {
               setShowCreateTable(false);
             } catch (error) {
               console.error("table create error:", error);
-              alert("テーブル作成に失敗しました");
+              alert(`テーブル作成に失敗しました: ${String(error)}`);
             }
           }}
         />
@@ -1142,7 +1236,7 @@ export default function ReservePage() {
               setShowAddAsset(false);
             } catch (error) {
               console.error("asset add error:", error);
-              alert("資産追加に失敗しました");
+              alert(`資産追加に失敗しました: ${String(error)}`);
             }
           }}
           tableId={currentTableId}
