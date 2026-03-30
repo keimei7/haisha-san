@@ -175,6 +175,7 @@ function AddAssetModal({
   const [name, setName] = useState("");
   const [inspection, setInspection] = useState("");
 const [assignedUser, setAssignedUser] = useState("");
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200]">
       <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl">
@@ -579,28 +580,7 @@ if (tables.length === 0) {
                 </thead>
 
                 <tbody>
-      {myAssets.length > 0 && (
-  <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
-    <h3 className="font-bold">マイカー</h3>
-
-    <div className="space-y-2">
-      {myAssets.map((asset) => (
-        <div
-          key={asset.id}
-          className="rounded-xl border px-3 py-3 flex items-center justify-between"
-        >
-          <div>
-            <div className="font-medium">{asset.name}</div>
-            <div className="text-sm text-gray-500">
-              {asset.inspection || "点検情報なし"}
-            </div>
-          </div>
-          <div className="text-sm text-gray-500">{asset.assignedUser}</div>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+     
            {sharedAssets.map((asset) => (
                     <tr key={asset.id}>
                       <td className="border px-2 py-3 text-center align-middle whitespace-nowrap bg-white">
@@ -674,7 +654,28 @@ if (tables.length === 0) {
             </div>
           </div>
         )}
+{myAssets.length > 0 && (
+  <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
+    <h3 className="font-bold">マイカー</h3>
 
+    <div className="space-y-2">
+      {myAssets.map((asset) => (
+        <div
+          key={asset.id}
+          className="rounded-xl border px-3 py-3 flex items-center justify-between"
+        >
+          <div>
+            <div className="font-medium">{asset.name}</div>
+            <div className="text-sm text-gray-500">
+              {asset.inspection || "点検情報なし"}
+            </div>
+          </div>
+          <div className="text-sm text-gray-500">{asset.assignedUser}</div>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
         <p className="mt-3 text-xs text-gray-500">
        資産件数: {currentTableAssets.length} / 共有車: {sharedAssets.length} / マイカー: {myAssets.length} / 予約件数: {reservations.length}
         </p>
