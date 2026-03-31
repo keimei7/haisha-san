@@ -980,7 +980,7 @@ const exportWeeklyReservationsCsv = () => {
 </button>
           </div>
 
-          <div className="bg-yellow-300 border-b px-3 py-3 relative">
+          <div className="bg-yellow-300 border-b px-3 py-2.5 relative">
             <div className="text-center font-bold text-xl">
             {currentTable?.title ?? "テーブル未選択"}
             </div>
