@@ -997,7 +997,7 @@ const exportWeeklyReservationsCsv = () => {
             )}
           </div>
 
-          <div className="p-3 space-y-3 bg-white">
+          <div className="px-3 py-2 space-y-2 bg-white">
             {tables.length > 1 && (
   <div className="space-y-3">
     <div className="overflow-x-auto">
@@ -1024,9 +1024,8 @@ const exportWeeklyReservationsCsv = () => {
   </div>
 )}
 
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                className="rounded-xl border bg-white py-2.5 text-sm"
+           <div className="grid grid-cols-2 gap-1.5">
+  <button className="rounded-lg border bg-white py-1.5 text-sm"
                 onClick={() => setShowCreateTable(true)}
                 type="button"
               >
