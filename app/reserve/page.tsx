@@ -635,6 +635,7 @@ const [myDisplayName, setMyDisplayName] = useState("");
 
   const [companyName, setCompanyName] = useState("");
 const [myProfileOpen, setMyProfileOpen] = useState(false);
+const [isEditingName, setIsEditingName] = useState(false);
 const [editingDisplayName, setEditingDisplayName] = useState("");
 const [savingDisplayName, setSavingDisplayName] = useState(false);
 
@@ -1331,8 +1332,8 @@ const saveMyDisplayName = async () => {
       )}
 
        {myProfileOpen && (
-  <div className="fixed inset-0 z-[210] bg-black/40 flex items-center justify-center px-4">
-    <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+  <div className="fixed inset-0 z-[400] bg-black/40 flex items-center justify-center px-4">
+  <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4 relative z-[401]">
       <h2 className="text-lg font-bold">表示名を編集</h2>
 
       <div>
@@ -1426,22 +1427,85 @@ const saveMyDisplayName = async () => {
     </div>
   )}
 
-  <div className="flex items-center justify-between">
-    <div className="text-sm text-gray-600">
-      {myDisplayName || "表示名未設定"}
+  <div className="space-y-2">
+  {companyName && (
+    <div className="text-sm text-gray-500">
+      {companyName}
     </div>
+  )}
 
-    <button
-      type="button"
-      className="text-xs border px-2 py-1 rounded bg-white"
-      onClick={() => {
-        setEditingDisplayName(myDisplayName);
-        setMyProfileOpen(true);
-      }}
-    >
-      編集
-    </button>
-  </div>
+  {!isEditingName ? (
+    <div className="flex items-center justify-between">
+      <div className="text-sm text-gray-600">
+        {myDisplayName || "表示名未設定"}
+      </div>
+
+      <button
+        type="button"
+        className="text-xs border px-2 py-1 rounded bg-white"
+        onClick={() => {
+          setEditingDisplayName(myDisplayName);
+          setIsEditingName(true);
+        }}
+      >
+        編集
+      </button>
+    </div>
+  ) : (
+    <div className="space-y-2">
+      <input
+        className="w-full border rounded-lg px-3 py-2 text-sm"
+        value={editingDisplayName}
+        onChange={(e) => setEditingDisplayName(e.target.value)}
+        placeholder="表示名"
+      />
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="flex-1 rounded-lg bg-blue-600 text-white py-1.5 text-sm disabled:opacity-50"
+          onClick={async () => {
+            if (!editingDisplayName.trim()) {
+              alert("表示名を入力してください");
+              return;
+            }
+
+            try {
+              setSavingDisplayName(true);
+
+              await updateDoc(
+                doc(db, "users", auth.currentUser!.uid),
+                {
+                  displayName: editingDisplayName.trim(),
+                  updatedAt: new Date().toISOString(),
+                }
+              );
+
+              setMyDisplayName(editingDisplayName.trim());
+              setIsEditingName(false);
+            } catch (e) {
+              console.error(e);
+              alert("更新失敗");
+            } finally {
+              setSavingDisplayName(false);
+            }
+          }}
+          disabled={savingDisplayName}
+        >
+          保存
+        </button>
+
+        <button
+          type="button"
+          className="px-3 py-1.5 border rounded text-sm"
+          onClick={() => setIsEditingName(false)}
+        >
+          キャンセル
+        </button>
+      </div>
+    </div>
+  )}
+</div>
 </div>
 <div className="border rounded-xl overflow-hidden">
   <button
