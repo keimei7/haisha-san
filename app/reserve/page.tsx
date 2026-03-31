@@ -589,6 +589,9 @@ function ReservationModal({
 }
 
 export default function ReservePage() {
+    const [menuMyAssetsOpen, setMenuMyAssetsOpen] = useState(true);
+const [menuAssignedOpen, setMenuAssignedOpen] = useState(false);
+const [openTableIds, setOpenTableIds] = useState<string[]>([]);
     const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
@@ -762,7 +765,13 @@ const [myDisplayName, setMyDisplayName] = useState("");
   }, [companyId]);
 
   const currentTable = tables.find((t) => t.id === currentTableId);
-
+const toggleTableOpen = (tableId: string) => {
+  setOpenTableIds((prev) =>
+    prev.includes(tableId)
+      ? prev.filter((id) => id !== tableId)
+      : [...prev, tableId]
+  );
+};
   const days: DayItem[] = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
       const date = addDays(weekStart, i);
@@ -827,13 +836,6 @@ const [myDisplayName, setMyDisplayName] = useState("");
 >
   ☰
 </button>
-            <button
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg border px-3 py-1.5 text-sm bg-white"
-              type="button"
-              onClick={handleLogout}
-            >
-              ログアウト
-            </button>
           </div>
 
           <div className="bg-yellow-300 border-b px-3 py-3 relative">
@@ -1227,6 +1229,65 @@ const [myDisplayName, setMyDisplayName] = useState("");
         />
       )}
 
+         {selectedSlot && (
+        <ReservationModal
+          slot={selectedSlot}
+          existing={reservations.find(
+            (r) =>
+              r.assetId === selectedSlot.assetId &&
+              r.dayKey === selectedSlot.dayKey
+          )}
+          memberOptions={memberOptions}
+          onClose={() => setSelectedSlot(null)}
+          onSave={async ({ userName, site, note }) => {
+            try {
+              await setDoc(
+                doc(
+                  db,
+                  "reservations",
+                  makeReservationDocId(
+                    selectedSlot.assetId,
+                    selectedSlot.dayKey
+                  )
+                ),
+                {
+                  companyId,
+                  assetId: selectedSlot.assetId,
+                  dayKey: selectedSlot.dayKey,
+                  userName,
+                  site,
+                  note,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }
+              );
+              setSelectedSlot(null);
+            } catch (error) {
+              console.error("reservation save error:", error);
+              alert("予約保存に失敗しました");
+            }
+          }}
+          onDelete={async () => {
+            try {
+              await deleteDoc(
+                doc(
+                  db,
+                  "reservations",
+                  makeReservationDocId(
+                    selectedSlot.assetId,
+                    selectedSlot.dayKey
+                  )
+                )
+              );
+              setSelectedSlot(null);
+            } catch (error) {
+              console.error("reservation delete error:", error);
+              alert("予約削除に失敗しました");
+            }
+          }}
+        />
+      )}
+
       {editingAsset && (
         <AssetEditModal
           asset={editingAsset}
@@ -1268,72 +1329,172 @@ const [myDisplayName, setMyDisplayName] = useState("");
             onClick={() => setShowMenu(false)}
           />
 
-          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl p-4 space-y-4">
+          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl p-4 space-y-4 overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="font-bold text-lg">メニュー</div>
-              <button type="button" onClick={() => setShowMenu(false)}>
+              <button
+                type="button"
+                onClick={() => setShowMenu(false)}
+              >
                 ✕
               </button>
             </div>
 
-            <div>
-              <div className="font-semibold mb-2">割り振り済みアセット</div>
-              <div className="space-y-2 max-h-40 overflow-auto">
-                {assets
-                  .filter((a) => a.assignedUser)
-                  .map((asset) => (
-                    <div
-                      key={asset.id}
-                      className="border rounded-lg p-2 text-sm flex justify-between items-center"
-                    >
-                      <div>
-                        <div className="font-medium">{asset.name}</div>
-                        <div className="text-xs text-gray-500">
-                          {asset.assignedUser}
-                        </div>
-                      </div>
+            <div className="border rounded-xl overflow-hidden">
+              <button
+                type="button"
+                className="w-full px-3 py-2 flex justify-between bg-gray-50"
+                onClick={() => setMenuMyAssetsOpen((prev) => !prev)}
+              >
+                <span className="font-semibold">マイアセット</span>
+                <span>{menuMyAssetsOpen ? "−" : "＋"}</span>
+              </button>
 
-                      <button
-                        type="button"
-                        className="text-xs border px-2 py-1 rounded"
-                        onClick={() => {
-                          setEditingAsset(asset);
-                          setShowMenu(false);
-                        }}
+              {menuMyAssetsOpen && (
+                <div className="p-3 space-y-2">
+                  {myAssets.length > 0 ? (
+                    myAssets.map((asset) => (
+                      <div
+                        key={asset.id}
+                        className="border rounded-lg p-2 text-sm flex justify-between"
                       >
-                        編集
-                      </button>
+                        <div>
+                          <div className="font-medium">{asset.name}</div>
+                          <div className="text-xs text-gray-500">
+                            {asset.inspection || "点検なし"}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="text-xs border px-2 py-1 rounded"
+                          onClick={() => {
+                            setEditingAsset(asset);
+                            setShowMenu(false);
+                          }}
+                        >
+                          編集
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-400">
+                      マイアセットなし
                     </div>
-                  ))}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            <div>
-              <div className="font-semibold mb-2">テーブル別アセット一覧</div>
-              <div className="space-y-3 max-h-60 overflow-auto">
-                {tables.map((table) => (
-                  <div key={table.id}>
-                    <div className="text-sm font-medium mb-1">{table.title}</div>
+            <div className="border rounded-xl overflow-hidden">
+              <button
+                type="button"
+                className="w-full px-3 py-2 flex justify-between bg-gray-50"
+                onClick={() => setMenuAssignedOpen((prev) => !prev)}
+              >
+                <span className="font-semibold">割り振り済みアセット</span>
+                <span>{menuAssignedOpen ? "−" : "＋"}</span>
+              </button>
 
-                    <div className="space-y-1">
-                      {assets
-                        .filter((a) => a.tableId === table.id)
-                        .map((asset) => (
-                          <div
-                            key={asset.id}
-                            className="text-xs border rounded px-2 py-1 flex justify-between"
-                          >
-                            <span>{asset.name}</span>
-                            {asset.assignedUser && (
-                              <span className="text-gray-400">
-                                {asset.assignedUser}
-                              </span>
-                            )}
+              {menuAssignedOpen && (
+                <div className="p-3 space-y-2 max-h-48 overflow-auto">
+                  {assets.filter((a) => a.assignedUser).length > 0 ? (
+                    assets
+                      .filter((a) => a.assignedUser)
+                      .map((asset) => (
+                        <div
+                          key={asset.id}
+                          className="border rounded-lg p-2 text-sm flex justify-between"
+                        >
+                          <div>
+                            <div className="font-medium">{asset.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {asset.assignedUser}
+                            </div>
                           </div>
-                        ))}
+
+                          <button
+                            type="button"
+                            className="text-xs border px-2 py-1 rounded"
+                            onClick={() => {
+                              setEditingAsset(asset);
+                              setShowMenu(false);
+                            }}
+                          >
+                            編集
+                          </button>
+                        </div>
+                      ))
+                  ) : (
+                    <div className="text-sm text-gray-400">
+                      割り振り済みアセットなし
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="border rounded-xl overflow-hidden">
+              <div className="px-3 py-2 bg-gray-50 font-semibold">
+                テーブル一覧
+              </div>
+
+              <div className="divide-y">
+                {tables.map((table) => {
+                  const isOpen = openTableIds.includes(table.id);
+
+                  return (
+                    <div key={table.id}>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 flex justify-between text-sm"
+                        onClick={() => toggleTableOpen(table.id)}
+                      >
+                        <span>{table.title}</span>
+                        <span>{isOpen ? "−" : "＋"}</span>
+                      </button>
+
+                      {isOpen && (
+                        <div className="px-3 pb-3 space-y-2">
+                          {assets
+                            .filter((a) => a.tableId === table.id)
+                            .map((asset) => (
+                              <div
+                                key={asset.id}
+                                className="border rounded-lg p-2 text-xs flex justify-between"
+                              >
+                                <div>
+                                  <div>{asset.name}</div>
+                                  {asset.assignedUser && (
+                                    <div className="text-gray-400">
+                                      {asset.assignedUser}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  className="border px-2 py-1 rounded"
+                                  onClick={() => {
+                                    setEditingAsset(asset);
+                                    setShowMenu(false);
+                                  }}
+                                >
+                                  編集
+                                </button>
+                              </div>
+                            ))}
+
+                          {assets.filter((a) => a.tableId === table.id).length === 0 && (
+                            <div className="text-xs text-gray-400">
+                              アセットなし
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
