@@ -1064,7 +1064,7 @@ const toggleTableOpen = (tableId: string) => {
 
         {myAssets.length > 0 && (
           <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
-            <h3 className="font-bold">マイアセット</h3>
+            <h3 className="font-bold">Myアセット</h3>
 
             <div className="space-y-2">
               {myAssets.map((asset) => (
@@ -1093,7 +1093,7 @@ const toggleTableOpen = (tableId: string) => {
 
         <p className="mt-3 text-xs text-gray-500">
           アセット件数: {currentTableAssets.length} / 共有アセット: {sharedAssets.length} /
-          マイアセット: {myAssets.length} / 予約件数: {reservations.length}
+          Myアセット: {myAssets.length} / 予約件数: {reservations.length}
         </p>
       </div>
 
@@ -1232,64 +1232,7 @@ const toggleTableOpen = (tableId: string) => {
         />
       )}
 
-         {selectedSlot && (
-        <ReservationModal
-          slot={selectedSlot}
-          existing={reservations.find(
-            (r) =>
-              r.assetId === selectedSlot.assetId &&
-              r.dayKey === selectedSlot.dayKey
-          )}
-          memberOptions={memberOptions}
-          onClose={() => setSelectedSlot(null)}
-          onSave={async ({ userName, site, note }) => {
-            try {
-              await setDoc(
-                doc(
-                  db,
-                  "reservations",
-                  makeReservationDocId(
-                    selectedSlot.assetId,
-                    selectedSlot.dayKey
-                  )
-                ),
-                {
-                  companyId,
-                  assetId: selectedSlot.assetId,
-                  dayKey: selectedSlot.dayKey,
-                  userName,
-                  site,
-                  note,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }
-              );
-              setSelectedSlot(null);
-            } catch (error) {
-              console.error("reservation save error:", error);
-              alert("予約保存に失敗しました");
-            }
-          }}
-          onDelete={async () => {
-            try {
-              await deleteDoc(
-                doc(
-                  db,
-                  "reservations",
-                  makeReservationDocId(
-                    selectedSlot.assetId,
-                    selectedSlot.dayKey
-                  )
-                )
-              );
-              setSelectedSlot(null);
-            } catch (error) {
-              console.error("reservation delete error:", error);
-              alert("予約削除に失敗しました");
-            }
-          }}
-        />
-      )}
+       
 
       {editingAsset && (
         <AssetEditModal
@@ -1342,142 +1285,138 @@ const toggleTableOpen = (tableId: string) => {
                 ✕
               </button>
             </div>
-
-            <div className="border rounded-xl overflow-hidden">
-              <button
-                type="button"
-                className="w-full px-3 py-2 flex justify-between bg-gray-50"
-                onClick={() => setMenuMyAssetsOpen((prev) => !prev)}
-              >
-                <span className="font-semibold">マイアセット</span>
-                <span>{menuMyAssetsOpen ? "−" : "＋"}</span>
-              </button>
-
-              {menuMyAssetsOpen && (
-                <div className="p-3 space-y-2">
-                  {myAssets.length > 0 ? (
-                    myAssets.map((asset) => (
-                      <div
-                        key={asset.id}
-                        className="border rounded-lg p-2 text-sm flex justify-between"
-                      >
-                        <div>
-                          <div className="font-medium">{asset.name}</div>
-                          <div className="text-xs text-gray-500">
-                            {asset.inspection || "点検なし"}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          className="text-xs border px-2 py-1 rounded"
-                          onClick={() => {
-                            setEditingAsset(asset);
-                            setShowMenu(false);
-                          }}
-                        >
-                          編集
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-400">
-                      マイアセットなし
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-         
-
-          <div className="px-3 py-2 bg-gray-50 flex items-center justify-between">
-  <div className="font-semibold">テーブル一覧</div>
-
+<div className="border rounded-xl overflow-hidden">
   <button
     type="button"
-    className="text-xs px-3 py-1.5 border rounded-lg bg-white"
-    onClick={() => {
-      setShowCreateTable(true);
-      setShowMenu(false);
-    }}
+    className="w-full px-3 py-2 flex justify-between bg-gray-50"
+    onClick={() => setMenuMyAssetsOpen((prev) => !prev)}
   >
-    新規
+    <span className="font-semibold">Myアセット</span>
+    <span>{menuMyAssetsOpen ? "−" : "＋"}</span>
   </button>
+
+  {menuMyAssetsOpen && (
+    <div className="p-3 space-y-2">
+      {myAssets.length > 0 ? (
+        myAssets.map((asset) => (
+          <div
+            key={asset.id}
+            className="border rounded-lg p-2 text-sm flex justify-between"
+          >
+            <div>
+              <div className="font-medium">{asset.name}</div>
+              <div className="text-xs text-gray-500">
+                {asset.inspection || "点検なし"}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="text-xs border px-2 py-1 rounded"
+              onClick={() => {
+                setEditingAsset(asset);
+                setShowMenu(false);
+              }}
+            >
+              編集
+            </button>
+          </div>
+        ))
+      ) : (
+        <div className="text-sm text-gray-400">
+          Myアセットなし
+        </div>
+      )}
+    </div>
+  )}
 </div>
 
-              <div className="divide-y">
-                {tables.map((table) => {
-                  const isOpen = openTableIds.includes(table.id);
-
-                  return (
-                  <div key={table.id}>
-  <div className="flex items-center justify-between px-3 py-2 text-sm">
-    <button
-      className="flex-1 text-left flex justify-between"
-      onClick={() => toggleTableOpen(table.id)}
-      type="button"
-    >
-      <span>{table.title}</span>
-      <span>{isOpen ? "−" : "＋"}</span>
-    </button>
+<div className="border rounded-xl overflow-hidden">
+  <div className="px-3 py-2 bg-gray-50 flex items-center justify-between">
+    <div className="font-semibold">テーブル一覧</div>
 
     <button
-      className="ml-2 text-xs border px-2 py-1 rounded"
       type="button"
+      className="text-xs px-3 py-1.5 border rounded-lg bg-white"
       onClick={() => {
-        setCurrentTableId(table.id);
-        setShowAddAsset(true);
+        setShowCreateTable(true);
         setShowMenu(false);
       }}
     >
-      追加
+      新規
     </button>
   </div>
 
-                      {isOpen && (
-                        <div className="px-3 pb-3 space-y-2">
-                          {assets
-                            .filter((a) => a.tableId === table.id)
-                            .map((asset) => (
-                              <div
-                                key={asset.id}
-                                className="border rounded-lg p-2 text-xs flex justify-between"
-                              >
-                                <div>
-                                  <div>{asset.name}</div>
-                                  {asset.assignedUser && (
-                                    <div className="text-gray-400">
-                                      {asset.assignedUser}
-                                    </div>
-                                  )}
-                                </div>
+  <div className="divide-y">
+    {tables.map((table) => {
+      const isOpen = openTableIds.includes(table.id);
 
-                                <button
-                                  type="button"
-                                  className="border px-2 py-1 rounded"
-                                  onClick={() => {
-                                    setEditingAsset(asset);
-                                    setShowMenu(false);
-                                  }}
-                                >
-                                  編集
-                                </button>
-                              </div>
-                            ))}
+      return (
+        <div key={table.id}>
+          <div className="flex items-center justify-between px-3 py-2 text-sm">
+            <button
+              className="flex-1 text-left flex justify-between"
+              onClick={() => toggleTableOpen(table.id)}
+              type="button"
+            >
+              <span>{table.title}</span>
+              <span>{isOpen ? "−" : "＋"}</span>
+            </button>
 
-                          {assets.filter((a) => a.tableId === table.id).length === 0 && (
-                            <div className="text-xs text-gray-400">
-                              アセットなし
-                            </div>
-                          )}
-                        </div>
-                      )}
+            <button
+              className="ml-2 text-xs border px-2 py-1 rounded"
+              type="button"
+              onClick={() => {
+                setCurrentTableId(table.id);
+                setShowAddAsset(true);
+                setShowMenu(false);
+              }}
+            >
+              追加
+            </button>
+          </div>
+
+          {isOpen && (
+            <div className="px-3 pb-3 space-y-2">
+              {assets
+                .filter((a) => a.tableId === table.id)
+                .map((asset) => (
+                  <div
+                    key={asset.id}
+                    className="border rounded-lg p-2 text-xs flex justify-between"
+                  >
+                    <div>
+                      <div>{asset.name}</div>
+                      <div className="text-gray-400">
+                        {asset.assignedUser || "共有アセット"}
+                      </div>
                     </div>
-                  );
-                })}
-              </div>
+
+                    <button
+                      type="button"
+                      className="border px-2 py-1 rounded"
+                      onClick={() => {
+                        setEditingAsset(asset);
+                        setShowMenu(false);
+                      }}
+                    >
+                      編集
+                    </button>
+                  </div>
+                ))}
+
+              {assets.filter((a) => a.tableId === table.id).length === 0 && (
+                <div className="text-xs text-gray-400">
+                  アセットなし
+                </div>
+              )}
             </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
+</div>
 
             <button
               type="button"
