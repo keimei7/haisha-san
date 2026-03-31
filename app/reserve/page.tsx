@@ -1491,12 +1491,7 @@ const exportWeeklyReservationsCsv = () => {
                 ✕
               </button>
             </div>
-            <div className="px-1 space-y-2">
-  {companyName && (
-    <div className="text-sm text-gray-500">
-      {companyName}
-    </div>
-  )}
+           
 
   <div className="space-y-2">
   {companyName && (
