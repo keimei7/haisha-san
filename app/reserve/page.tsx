@@ -1392,7 +1392,7 @@ const toggleTableOpen = (tableId: string) => {
                 className="w-full px-3 py-2 flex justify-between bg-gray-50"
                 onClick={() => setMenuAssignedOpen((prev) => !prev)}
               >
-                <span className="font-semibold">割り振り済みアセット</span>
+                <span className="font-semibold">割振り済アセット</span>
                 <span>{menuAssignedOpen ? "−" : "＋"}</span>
               </button>
 
@@ -1427,7 +1427,7 @@ const toggleTableOpen = (tableId: string) => {
                       ))
                   ) : (
                     <div className="text-sm text-gray-400">
-                      割り振り済みアセットなし
+                      割振り済アセットなし
                     </div>
                   )}
                 </div>
