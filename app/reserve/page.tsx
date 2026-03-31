@@ -968,7 +968,7 @@ const toggleTableOpen = (tableId: string) => {
     <table className="border-collapse text-sm min-w-[620px] w-full table-fixed">
       <thead>
         <tr>
-          <th className="border bg-red-500 text-white px-2 py-2 w-[9%]">
+          <th className="border bg-red-500 text-white px-2 py-2 w-[7%]">
             {currentTable?.labelMeta1 ?? "車検"}
           </th>
 
@@ -1008,7 +1008,7 @@ const toggleTableOpen = (tableId: string) => {
       <tbody>
         {sharedAssets.map((asset) => (
           <tr key={asset.id}>
-            <td className="border px-2 py-3 text-center align-middle bg-white w-[9%]">
+            <td className="border px-2 py-3 text-center align-middle bg-white w-[7%]">
   {formatInspectionShort(asset.inspection)}
 </td>
 
