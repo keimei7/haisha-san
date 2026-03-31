@@ -234,7 +234,7 @@ function EditTableModal({
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">左ラベル1</label>
+            <label className="text-sm text-gray-600">車検・点検等</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
               value={meta1}
@@ -243,7 +243,7 @@ function EditTableModal({
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">左ラベル2</label>
+            <label className="text-sm text-gray-600">アセット名</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
               value={meta2}
@@ -331,6 +331,16 @@ function AddAssetModal({
           </div>
 
           <div>
+            <label className="text-sm text-gray-600">ナンバー / 型番</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={subLabel}
+              onChange={(e) => setSubLabel(e.target.value)}
+              placeholder="例：84-89 / WM265G"
+            />
+          </div>
+
+          <div>
             <label className="text-sm text-gray-600">割り当て</label>
             <select
               className="w-full border rounded-lg px-3 py-2 bg-white"
@@ -362,30 +372,23 @@ function AddAssetModal({
             className="flex-1 rounded-lg bg-blue-600 text-white py-2"
             type="button"
             onClick={() => {
-  if (!name.trim()) {
-    alert("名前を入れてください");
-    return;
-  }
-  onAdd({
-    name: name.trim(),
-    subLabel: subLabel.trim(),
-    inspection: inspection.trim(),
-    tableId,
-    assignedUser: assignedUser || undefined,
-  });
-}}
+              if (!name.trim()) {
+                alert("名前を入れてください");
+                return;
+              }
+
+              onAdd({
+                name: name.trim(),
+                subLabel: subLabel.trim(),
+                inspection: inspection.trim(),
+                tableId,
+                assignedUser: assignedUser || undefined,
+              });
+            }}
           >
             追加
           </button>
-<div>
-  <label className="text-sm text-gray-600">ナンバー / 型番</label>
-  <input
-    className="w-full border rounded-lg px-3 py-2"
-    value={subLabel}
-    onChange={(e) => setSubLabel(e.target.value)}
-    placeholder="例：84-89 / WM265G"
-  />
-</div>
+
           <button
             className="rounded-lg border px-4 py-2"
             type="button"
@@ -660,7 +663,7 @@ const [selectionEnd, setSelectionEnd] = useState<{
 
 const lastTapRef = useRef(0);
   const [companyName, setCompanyName] = useState("");
-const [myProfileOpen, setMyProfileOpen] = useState(false);
+
 const [isEditingName, setIsEditingName] = useState(false);
 const [editingDisplayName, setEditingDisplayName] = useState("");
 const [savingDisplayName, setSavingDisplayName] = useState(false);
@@ -876,36 +879,7 @@ const toggleTableOpen = (tableId: string) => {
     .filter((a) => !!a.assignedUser && a.assignedUser === myDisplayName)
     .sort((a, b) => a.sort - b.sort);
 }, [assets, myDisplayName]);
-const saveMyDisplayName = async () => {
-  const nextName = editingDisplayName.trim();
 
-  if (!auth.currentUser) {
-    alert("ログイン情報が見つかりません");
-    return;
-  }
-
-  if (!nextName) {
-    alert("表示名を入力してください");
-    return;
-  }
-
-  try {
-    setSavingDisplayName(true);
-
-    await updateDoc(doc(db, "users", auth.currentUser.uid), {
-      displayName: nextName,
-      updatedAt: new Date().toISOString(),
-    });
-
-    setMyDisplayName(nextName);
-    setMyProfileOpen(false);
-  } catch (error) {
-    console.error("displayName update error:", error);
-    alert("表示名の更新に失敗しました");
-  } finally {
-    setSavingDisplayName(false);
-  }
-};
 const exportWeeklyReservationsCsv = () => {
   if (!currentTable) {
     alert("テーブルが選択されていません");
@@ -1278,9 +1252,9 @@ const isSelected = (assetId: string, dayKey: string) => {
     </table>
   </div>
 
-  <div className="px-3 py-2 text-xs text-gray-500 border-t">
-    
-  </div>
+  <div className="px-3 py-2 text-xs text-gray-500 border-t leading-5">
+  PCではドラッグで複数日選択できます。スマホでは同じ行の日付をダブルタップして選択します。
+</div>
 </div>
         )}
 
@@ -1462,43 +1436,7 @@ const isSelected = (assetId: string, dayKey: string) => {
         />
       )}
 
-       {myProfileOpen && (
-  <div className="fixed inset-0 z-[400] bg-black/40 flex items-center justify-center px-4">
-  <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4 relative z-[401]">
-      <h2 className="text-lg font-bold">表示名を編集</h2>
-
-      <div>
-        <label className="text-sm text-gray-600">表示名</label>
-        <input
-          className="w-full border rounded-lg px-3 py-2 mt-1"
-          value={editingDisplayName}
-          onChange={(e) => setEditingDisplayName(e.target.value)}
-          placeholder="表示名"
-        />
-      </div>
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          className="flex-1 rounded-lg bg-blue-600 text-white py-2 disabled:opacity-50"
-          onClick={saveMyDisplayName}
-          disabled={savingDisplayName}
-        >
-          {savingDisplayName ? "保存中..." : "保存"}
-        </button>
-
-        <button
-          type="button"
-          className="rounded-lg border px-4 py-2"
-          onClick={() => setMyProfileOpen(false)}
-          disabled={savingDisplayName}
-        >
-          閉じる
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+       
 {editingAsset && (
   <AssetEditModal
     asset={editingAsset}
@@ -1652,12 +1590,17 @@ const isSelected = (assetId: string, dayKey: string) => {
             key={asset.id}
             className="border rounded-lg p-2 text-sm flex justify-between"
           >
-            <div>
-              <div className="font-medium">{asset.name}</div>
-              <div className="text-xs text-gray-500">
-                {asset.inspection || "点検なし"}
-              </div>
-            </div>
+           <div>
+  <div className="font-medium">{asset.name}</div>
+  {asset.subLabel && (
+    <div className="text-xs text-gray-500">
+      {asset.subLabel}
+    </div>
+  )}
+  <div className="text-xs text-gray-500">
+    {asset.inspection || "点検なし"}
+  </div>
+</div>
 
             <button
               type="button"
