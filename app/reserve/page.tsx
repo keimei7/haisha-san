@@ -968,11 +968,11 @@ const toggleTableOpen = (tableId: string) => {
     <table className="border-collapse text-sm min-w-[620px] w-full table-fixed">
       <thead>
         <tr>
-          <th className="border bg-red-500 text-white px-2 py-2 w-[13%]">
+          <th className="border bg-red-500 text-white px-2 py-2 w-[11%]">
             {currentTable?.labelMeta1 ?? "車検"}
           </th>
 
-         <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-[15%]">
+         <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-[13%]">
             {currentTable?.labelMeta2 ?? "車種"}
           </th>
 
@@ -1008,11 +1008,11 @@ const toggleTableOpen = (tableId: string) => {
       <tbody>
         {sharedAssets.map((asset) => (
           <tr key={asset.id}>
-            <td className="border px-2 py-3 text-center align-middle bg-white w-[13%]">
+            <td className="border px-2 py-3 text-center align-middle bg-white w-[11%]">
   {formatInspectionShort(asset.inspection)}
 </td>
 
-            <td className="sticky left-0 z-10 border px-2 py-2 text-center align-middle bg-white w-[15%]">
+            <td className="sticky left-0 z-10 border px-2 py-2 text-center align-middle bg-white w-[13%]">
               <button
                 type="button"
                 className="w-full text-center"
