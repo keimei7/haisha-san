@@ -23,10 +23,10 @@ export default function RootPage() {
 
       const data = snap.data() as { companyId?: string };
 
-      if (!data.companyId) {
-        window.location.replace("/setup");
-      } else {
+      if (data.companyId && data.companyId.trim() !== "") {
         window.location.replace("/reserve");
+      } else {
+        window.location.replace("/setup");
       }
     });
 
