@@ -1,6 +1,5 @@
 "use client";
-
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
@@ -649,7 +648,17 @@ const [myDisplayName, setMyDisplayName] = useState("");
 
   const [currentTableId, setCurrentTableId] = useState("");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
+const [selectionStart, setSelectionStart] = useState<{
+  assetId: string;
+  dayKey: string;
+} | null>(null);
 
+const [selectionEnd, setSelectionEnd] = useState<{
+  assetId: string;
+  dayKey: string;
+} | null>(null);
+
+const lastTapRef = useRef(0);
   const [companyName, setCompanyName] = useState("");
 const [myProfileOpen, setMyProfileOpen] = useState(false);
 const [isEditingName, setIsEditingName] = useState(false);
@@ -942,6 +951,26 @@ const exportWeeklyReservationsCsv = () => {
   const filename = `${currentTable.title}_${formatWeekTitle(weekStart)}.csv`;
   downloadCsv(filename, csv);
 };
+const dayIndexMap = useMemo(() => {
+  const map: Record<string, number> = {};
+  days.forEach((d, i) => {
+    map[d.key] = i;
+  });
+  return map;
+}, [days]);
+const isSelected = (assetId: string, dayKey: string) => {
+  if (!selectionStart || !selectionEnd) return false;
+  if (selectionStart.assetId !== assetId) return false;
+
+  const start = dayIndexMap[selectionStart.dayKey];
+  const end = dayIndexMap[selectionEnd.dayKey];
+  const current = dayIndexMap[dayKey];
+
+  const min = Math.min(start, end);
+  const max = Math.max(start, end);
+
+  return current >= min && current <= max;
+};
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -1100,32 +1129,32 @@ const exportWeeklyReservationsCsv = () => {
             {currentTable?.labelMeta2 ?? "車種"}
           </th>
 
-          {days.map((day) => {
-            const isSunday = day.date.getDay() === 0;
-            const isSaturday = day.date.getDay() === 6;
+      {days.map((day) => {
+  const isSunday = day.date.getDay() === 0;
+  const isSaturday = day.date.getDay() === 6;
 
-            const headerBg = isSunday
-              ? "bg-red-100"
-              : isSaturday
-              ? "bg-blue-100"
-              : "bg-gray-100";
+  const headerBg = isSunday
+    ? "bg-red-100"
+    : isSaturday
+    ? "bg-blue-100"
+    : "bg-gray-100";
 
-            const weekdayColor = isSunday
-              ? "text-red-600"
-              : isSaturday
-              ? "text-blue-600"
-              : "text-black";
+  const weekdayColor = isSunday
+    ? "text-red-600"
+    : isSaturday
+    ? "text-blue-600"
+    : "text-black";
 
-            return (
-              <th
-                key={day.key}
-                className={`border px-2 py-2 min-w-[92px] ${headerBg}`}
-              >
-                <div className="font-bold">{day.label}</div>
-                <div className={weekdayColor}>{day.weekday}</div>
-              </th>
-            );
-          })}
+  return (
+    <th
+      key={day.key}
+      className={`border px-2 py-2 min-w-[92px] ${headerBg}`}
+    >
+      <div className="font-bold">{day.label}</div>
+      <div className={weekdayColor}>{day.weekday}</div>
+    </th>
+  );
+})}
         </tr>
       </thead>
 
@@ -1133,8 +1162,8 @@ const exportWeeklyReservationsCsv = () => {
         {sharedAssets.map((asset) => (
           <tr key={asset.id}>
             <td className="border px-2 py-3 text-center align-middle bg-white w-[7%]">
-  {formatInspectionShort(asset.inspection)}
-</td>
+              {formatInspectionShort(asset.inspection)}
+            </td>
 
             <td className="sticky left-0 z-10 border px-2 py-2 text-center align-middle bg-white w-[11%]">
               <button
@@ -1142,17 +1171,17 @@ const exportWeeklyReservationsCsv = () => {
                 className="w-full text-center"
                 onClick={() => setEditingAsset(asset)}
               >
-               <div className="leading-tight">
-  <div className="text-[16px] font-medium break-words">
-    {asset.name}
-  </div>
+                <div className="leading-tight">
+                  <div className="text-[16px] font-medium break-words">
+                    {asset.name}
+                  </div>
 
-  {asset.subLabel && (
-    <div className="text-[12px] text-gray-600 mt-1 break-words">
-      {asset.subLabel}
-    </div>
-  )}
-</div>
+                  {asset.subLabel && (
+                    <div className="text-[12px] text-gray-600 mt-1 break-words">
+                      {asset.subLabel}
+                    </div>
+                  )}
+                </div>
               </button>
             </td>
 
@@ -1173,11 +1202,42 @@ const exportWeeklyReservationsCsv = () => {
               return (
                 <td
                   key={`${asset.id}-${day.key}`}
-                  className={`border p-1 align-top ${cellBg}`}
+                  className={`border p-1 align-top ${cellBg} ${
+                    isSelected(asset.id, day.key) ? "bg-blue-200" : ""
+                  }`}
                 >
                   <button
                     className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
                     type="button"
+                    onMouseDown={() => {
+                      setSelectionStart({ assetId: asset.id, dayKey: day.key });
+                      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+                    }}
+                    onMouseEnter={(e) => {
+                      if (e.buttons === 1 && selectionStart?.assetId === asset.id) {
+                        setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+                      }
+                    }}
+                    onMouseUp={() => {
+                      if (selectionStart && selectionEnd) {
+                        console.log("範囲選択:", selectionStart, selectionEnd);
+                      }
+                    }}
+                    onTouchEnd={() => {
+                      const now = Date.now();
+
+                      if (
+                        now - lastTapRef.current < 300 &&
+                        selectionStart?.assetId === asset.id
+                      ) {
+                        setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+                      } else {
+                        setSelectionStart({ assetId: asset.id, dayKey: day.key });
+                        setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+                      }
+
+                      lastTapRef.current = now;
+                    }}
                     onClick={() =>
                       setSelectedSlot({
                         assetId: asset.id,
@@ -1219,7 +1279,7 @@ const exportWeeklyReservationsCsv = () => {
   </div>
 
   <div className="px-3 py-2 text-xs text-gray-500 border-t">
-    まずは1日単位の安定版で運用中です
+    
   </div>
 </div>
         )}
