@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
@@ -776,8 +776,6 @@ const [selectionEnd, setSelectionEnd] = useState<{
 const [isDraggingRange, setIsDraggingRange] = useState(false);
 const [showBulkReservation, setShowBulkReservation] = useState(false);
 
-const [mobileTapTimer, setMobileTapTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
-const lastTapRef = useRef<{ assetId: string; dayKey: string; time: number } | null>(null);
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
@@ -786,7 +784,7 @@ const [myDisplayName, setMyDisplayName] = useState("");
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [memberOptions, setMemberOptions] = useState<string[]>([]);
-
+const [mobileRangeSelecting, setMobileRangeSelecting] = useState(false);
   const [currentTableId, setCurrentTableId] = useState("");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
 
@@ -1322,108 +1320,107 @@ const getSelectedDayKeys = () => {
               isSelected(asset.id, day.key) ? "bg-blue-200" : cellBg
             }`}
           >
-            <button
-              className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
-              type="button"
-              onMouseDown={() => {
-                setIsDraggingRange(true);
-                setSelectionStart({ assetId: asset.id, dayKey: day.key });
-                setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-              }}
-              onMouseEnter={(e) => {
-                if (e.buttons === 1 && selectionStart?.assetId === asset.id) {
-                  setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-                }
-              }}
-              onMouseUp={() => {
-                if (
-                  isDraggingRange &&
-                  selectionStart &&
-                  selectionEnd &&
-                  selectionStart.assetId === asset.id &&
-                  selectionStart.dayKey !== selectionEnd.dayKey
-                ) {
-                  setShowBulkReservation(true);
-                }
-                setTimeout(() => setIsDraggingRange(false), 0);
-              }}
-              onTouchEnd={() => {
-                const now = Date.now();
-                const lastTap = lastTapRef.current;
+           <button
+  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
+  type="button"
+  onMouseDown={() => {
+    setIsDraggingRange(true);
+    setSelectionStart({ assetId: asset.id, dayKey: day.key });
+    setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+  }}
+  onMouseEnter={(e) => {
+    if (e.buttons === 1 && selectionStart?.assetId === asset.id) {
+      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+    }
+  }}
+  onMouseUp={() => {
+    if (
+      isDraggingRange &&
+      selectionStart &&
+      selectionEnd &&
+      selectionStart.assetId === asset.id &&
+      selectionStart.dayKey !== selectionEnd.dayKey
+    ) {
+      setShowBulkReservation(true);
+    }
+    setTimeout(() => setIsDraggingRange(false), 0);
+  }}
+  onTouchStart={() => {
+    const timer = setTimeout(() => {
+      setSelectionStart({ assetId: asset.id, dayKey: day.key });
+      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+      setMobileRangeSelecting(true);
+    }, 400);
 
-                const isDoubleTap =
-                  lastTap &&
-                  lastTap.assetId === asset.id &&
-                  now - lastTap.time < 300;
+    (window as any).__rangeTouchTimer = timer;
+  }}
+  onTouchEnd={() => {
+    const timer = (window as any).__rangeTouchTimer;
+    if (timer) {
+      clearTimeout(timer);
+      (window as any).__rangeTouchTimer = null;
+    }
 
-                if (isDoubleTap) {
-                  if (!selectionStart || selectionStart.assetId !== asset.id) {
-                    setSelectionStart({ assetId: asset.id, dayKey: day.key });
-                    setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-                  } else {
-                    setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-                    if (selectionStart.dayKey !== day.key) {
-                      setShowBulkReservation(true);
-                    }
-                  }
+    if (mobileRangeSelecting && selectionStart?.assetId === asset.id) {
+      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
 
-                  if (mobileTapTimer) {
-                    clearTimeout(mobileTapTimer);
-                    setMobileTapTimer(null);
-                  }
-                } else {
-                  const timer = setTimeout(() => {
-                    setSelectedSlot({
-                      assetId: asset.id,
-                      assetName: asset.name,
-                      dayKey: day.key,
-                      dateLabel: `${day.label}（${day.weekday}）`,
-                    });
-                  }, 300);
+      if (selectionStart.dayKey !== day.key) {
+        setShowBulkReservation(true);
+      }
 
-                  setMobileTapTimer(timer);
-                }
+      setMobileRangeSelecting(false);
+      return;
+    }
 
-                lastTapRef.current = {
-                  assetId: asset.id,
-                  dayKey: day.key,
-                  time: now,
-                };
-              }}
-              onClick={() => {
-                if (isDraggingRange) return;
-                if (mobileTapTimer) return;
+    if (!mobileRangeSelecting) {
+      setSelectedSlot({
+        assetId: asset.id,
+        assetName: asset.name,
+        dayKey: day.key,
+        dateLabel: `${day.label}（${day.weekday}）`,
+      });
+    }
+  }}
+  onTouchMove={() => {
+    const timer = (window as any).__rangeTouchTimer;
+    if (timer) {
+      clearTimeout(timer);
+      (window as any).__rangeTouchTimer = null;
+    }
+  }}
+  onClick={() => {
+    if (isDraggingRange || mobileRangeSelecting) return;
 
-                setSelectedSlot({
-                  assetId: asset.id,
-                  assetName: asset.name,
-                  dayKey: day.key,
-                  dateLabel: `${day.label}（${day.weekday}）`,
-                });
-              }}
-            >
-              <div className="space-y-1">
-                {reservation ? (
-                  <>
-                    {reservation.site && (
-                      <div className="font-bold text-sm">
-                        {reservation.site}
-                      </div>
-                    )}
-                    <div className="text-xs text-gray-700">
-                      {reservation.userName}
-                    </div>
-                    {reservation.note && (
-                      <div className="text-xs text-gray-500">
-                        {reservation.note}
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-gray-400 text-xs">＋予約</span>
-                )}
-              </div>
-            </button>
+    setSelectedSlot({
+      assetId: asset.id,
+      assetName: asset.name,
+      dayKey: day.key,
+      dateLabel: `${day.label}（${day.weekday}）`,
+    });
+  }}
+>
+  <div className="space-y-1">
+    {reservation ? (
+      <>
+        {reservation.site && (
+          <div className="font-bold text-sm">
+            {reservation.site}
+          </div>
+        )}
+        <div className="text-xs text-gray-700">
+          {reservation.userName}
+        </div>
+        {reservation.note && (
+          <div className="text-xs text-gray-500">
+            {reservation.note}
+          </div>
+        )}
+      </>
+    ) : (
+      <span className="text-gray-400 text-xs">＋予約</span>
+    )}
+  </div>
+</button>
           </td>
         );
       })}
@@ -1434,7 +1431,7 @@ const getSelectedDayKeys = () => {
   </div>
 
   <div className="px-3 py-2 text-xs text-gray-500 border-t leading-5">
-  PCではドラッグで複数日選択して一括予約できます。スマホでは同じ行をダブルタップして範囲を選択し、一括予約します。単日予約は1回タップです。
+  PCではドラッグで複数日選択して一括予約できます。スマホでは1回長押しで選択開始し、もう1回別の日をタップして範囲を選択します。単日予約は1回タップです。
 </div>
 </div>
         )}
@@ -1628,7 +1625,12 @@ const getSelectedDayKeys = () => {
       return day ? `${day.label}（${day.weekday}）` : key;
     })}
     memberOptions={memberOptions}
-    onClose={() => setShowBulkReservation(false)}
+   onClose={() => {
+  setShowBulkReservation(false);
+  setSelectionStart(null);
+  setSelectionEnd(null);
+  setMobileRangeSelecting(false);
+}}
     onSave={async ({ userName, site, note }) => {
       try {
         const assetId = selectionStart.assetId;
@@ -1653,6 +1655,9 @@ const getSelectedDayKeys = () => {
         );
 
         setShowBulkReservation(false);
+setSelectionStart(null);
+setSelectionEnd(null);
+setMobileRangeSelecting(false);
       } catch (error) {
         console.error("bulk reservation save error:", error);
         alert("一括予約に失敗しました");
@@ -1672,6 +1677,9 @@ const getSelectedDayKeys = () => {
         );
 
         setShowBulkReservation(false);
+setSelectionStart(null);
+setSelectionEnd(null);
+setMobileRangeSelecting(false);
       } catch (error) {
         console.error("bulk reservation delete error:", error);
         alert("一括予約削除に失敗しました");
