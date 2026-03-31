@@ -15,9 +15,7 @@ export default function SetupPage() {
             className="w-20 h-20 object-contain"
           />
           <div className="text-2xl font-bold tracking-wide">配車さん</div>
-          <div className="text-sm text-gray-500">
-            初期設定を選んでください
-          </div>
+          <div className="text-sm text-gray-500">初期設定を選んでください</div>
         </div>
 
         <div className="p-6 space-y-4">
@@ -36,11 +34,6 @@ export default function SetupPage() {
           >
             招待コードで参加
           </button>
-
-          <p className="text-xs leading-5 text-gray-500">
-            初めて利用する管理者は「会社を作成」、
-            招待された方は「招待コードで参加」を選んでください。
-          </p>
         </div>
       </div>
     </main>
