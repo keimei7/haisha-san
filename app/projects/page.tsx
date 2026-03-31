@@ -284,7 +284,7 @@ export default function ManagePage() {
                 className="w-full border rounded-lg px-3 py-2"
                 disabled={saving}
               >
-                <option value="">未設定（共有アセット）</option>
+                <option value="">未設定（共有）</option>
                 {registeredUserNames.map((name) => (
                   <option key={name} value={name}>
                     {name}
@@ -293,7 +293,7 @@ export default function ManagePage() {
               </select>
 
               <div className="mt-1 text-xs text-gray-500">
-                担当者が未設定のアセットは自動で共有アセットになります。
+                担当者が未設定のアセットは自動で共有になります。
               </div>
             </div>
 
@@ -355,7 +355,7 @@ export default function ManagePage() {
 
         <div className="rounded-2xl border p-4 space-y-3">
           <div className="flex justify-between items-center">
-            <h2 className="font-bold text-lg">共有アセット</h2>
+            <h2 className="font-bold text-lg">共有</h2>
             {!loadingVehicles && (
               <div className="text-sm text-gray-500">{sharedVehicles.length}台</div>
             )}
@@ -364,7 +364,7 @@ export default function ManagePage() {
           {isLoading ? (
             <div className="text-sm text-gray-500">読み込み中...</div>
           ) : sharedVehicles.length === 0 ? (
-            <div className="text-sm text-gray-500">共有アセットはありません</div>
+            <div className="text-sm text-gray-500">共有はありません</div>
           ) : (
             <div className="space-y-3">
               {sharedVehicles.map((vehicle) => (
@@ -379,7 +379,7 @@ export default function ManagePage() {
 
                   <div className="text-sm text-gray-500">並び順: {vehicle.sort}</div>
 
-                  <div className="text-sm text-gray-500">区分: 共有アセット</div>
+                  <div className="text-sm text-gray-500">区分: 共有</div>
 
                   <div className="flex gap-2 pt-1">
                     <button

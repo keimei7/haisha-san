@@ -321,7 +321,7 @@ function AddAssetModal({
               value={assignedUser}
               onChange={(e) => setAssignedUser(e.target.value)}
             >
-              <option value="">共有アセット</option>
+              <option value="">共有</option>
               {memberOptions.map((member) => (
                 <option key={member} value={member}>
                   {member}
@@ -434,7 +434,7 @@ const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
               value={assignedUser}
               onChange={(e) => setAssignedUser(e.target.value)}
             >
-              <option value="">共有アセット</option>
+              <option value="">共有</option>
               {memberOptions.map((member) => (
                 <option key={member} value={member}>
                   {member}
@@ -1139,7 +1139,7 @@ const toggleTableOpen = (tableId: string) => {
         )}
 
         <p className="mt-3 text-xs text-gray-500">
-          アセット件数: {currentTableAssets.length} / 共有アセット: {sharedAssets.length} /
+          アセット件数: {currentTableAssets.length} / 共有: {sharedAssets.length} /
           Myアセット: {myAssets.length} / 予約件数: {reservations.length}
         </p>
       </div>
@@ -1436,7 +1436,7 @@ const toggleTableOpen = (tableId: string) => {
                     <div>
                       <div>{asset.name}</div>
                       <div className="text-gray-400">
-                        {asset.assignedUser || "共有アセット"}
+                        {asset.assignedUser || "共有"}
                       </div>
                     </div>
 
