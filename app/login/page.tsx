@@ -1,76 +1,92 @@
 "use client";
 
 import { useState } from "react";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from "firebase/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase-client";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export default function LoginPage() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const createUserIfNeeded = async (user: any) => {
-    const ref = doc(db, "users", user.uid);
-    const snap = await getDoc(ref);
+  const canSubmit = email.trim() !== "" && password.trim() !== "";
 
-    if (!snap.exists()) {
-      const now = new Date().toISOString();
+  const handleLogin = async () => {
+    if (!canSubmit || loading) return;
 
-      await setDoc(ref, {
-        displayName: "",
-        companyId: "",
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
-  };
-
-  const handleAuth = async () => {
     try {
       setLoading(true);
-
-      let user;
-
-      if (mode === "login") {
-        const res = await signInWithEmailAndPassword(auth, email, password);
-        user = res.user;
-      } else {
-        const res = await createUserWithEmailAndPassword(auth, email, password);
-        user = res.user;
-      }
-
-      await createUserIfNeeded(user);
-
-      window.location.assign("/");
-    } catch (e: any) {
-      alert(e.message);
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      window.location.replace("/");
+    } catch (error: any) {
+      console.error("LOGIN ERROR", error);
+      alert(`${error.code} / ${error.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-white">
-      <div className="w-full max-w-sm space-y-4 border p-5 rounded-2xl">
-        <h1 className="text-xl font-bold text-center">配車さん</h1>
-
-        <div className="flex gap-2">
-          <button onClick={() => setMode("login")}>ログイン</button>
-          <button onClick={() => setMode("signup")}>登録</button>
+    <main className="min-h-screen bg-white text-black flex items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-3xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="px-6 pt-8 pb-6 flex flex-col items-center gap-3 border-b">
+          <img
+            src="/icon.png"
+            alt="配車さん"
+            className="w-20 h-20 object-contain"
+          />
+          <div className="text-2xl font-bold tracking-wide">配車さん</div>
+          <div className="text-sm text-gray-500">
+            ログインして予約画面へ進みます
+          </div>
         </div>
 
-        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="メール" />
-        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="パスワード" />
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="mb-1 block text-sm text-gray-600">
+              メールアドレス
+            </label>
+            <input
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-2xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+              placeholder="example@mail.com"
+            />
+          </div>
 
-        <button onClick={handleAuth} disabled={loading}>
-          {loading ? "処理中..." : "進む"}
-        </button>
+          <div>
+            <label className="mb-1 block text-sm text-gray-600">
+              パスワード
+            </label>
+            <input
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-2xl border border-gray-300 px-4 py-3 outline-none focus:border-blue-500"
+              placeholder="パスワード"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLogin}
+            disabled={!canSubmit || loading}
+            className="w-full rounded-2xl bg-blue-600 py-3.5 text-white font-medium disabled:opacity-50"
+          >
+            {loading ? "ログイン中..." : "ログイン"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => window.location.assign("/signup")}
+            className="w-full rounded-2xl border border-gray-300 py-3.5 font-medium"
+          >
+            新規登録はこちら
+          </button>
+        </div>
       </div>
     </main>
   );
