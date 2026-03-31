@@ -634,24 +634,136 @@ function ReservationModal({
     </div>
   );
 }
+function BulkReservationModal({
+  assetName,
+  dayKeys,
+  dayLabels,
+  memberOptions,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  assetName: string;
+  dayKeys: string[];
+  dayLabels: string[];
+  memberOptions: string[];
+  onClose: () => void;
+  onSave: (payload: {
+    userName: string;
+    site: string;
+    note: string;
+  }) => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
+}) {
+  const [userName, setUserName] = useState("");
+  const [site, setSite] = useState("");
+  const [note, setNote] = useState("");
 
+  return (
+    <div className="fixed inset-0 z-[220] bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold">一括予約</h2>
+            <p className="text-sm text-gray-500">
+              {assetName}
+              <br />
+              {dayLabels.join(" / ")}
+            </p>
+          </div>
+
+          <button
+            className="text-2xl leading-none text-gray-500"
+            type="button"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-gray-600">予約者名</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2 bg-white"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+            >
+              <option value="">選択してください</option>
+              {memberOptions.map((member) => (
+                <option key={member} value={member}>
+                  {member}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">行先</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={site}
+              onChange={(e) => setSite(e.target.value)}
+              placeholder="例：現場"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">用途・備考</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="例：搬入"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2"
+            type="button"
+            onClick={() => {
+              if (!userName.trim()) {
+                alert("予約者を選択してください");
+                return;
+              }
+              onSave({
+                userName: userName.trim(),
+                site: site.trim(),
+                note: note.trim(),
+              });
+            }}
+          >
+            一括で決定
+          </button>
+
+          <button
+            className="rounded-lg border px-4 py-2"
+            type="button"
+            onClick={onClose}
+          >
+            閉じる
+          </button>
+        </div>
+
+        <button
+          className="w-full rounded-lg border border-red-400 text-red-500 py-2"
+          type="button"
+          onClick={onDelete}
+        >
+          選択範囲の予約を削除
+        </button>
+      </div>
+    </div>
+  );
+}
 export default function ReservePage() {
     const [menuMyAssetsOpen, setMenuMyAssetsOpen] = useState(true);
 const [openTableIds, setOpenTableIds] = useState<string[]>([]);
     const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
-const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
-  const [companyId, setCompanyId] = useState("");
-  const [authLoading, setAuthLoading] = useState(true);
-const [myDisplayName, setMyDisplayName] = useState("");
-  const [tables, setTables] = useState<TableItem[]>([]);
-  const [assets, setAssets] = useState<AssetItem[]>([]);
-  const [reservations, setReservations] = useState<ReservationItem[]>([]);
-  const [memberOptions, setMemberOptions] = useState<string[]>([]);
-const [isDraggingRange, setIsDraggingRange] = useState(false);
-  const [currentTableId, setCurrentTableId] = useState("");
-  const [weekStart, setWeekStart] = useState(getMonday(new Date()));
-const [selectionStart, setSelectionStart] = useState<{
+  const [selectionStart, setSelectionStart] = useState<{
   assetId: string;
   dayKey: string;
 } | null>(null);
@@ -661,7 +773,23 @@ const [selectionEnd, setSelectionEnd] = useState<{
   dayKey: string;
 } | null>(null);
 
-const lastTapRef = useRef(0);
+const [isDraggingRange, setIsDraggingRange] = useState(false);
+const [showBulkReservation, setShowBulkReservation] = useState(false);
+
+const [mobileTapTimer, setMobileTapTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+const lastTapRef = useRef<{ assetId: string; dayKey: string; time: number } | null>(null);
+const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
+  const [companyId, setCompanyId] = useState("");
+  const [authLoading, setAuthLoading] = useState(true);
+const [myDisplayName, setMyDisplayName] = useState("");
+  const [tables, setTables] = useState<TableItem[]>([]);
+  const [assets, setAssets] = useState<AssetItem[]>([]);
+  const [reservations, setReservations] = useState<ReservationItem[]>([]);
+  const [memberOptions, setMemberOptions] = useState<string[]>([]);
+
+  const [currentTableId, setCurrentTableId] = useState("");
+  const [weekStart, setWeekStart] = useState(getMonday(new Date()));
+
   const [companyName, setCompanyName] = useState("");
 
 const [isEditingName, setIsEditingName] = useState(false);
@@ -945,6 +1073,21 @@ const isSelected = (assetId: string, dayKey: string) => {
 
   return current >= min && current <= max;
 };
+
+
+const getSelectedDayKeys = () => {
+  if (!selectionStart || !selectionEnd) return [];
+  if (selectionStart.assetId !== selectionEnd.assetId) return [];
+
+  const start = dayIndexMap[selectionStart.dayKey];
+  const end = dayIndexMap[selectionEnd.dayKey];
+  const min = Math.min(start, end);
+  const max = Math.max(start, end);
+
+  return days.slice(min, max + 1).map((d) => d.key);
+};
+
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -1133,134 +1276,165 @@ const isSelected = (assetId: string, dayKey: string) => {
       </thead>
 
       <tbody>
-        {sharedAssets.map((asset) => (
-          <tr key={asset.id}>
-            <td className="border px-2 py-3 text-center align-middle bg-white w-[7%]">
-              {formatInspectionShort(asset.inspection)}
-            </td>
+  {sharedAssets.map((asset) => (
+    <tr key={asset.id}>
+      <td className="border px-2 py-3 text-center align-middle bg-white w-[7%]">
+        {formatInspectionShort(asset.inspection)}
+      </td>
 
-            <td className="sticky left-0 z-10 border px-2 py-2 text-center align-middle bg-white w-[11%]">
-              <button
-                type="button"
-                className="w-full text-center"
-                onClick={() => setEditingAsset(asset)}
-              >
-                <div className="leading-tight">
-                  <div className="text-[16px] font-medium break-words">
-                    {asset.name}
-                  </div>
+      <td className="sticky left-0 z-10 border px-2 py-2 text-center align-middle bg-white w-[11%]">
+        <button
+          type="button"
+          className="w-full text-center"
+          onClick={() => setEditingAsset(asset)}
+        >
+          <div className="leading-tight">
+            <div className="text-[16px] font-medium break-words">
+              {asset.name}
+            </div>
+            {asset.subLabel && (
+              <div className="text-[12px] text-gray-600 mt-1 break-words">
+                {asset.subLabel}
+              </div>
+            )}
+          </div>
+        </button>
+      </td>
 
-                  {asset.subLabel && (
-                    <div className="text-[12px] text-gray-600 mt-1 break-words">
-                      {asset.subLabel}
+      {days.map((day) => {
+        const isSunday = day.date.getDay() === 0;
+        const isSaturday = day.date.getDay() === 6;
+
+        const cellBg = isSunday
+          ? "bg-red-50"
+          : isSaturday
+          ? "bg-blue-50"
+          : "bg-white";
+
+        const reservation = reservations.find(
+          (r) => r.assetId === asset.id && r.dayKey === day.key
+        );
+
+        return (
+          <td
+            key={`${asset.id}-${day.key}`}
+            className={`border p-1 align-top ${
+              isSelected(asset.id, day.key) ? "bg-blue-200" : cellBg
+            }`}
+          >
+            <button
+              className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
+              type="button"
+              onMouseDown={() => {
+                setIsDraggingRange(true);
+                setSelectionStart({ assetId: asset.id, dayKey: day.key });
+                setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+              }}
+              onMouseEnter={(e) => {
+                if (e.buttons === 1 && selectionStart?.assetId === asset.id) {
+                  setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+                }
+              }}
+              onMouseUp={() => {
+                if (
+                  isDraggingRange &&
+                  selectionStart &&
+                  selectionEnd &&
+                  selectionStart.assetId === asset.id &&
+                  selectionStart.dayKey !== selectionEnd.dayKey
+                ) {
+                  setShowBulkReservation(true);
+                }
+                setTimeout(() => setIsDraggingRange(false), 0);
+              }}
+              onTouchEnd={() => {
+                const now = Date.now();
+                const lastTap = lastTapRef.current;
+
+                const isDoubleTap =
+                  lastTap &&
+                  lastTap.assetId === asset.id &&
+                  now - lastTap.time < 300;
+
+                if (isDoubleTap) {
+                  if (!selectionStart || selectionStart.assetId !== asset.id) {
+                    setSelectionStart({ assetId: asset.id, dayKey: day.key });
+                    setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+                  } else {
+                    setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+                    if (selectionStart.dayKey !== day.key) {
+                      setShowBulkReservation(true);
+                    }
+                  }
+
+                  if (mobileTapTimer) {
+                    clearTimeout(mobileTapTimer);
+                    setMobileTapTimer(null);
+                  }
+                } else {
+                  const timer = setTimeout(() => {
+                    setSelectedSlot({
+                      assetId: asset.id,
+                      assetName: asset.name,
+                      dayKey: day.key,
+                      dateLabel: `${day.label}（${day.weekday}）`,
+                    });
+                  }, 300);
+
+                  setMobileTapTimer(timer);
+                }
+
+                lastTapRef.current = {
+                  assetId: asset.id,
+                  dayKey: day.key,
+                  time: now,
+                };
+              }}
+              onClick={() => {
+                if (isDraggingRange) return;
+                if (mobileTapTimer) return;
+
+                setSelectedSlot({
+                  assetId: asset.id,
+                  assetName: asset.name,
+                  dayKey: day.key,
+                  dateLabel: `${day.label}（${day.weekday}）`,
+                });
+              }}
+            >
+              <div className="space-y-1">
+                {reservation ? (
+                  <>
+                    {reservation.site && (
+                      <div className="font-bold text-sm">
+                        {reservation.site}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-700">
+                      {reservation.userName}
                     </div>
-                  )}
-                </div>
-              </button>
-            </td>
-
-            {days.map((day) => {
-              const isSunday = day.date.getDay() === 0;
-              const isSaturday = day.date.getDay() === 6;
-
-              const cellBg = isSunday
-                ? "bg-red-50"
-                : isSaturday
-                ? "bg-blue-50"
-                : "bg-white";
-
-              const reservation = reservations.find(
-                (r) => r.assetId === asset.id && r.dayKey === day.key
-              );
-
-              return (
-                <td
-                  key={`${asset.id}-${day.key}`}
-                className={`border p-1 align-top ${
-  isSelected(asset.id, day.key) ? "bg-blue-200" : cellBg
-}`}
-                >
-                <button
-  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
-  type="button"
-  onMouseDown={() => {
-    setIsDraggingRange(true);
-    setSelectionStart({ assetId: asset.id, dayKey: day.key });
-    setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-  }}
-  onMouseEnter={(e) => {
-    if (e.buttons === 1 && selectionStart?.assetId === asset.id) {
-      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-    }
-  }}
-  onMouseUp={() => {
-    setTimeout(() => {
-      setIsDraggingRange(false);
-    }, 0);
-  }}
-  onTouchEnd={() => {
-    const now = Date.now();
-
-    if (!selectionStart || selectionStart.assetId !== asset.id) {
-      setSelectionStart({ assetId: asset.id, dayKey: day.key });
-      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-      lastTapRef.current = now;
-      return;
-    }
-
-    if (now - lastTapRef.current < 300) {
-      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-    } else {
-      setSelectionStart({ assetId: asset.id, dayKey: day.key });
-      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-    }
-
-    lastTapRef.current = now;
-  }}
-  onClick={() => {
-    if (isDraggingRange) return;
-
-    setSelectedSlot({
-      assetId: asset.id,
-      assetName: asset.name,
-      dayKey: day.key,
-      dateLabel: `${day.label}（${day.weekday}）`,
-    });
-  }}
->
-  <div className="space-y-1">
-    {reservation ? (
-      <>
-        {reservation.site && (
-          <div className="font-bold text-sm">
-            {reservation.site}
-          </div>
-        )}
-        <div className="text-xs text-gray-700">
-          {reservation.userName}
-        </div>
-        {reservation.note && (
-          <div className="text-xs text-gray-500">
-            {reservation.note}
-          </div>
-        )}
-      </>
-    ) : (
-      <span className="text-gray-400 text-xs">＋予約</span>
-    )}
-  </div>
-</button>
-                </td>
-              );
-            })}
-          </tr>
-        ))}
-      </tbody>
+                    {reservation.note && (
+                      <div className="text-xs text-gray-500">
+                        {reservation.note}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-400 text-xs">＋予約</span>
+                )}
+              </div>
+            </button>
+          </td>
+        );
+      })}
+    </tr>
+  ))}
+</tbody>
     </table>
   </div>
 
   <div className="px-3 py-2 text-xs text-gray-500 border-t leading-5">
-  PCではドラッグで複数日選択できます。スマホでは同じ行の日付を1回タップして開始し、別の日付をもう1回タップして範囲を選択します。
+  PCではドラッグで複数日選択して一括予約できます。スマホでは同じ行をダブルタップして範囲を選択し、一括予約します。単日予約は1回タップです。
 </div>
 </div>
         )}
@@ -1443,7 +1617,68 @@ const isSelected = (assetId: string, dayKey: string) => {
         />
       )}
 
-       
+       {showBulkReservation && selectionStart && selectionEnd && (
+  <BulkReservationModal
+    assetName={
+      assets.find((a) => a.id === selectionStart.assetId)?.name ?? "アセット"
+    }
+    dayKeys={getSelectedDayKeys()}
+    dayLabels={getSelectedDayKeys().map((key) => {
+      const day = days.find((d) => d.key === key);
+      return day ? `${day.label}（${day.weekday}）` : key;
+    })}
+    memberOptions={memberOptions}
+    onClose={() => setShowBulkReservation(false)}
+    onSave={async ({ userName, site, note }) => {
+      try {
+        const assetId = selectionStart.assetId;
+        const selectedKeys = getSelectedDayKeys();
+
+        await Promise.all(
+          selectedKeys.map((dayKey) =>
+            setDoc(
+              doc(db, "reservations", makeReservationDocId(assetId, dayKey)),
+              {
+                companyId,
+                assetId,
+                dayKey,
+                userName,
+                site,
+                note,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              }
+            )
+          )
+        );
+
+        setShowBulkReservation(false);
+      } catch (error) {
+        console.error("bulk reservation save error:", error);
+        alert("一括予約に失敗しました");
+      }
+    }}
+    onDelete={async () => {
+      try {
+        const assetId = selectionStart.assetId;
+        const selectedKeys = getSelectedDayKeys();
+
+        await Promise.all(
+          selectedKeys.map((dayKey) =>
+            deleteDoc(
+              doc(db, "reservations", makeReservationDocId(assetId, dayKey))
+            )
+          )
+        );
+
+        setShowBulkReservation(false);
+      } catch (error) {
+        console.error("bulk reservation delete error:", error);
+        alert("一括予約削除に失敗しました");
+      }
+    }}
+  />
+)}
 {editingAsset && (
   <AssetEditModal
     asset={editingAsset}
