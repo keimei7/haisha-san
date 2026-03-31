@@ -18,23 +18,24 @@ export default function LoginPage() {
     try {
       setLoading(true);
 
-      const credential = await signInWithEmailAndPassword(auth, email, password);
-      const user = credential.user;
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const user = cred.user;
 
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
 
-      // users/{uid} が無ければ最低限作る
-      if (!userSnap.exists()) {
-        const now = new Date().toISOString();
+      const now = new Date().toISOString();
 
+      // 👇 users がなければ作成
+      if (!userSnap.exists()) {
         await setDoc(userRef, {
           displayName: user.displayName ?? "",
           companyId: "",
           createdAt: now,
           updatedAt: now,
         });
-        router.push("/setup");
+
+        router.replace("/setup");
         return;
       }
 
@@ -42,11 +43,13 @@ export default function LoginPage() {
         companyId?: string;
       };
 
-      if (data.companyId && data.companyId.trim()) {
-        router.push("/reserve");
+      // 👇 所属判定
+      if (data.companyId && data.companyId.trim() !== "") {
+        router.replace("/reserve");
       } else {
-        router.push("/setup");
+        router.replace("/setup");
       }
+
     } catch (e) {
       console.error("login error:", e);
       alert("ログイン失敗");
