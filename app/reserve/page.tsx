@@ -364,7 +364,107 @@ function AddAssetModal({
     </div>
   );
 }
+function AssetEditModal({
+  asset,
+  memberOptions,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  asset: AssetItem;
+  memberOptions: string[];
+  onClose: () => void;
+  onSave: (payload: {
+    name: string;
+    inspection: string;
+    assignedUser?: string;
+  }) => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
+}) {
+  const [name, setName] = useState(asset.name);
+  const [inspection, setInspection] = useState(asset.inspection);
+  const [assignedUser, setAssignedUser] = useState(asset.assignedUser ?? "");
 
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+        <h2 className="text-lg font-bold">資産編集</h2>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-sm text-gray-600">名前</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">割り当て</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2 bg-white"
+              value={assignedUser}
+              onChange={(e) => setAssignedUser(e.target.value)}
+            >
+              <option value="">共有車</option>
+              {memberOptions.map((member) => (
+                <option key={member} value={member}>
+                  {member}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">点検・車検</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={inspection}
+              onChange={(e) => setInspection(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <button
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2"
+            type="button"
+            onClick={() => {
+              if (!name.trim()) {
+                alert("名前を入れてください");
+                return;
+              }
+              onSave({
+                name: name.trim(),
+                inspection: inspection.trim(),
+                assignedUser: assignedUser || undefined,
+              });
+            }}
+          >
+            保存
+          </button>
+
+          <button
+            className="rounded-lg border px-4 py-2"
+            type="button"
+            onClick={onClose}
+          >
+            閉じる
+          </button>
+        </div>
+
+        <button
+          className="w-full rounded-lg border border-red-400 text-red-500 py-2"
+          type="button"
+          onClick={onDelete}
+        >
+          この資産を削除
+        </button>
+      </div>
+    </div>
+  );
+}
 function ReservationModal({
   slot,
   existing,
@@ -490,7 +590,7 @@ function ReservationModal({
 
 export default function ReservePage() {
   const router = useRouter();
-
+const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -869,8 +969,14 @@ export default function ReservePage() {
                       </td>
 
                       <td className="sticky left-0 z-10 border px-2 py-3 text-center align-middle whitespace-pre-line bg-gray-50">
-                        {asset.name}
-                      </td>
+  <button
+    type="button"
+    className="w-full"
+    onClick={() => setEditingAsset(asset)}
+  >
+    {asset.name}
+  </button>
+</td>
 
                       {days.map((day) => {
                         const isSunday = day.date.getDay() === 0;
@@ -951,7 +1057,13 @@ export default function ReservePage() {
                   className="rounded-xl border px-3 py-3 flex items-center justify-between"
                 >
                   <div>
-                    <div className="font-medium">{asset.name}</div>
+                   <button
+  type="button"
+  className="font-medium text-left"
+  onClick={() => setEditingAsset(asset)}
+>
+  {asset.name}
+</button>
                     <div className="text-sm text-gray-500">
                       {asset.inspection || "点検情報なし"}
                     </div>
@@ -1103,6 +1215,39 @@ export default function ReservePage() {
           }}
         />
       )}
+      {editingAsset && (
+  <AssetEditModal
+    asset={editingAsset}
+    memberOptions={memberOptions}
+    onClose={() => setEditingAsset(null)}
+    onSave={async ({ name, inspection, assignedUser }) => {
+      try {
+        await updateDoc(doc(db, "assets", editingAsset.id), {
+          name,
+          inspection,
+          assignedUser: assignedUser ?? null,
+          updatedAt: new Date().toISOString(),
+        });
+        setEditingAsset(null);
+      } catch (error) {
+        console.error("asset update error:", error);
+        alert("資産更新に失敗しました");
+      }
+    }}
+    onDelete={async () => {
+      const ok = window.confirm("この資産を削除しますか？");
+      if (!ok) return;
+
+      try {
+        await deleteDoc(doc(db, "assets", editingAsset.id));
+        setEditingAsset(null);
+      } catch (error) {
+        console.error("asset delete error:", error);
+        alert("資産削除に失敗しました");
+      }
+    }}
+  />
+)}
     </main>
   );
 }
