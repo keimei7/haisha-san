@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
@@ -775,7 +775,8 @@ const [selectionEnd, setSelectionEnd] = useState<{
 
 const [isDraggingRange, setIsDraggingRange] = useState(false);
 const [showBulkReservation, setShowBulkReservation] = useState(false);
-
+const [mobileRangeSelecting, setMobileRangeSelecting] = useState(false);
+const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
@@ -784,7 +785,7 @@ const [myDisplayName, setMyDisplayName] = useState("");
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [memberOptions, setMemberOptions] = useState<string[]>([]);
-const [mobileRangeSelecting, setMobileRangeSelecting] = useState(false);
+
   const [currentTableId, setCurrentTableId] = useState("");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
 
@@ -1321,8 +1322,10 @@ const getSelectedDayKeys = () => {
             }`}
           >
            <button
-  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
+  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2 select-none touch-manipulation [-webkit-user-select:none] [-webkit-touch-callout:none]"
   type="button"
+  draggable={false}
+  onContextMenu={(e) => e.preventDefault()}
   onMouseDown={() => {
     setIsDraggingRange(true);
     setSelectionStart({ assetId: asset.id, dayKey: day.key });
@@ -1343,50 +1346,72 @@ const getSelectedDayKeys = () => {
     ) {
       setShowBulkReservation(true);
     }
-    setTimeout(() => setIsDraggingRange(false), 0);
+
+    setTimeout(() => {
+      setIsDraggingRange(false);
+    }, 0);
   }}
-  onTouchStart={() => {
-    const timer = setTimeout(() => {
+  onTouchStart={(e) => {
+    e.preventDefault();
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    longPressTimerRef.current = setTimeout(() => {
       setSelectionStart({ assetId: asset.id, dayKey: day.key });
       setSelectionEnd({ assetId: asset.id, dayKey: day.key });
       setMobileRangeSelecting(true);
-    }, 400);
 
-    (window as any).__rangeTouchTimer = timer;
-  }}
-  onTouchEnd={() => {
-    const timer = (window as any).__rangeTouchTimer;
-    if (timer) {
-      clearTimeout(timer);
-      (window as any).__rangeTouchTimer = null;
-    }
-
-    if (mobileRangeSelecting && selectionStart?.assetId === asset.id) {
-      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-
-      if (selectionStart.dayKey !== day.key) {
-        setShowBulkReservation(true);
+      if (navigator.vibrate) {
+        navigator.vibrate(10);
       }
 
-      setMobileRangeSelecting(false);
-      return;
+      longPressTimerRef.current = null;
+    }, 450);
+  }}
+  onTouchMove={() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
+  }}
+  onTouchEnd={(e) => {
+    e.preventDefault();
 
-    if (!mobileRangeSelecting) {
+    // まだタイマーが生きてる = 短いタップ
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+
+      // すでに長押しで範囲選択モードに入っているなら、今回のタップで終点を決める
+      if (mobileRangeSelecting) {
+        if (selectionStart?.assetId !== asset.id) {
+          return;
+        }
+
+        setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+
+        if (selectionStart.dayKey !== day.key) {
+          setShowBulkReservation(true);
+        }
+
+        return;
+      }
+
+      // 通常の単タップ = 単日予約
       setSelectedSlot({
         assetId: asset.id,
         assetName: asset.name,
         dayKey: day.key,
         dateLabel: `${day.label}（${day.weekday}）`,
       });
+
+      return;
     }
-  }}
-  onTouchMove={() => {
-    const timer = (window as any).__rangeTouchTimer;
-    if (timer) {
-      clearTimeout(timer);
-      (window as any).__rangeTouchTimer = null;
-    }
+
+    // 長押しが発火した直後の touchend は何もしない
   }}
   onClick={() => {
     if (isDraggingRange || mobileRangeSelecting) return;
@@ -1399,7 +1424,7 @@ const getSelectedDayKeys = () => {
     });
   }}
 >
-  <div className="space-y-1">
+  <div className="space-y-1 pointer-events-none select-none">
     {reservation ? (
       <>
         {reservation.site && (
@@ -1417,7 +1442,7 @@ const getSelectedDayKeys = () => {
         )}
       </>
     ) : (
-      <span className="text-gray-400 text-xs">＋予約</span>
+      <span className="text-gray-400 text-xs select-none">＋予約</span>
     )}
   </div>
 </button>
@@ -1625,7 +1650,7 @@ const getSelectedDayKeys = () => {
       return day ? `${day.label}（${day.weekday}）` : key;
     })}
     memberOptions={memberOptions}
-   onClose={() => {
+  onClose={() => {
   setShowBulkReservation(false);
   setSelectionStart(null);
   setSelectionEnd(null);
