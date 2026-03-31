@@ -1398,14 +1398,28 @@ const toggleTableOpen = (tableId: string) => {
 
                   return (
                     <div key={table.id}>
-                      <button
-                        type="button"
-                        className="w-full px-3 py-2 flex justify-between text-sm"
-                        onClick={() => toggleTableOpen(table.id)}
-                      >
-                        <span>{table.title}</span>
-                        <span>{isOpen ? "−" : "＋"}</span>
-                      </button>
+  <div className="flex items-center justify-between px-3 py-2 text-sm">
+    <button
+      className="flex-1 text-left flex justify-between"
+      onClick={() => toggleTableOpen(table.id)}
+      type="button"
+    >
+      <span>{table.title}</span>
+      <span>{isOpen ? "−" : "＋"}</span>
+    </button>
+
+    <button
+      className="ml-2 text-xs border px-2 py-1 rounded"
+      type="button"
+      onClick={() => {
+        setCurrentTableId(table.id); // ←ここ重要
+        setShowAddAsset(true);
+        setShowMenu(false); // メニュー閉じる
+      }}
+    >
+      ＋追加
+    </button>
+  </div>
 
                       {isOpen && (
                         <div className="px-3 pb-3 space-y-2">
