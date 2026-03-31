@@ -292,7 +292,7 @@ function AddAssetModal({
   return (
     <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
-        <h2 className="text-lg font-bold">資産追加</h2>
+        <h2 className="text-lg font-bold">アセット追加</h2>
 
         <div className="space-y-3">
           <div>
@@ -301,7 +301,7 @@ function AddAssetModal({
               className="w-full border rounded-lg px-3 py-2"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="例：12tセルフ"
+              placeholder="例：ダンプ"
             />
           </div>
 
@@ -312,7 +312,7 @@ function AddAssetModal({
               value={assignedUser}
               onChange={(e) => setAssignedUser(e.target.value)}
             >
-              <option value="">共有車</option>
+              <option value="">共有アセット</option>
               {memberOptions.map((member) => (
                 <option key={member} value={member}>
                   {member}
@@ -388,7 +388,7 @@ function AssetEditModal({
   return (
     <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
-        <h2 className="text-lg font-bold">資産編集</h2>
+        <h2 className="text-lg font-bold">アセット編集</h2>
 
         <div className="space-y-3">
           <div>
@@ -407,7 +407,7 @@ function AssetEditModal({
               value={assignedUser}
               onChange={(e) => setAssignedUser(e.target.value)}
             >
-              <option value="">共有車</option>
+              <option value="">共有アセット</option>
               {memberOptions.map((member) => (
                 <option key={member} value={member}>
                   {member}
@@ -459,7 +459,7 @@ function AssetEditModal({
           type="button"
           onClick={onDelete}
         >
-          この資産を削除
+          このアセットを削除
         </button>
       </div>
     </div>
@@ -533,7 +533,7 @@ function ReservationModal({
               className="w-full border rounded-lg px-3 py-2"
               value={site}
               onChange={(e) => setSite(e.target.value)}
-              placeholder="例：現場A"
+              placeholder="例：現場"
             />
           </div>
 
@@ -593,7 +593,7 @@ export default function ReservePage() {
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
-
+const [myDisplayName, setMyDisplayName] = useState("");
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
@@ -624,6 +624,7 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
         }
 
         const data = userSnap.data() as UserDoc;
+        setMyDisplayName(data.displayName ?? data.name ?? "");
         if (!data.companyId) {
           setAuthLoading(false);
           router.replace("/setup");
@@ -784,8 +785,10 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
   }, [currentTableAssets]);
 
   const myAssets = useMemo(() => {
-    return currentTableAssets.filter((a) => !!a.assignedUser);
-  }, [currentTableAssets]);
+  return currentTableAssets.filter(
+    (a) => !!a.assignedUser && a.assignedUser === myDisplayName
+  );
+}, [currentTableAssets, myDisplayName]);
 
   const handleLogout = async () => {
     try {
@@ -879,7 +882,7 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
                 onClick={() => setShowAddAsset(true)}
                 type="button"
               >
-                ＋ 資産追加
+                ＋ アセット追加
               </button>
             </div>
           </div>
@@ -908,14 +911,14 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
         {currentTableAssets.length === 0 ? (
           <div className="rounded-2xl border bg-white p-6 text-center space-y-3">
             <p className="text-sm text-gray-600">
-              このテーブルにはまだ資産がありません
+              このテーブルにはまだアセットがありません
             </p>
             <button
               onClick={() => setShowAddAsset(true)}
               className="rounded-xl border bg-white px-4 py-2 text-sm"
               type="button"
             >
-              資産を追加する
+              アセットを追加する
             </button>
           </div>
         ) : (
@@ -1048,7 +1051,7 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
 
         {myAssets.length > 0 && (
           <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
-            <h3 className="font-bold">マイカー</h3>
+            <h3 className="font-bold">マイアセット</h3>
 
             <div className="space-y-2">
               {myAssets.map((asset) => (
@@ -1076,8 +1079,8 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
         )}
 
         <p className="mt-3 text-xs text-gray-500">
-          資産件数: {currentTableAssets.length} / 共有車: {sharedAssets.length} /
-          マイカー: {myAssets.length} / 予約件数: {reservations.length}
+          アセット件数: {currentTableAssets.length} / 共有アセット: {sharedAssets.length} /
+          マイアセット: {myAssets.length} / 予約件数: {reservations.length}
         </p>
       </div>
 
@@ -1157,7 +1160,7 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
               setShowAddAsset(false);
             } catch (error) {
               console.error("asset add error:", error);
-              alert("資産追加に失敗しました");
+              alert("アセット追加に失敗しました");
             }
           }}
         />
@@ -1231,11 +1234,11 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
         setEditingAsset(null);
       } catch (error) {
         console.error("asset update error:", error);
-        alert("資産更新に失敗しました");
+        alert("アセット更新に失敗しました");
       }
     }}
     onDelete={async () => {
-      const ok = window.confirm("この資産を削除しますか？");
+      const ok = window.confirm("このアセットを削除しますか？");
       if (!ok) return;
 
       try {
@@ -1243,7 +1246,7 @@ const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
         setEditingAsset(null);
       } catch (error) {
         console.error("asset delete error:", error);
-        alert("資産削除に失敗しました");
+        alert("アセット削除に失敗しました");
       }
     }}
   />
