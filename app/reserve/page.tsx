@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
   addDoc,
   collection,
@@ -17,6 +17,7 @@ import {
 } from "firebase/firestore";
 import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
+
 type TableItem = {
   id: string;
   title: string;
@@ -50,60 +51,17 @@ type DayItem = {
   date: Date;
 };
 
-type ReservationSlot = {
+type SelectedSlot = {
   assetId: string;
   assetName: string;
-  dayKeys: string[];
+  dayKey: string;
   dateLabel: string;
-};
-
-type SelectedSlot = ReservationSlot | null;
-
-type DragState = {
-  assetId: string;
-  assetName: string;
-  startIndex: number;
-  currentIndex: number;
 } | null;
 
 type UserDoc = {
   companyId?: string;
   displayName?: string;
   name?: string;
-};
-
-type CreateTableModalProps = {
-  onClose: () => void;
-  onCreate: (table: {
-    title: string;
-    labelMeta1: string;
-    labelMeta2: string;
-  }) => void | Promise<void>;
-};
-
-type AddAssetModalProps = {
-  onClose: () => void;
-  onAdd: (asset: {
-    name: string;
-    inspection: string;
-    tableId: string;
-    assignedUser?: string;
-  }) => void | Promise<void>;
-  tableId: string;
-  memberOptions: string[];
-};
-
-type ReservationModalProps = {
-  slot: ReservationSlot;
-  existing?: ReservationItem;
-  memberOptions: string[];
-  onClose: () => void;
-  onSave: (payload: {
-    userName: string;
-    site: string;
-    note: string;
-  }) => void | Promise<void>;
-  onDelete: () => void | Promise<void>;
 };
 
 function getMonday(date: Date): Date {
@@ -136,23 +94,24 @@ function makeReservationDocId(assetId: string, dayKey: string): string {
   return `${assetId}_${dayKey}`;
 }
 
-function rangeFromIndices(a: number, b: number): number[] {
-  const min = Math.min(a, b);
-  const max = Math.max(a, b);
-  return Array.from({ length: max - min + 1 }, (_, i) => min + i);
-}
-
 function CreateTableModal({
   onClose,
   onCreate,
-}: CreateTableModalProps) {
+}: {
+  onClose: () => void;
+  onCreate: (payload: {
+    title: string;
+    labelMeta1: string;
+    labelMeta2: string;
+  }) => void | Promise<void>;
+}) {
   const [title, setTitle] = useState("");
   const [meta1, setMeta1] = useState("車検");
   const [meta2, setMeta2] = useState("車種");
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
-      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
+    <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
         <h2 className="text-lg font-bold">テーブル作成</h2>
 
         <div className="space-y-3">
@@ -160,9 +119,9 @@ function CreateTableModal({
             <label className="text-sm text-gray-600">テーブル名</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
-              placeholder="例：共有車予約ページ"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder="例：トラック予約表"
             />
           </div>
 
@@ -185,9 +144,10 @@ function CreateTableModal({
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2">
           <button
-            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium relative z-[300]"
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2"
+            type="button"
             onClick={() => {
               if (!title.trim()) {
                 alert("テーブル名を入れてください");
@@ -199,15 +159,14 @@ function CreateTableModal({
                 labelMeta2: meta2.trim() || "車種",
               });
             }}
-            type="button"
           >
             作成
           </button>
 
           <button
-            className="rounded-lg border px-4 py-2 relative z-[300]"
-            onClick={onClose}
+            className="rounded-lg border px-4 py-2"
             type="button"
+            onClick={onClose}
           >
             閉じる
           </button>
@@ -216,6 +175,7 @@ function CreateTableModal({
     </div>
   );
 }
+
 function EditTableModal({
   table,
   onClose,
@@ -236,8 +196,8 @@ function EditTableModal({
   const [meta2, setMeta2] = useState(table.labelMeta2);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
-      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
+    <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
         <h2 className="text-lg font-bold">テーブル編集</h2>
 
         <div className="space-y-3">
@@ -269,9 +229,10 @@ function EditTableModal({
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2">
           <button
-            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium"
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2"
+            type="button"
             onClick={() => {
               if (!title.trim()) {
                 alert("テーブル名を入れてください");
@@ -283,24 +244,23 @@ function EditTableModal({
                 labelMeta2: meta2.trim() || "車種",
               });
             }}
-            type="button"
           >
             保存
           </button>
 
           <button
             className="rounded-lg border px-4 py-2"
-            onClick={onClose}
             type="button"
+            onClick={onClose}
           >
             閉じる
           </button>
         </div>
 
         <button
-          className="w-full border border-red-400 text-red-500 py-2 rounded-lg"
-          onClick={onDelete}
+          className="w-full rounded-lg border border-red-400 text-red-500 py-2"
           type="button"
+          onClick={onDelete}
         >
           このテーブルを削除
         </button>
@@ -308,19 +268,30 @@ function EditTableModal({
     </div>
   );
 }
+
 function AddAssetModal({
   onClose,
   onAdd,
   tableId,
   memberOptions,
-}: AddAssetModalProps) {
+}: {
+  onClose: () => void;
+  onAdd: (payload: {
+    name: string;
+    inspection: string;
+    tableId: string;
+    assignedUser?: string;
+  }) => void | Promise<void>;
+  tableId: string;
+  memberOptions: string[];
+}) {
   const [name, setName] = useState("");
   const [inspection, setInspection] = useState("");
   const [assignedUser, setAssignedUser] = useState("");
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center px-4 z-[200] pointer-events-auto">
-      <div className="bg-white rounded-2xl p-5 w-full max-w-sm space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
+    <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
         <h2 className="text-lg font-bold">資産追加</h2>
 
         <div className="space-y-3">
@@ -328,47 +299,43 @@ function AddAssetModal({
             <label className="text-sm text-gray-600">名前</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
-              placeholder="例：12tセルフ"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              placeholder="例：12tセルフ"
             />
           </div>
 
           <div>
             <label className="text-sm text-gray-600">割り当て</label>
-            <div className="relative">
-              <select
-                className="w-full border rounded-lg px-3 py-2 pr-10 appearance-none bg-white"
-                value={assignedUser}
-                onChange={(e) => setAssignedUser(e.target.value)}
-              >
-                <option value="">共有車</option>
-                {memberOptions.map((member) => (
-                  <option key={member} value={member}>
-                    {member}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
-                ▼
-              </div>
-            </div>
+            <select
+              className="w-full border rounded-lg px-3 py-2 bg-white"
+              value={assignedUser}
+              onChange={(e) => setAssignedUser(e.target.value)}
+            >
+              <option value="">共有車</option>
+              {memberOptions.map((member) => (
+                <option key={member} value={member}>
+                  {member}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
             <label className="text-sm text-gray-600">点検・車検</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
-              placeholder="例：2026/03/18"
               value={inspection}
               onChange={(e) => setInspection(e.target.value)}
+              placeholder="例：2026/03/18"
             />
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2">
           <button
-            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium relative z-[300]"
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2"
+            type="button"
             onClick={() => {
               if (!name.trim()) {
                 alert("名前を入れてください");
@@ -381,15 +348,14 @@ function AddAssetModal({
                 assignedUser: assignedUser || undefined,
               });
             }}
-            type="button"
           >
             追加
           </button>
 
           <button
-            className="rounded-lg border px-4 py-2 relative z-[300]"
-            onClick={onClose}
+            className="rounded-lg border px-4 py-2"
             type="button"
+            onClick={onClose}
           >
             閉じる
           </button>
@@ -406,14 +372,25 @@ function ReservationModal({
   onClose,
   onSave,
   onDelete,
-}: ReservationModalProps) {
+}: {
+  slot: NonNullable<SelectedSlot>;
+  existing?: ReservationItem;
+  memberOptions: string[];
+  onClose: () => void;
+  onSave: (payload: {
+    userName: string;
+    site: string;
+    note: string;
+  }) => void | Promise<void>;
+  onDelete: () => void | Promise<void>;
+}) {
   const [userName, setUserName] = useState(existing?.userName ?? "");
   const [site, setSite] = useState(existing?.site ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[200] px-4 pointer-events-auto">
-      <div className="bg-white rounded-xl w-full max-w-md p-5 space-y-4 shadow-2xl relative z-[201] pointer-events-auto">
+    <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl space-y-4">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold">予約入力</h2>
@@ -425,10 +402,9 @@ function ReservationModal({
           </div>
 
           <button
+            className="text-2xl leading-none text-gray-500"
             type="button"
             onClick={onClose}
-            className="text-2xl leading-none text-gray-500 hover:text-black px-2 relative z-[300]"
-            aria-label="閉じる"
           >
             ×
           </button>
@@ -437,23 +413,18 @@ function ReservationModal({
         <div className="space-y-3">
           <div>
             <label className="text-sm text-gray-600">予約者名</label>
-            <div className="relative">
-              <select
-                className="w-full border rounded-lg px-3 py-2 pr-10 appearance-none bg-white"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-              >
-                <option value="">選択してください</option>
-                {memberOptions.map((member) => (
-                  <option key={member} value={member}>
-                    {member}
-                  </option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-500">
-                ▼
-              </div>
-            </div>
+            <select
+              className="w-full border rounded-lg px-3 py-2 bg-white"
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+            >
+              <option value="">選択してください</option>
+              {memberOptions.map((member) => (
+                <option key={member} value={member}>
+                  {member}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -477,9 +448,10 @@ function ReservationModal({
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-2">
           <button
-            className="flex-1 rounded-lg bg-blue-600 text-white py-2 font-medium relative z-[300]"
+            className="flex-1 rounded-lg bg-blue-600 text-white py-2"
+            type="button"
             onClick={() => {
               if (!userName.trim()) {
                 alert("予約者を選択してください");
@@ -491,24 +463,23 @@ function ReservationModal({
                 note: note.trim(),
               });
             }}
-            type="button"
           >
             決定
           </button>
 
           <button
-            className="rounded-lg border px-4 py-2 relative z-[300]"
-            onClick={onClose}
+            className="rounded-lg border px-4 py-2"
             type="button"
+            onClick={onClose}
           >
             閉じる
           </button>
         </div>
 
         <button
-          className="w-full border border-red-400 text-red-500 py-2 rounded-lg relative z-[300]"
-          onClick={onDelete}
+          className="w-full rounded-lg border border-red-400 text-red-500 py-2"
           type="button"
+          onClick={onDelete}
         >
           この予約を削除
         </button>
@@ -519,148 +490,71 @@ function ReservationModal({
 
 export default function ReservePage() {
   const router = useRouter();
-  const [uid, setUid] = useState<string>("");
-  const [companyId, setCompanyId] = useState<string>("");
+
+  const [companyId, setCompanyId] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
 
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [memberOptions, setMemberOptions] = useState<string[]>([]);
-  const [showEditTable, setShowEditTable] = useState(false);
-  const [currentTableId, setCurrentTableId] = useState<string>("");
-  const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()));
+
+  const [currentTableId, setCurrentTableId] = useState("");
+  const [weekStart, setWeekStart] = useState(getMonday(new Date()));
 
   const [showCreateTable, setShowCreateTable] = useState(false);
+  const [showEditTable, setShowEditTable] = useState(false);
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
 
-  const [loadingTables, setLoadingTables] = useState(true);
-  const [loadingAssets, setLoadingAssets] = useState(true);
-  const [loadingReservations, setLoadingReservations] = useState(true);
-
-  const [dragState, setDragState] = useState<DragState>(null);
-const [tapStart, setTapStart] = useState<{
-  assetId: string;
-  assetName: string;
-  index: number;
-} | null>(null);
-const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   useEffect(() => {
-  const unsub = onAuthStateChanged(auth, async (user) => {
-    try {
-      if (!user) {
-        setUid("");
-        setCompanyId("");
-        setAuthLoading(false);
-        router.push("/login");
-        return;
-      }
-
-      setUid(user.uid);
-
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (!userSnap.exists()) {
-        console.error("users/{uid} が存在しません");
-        setCompanyId("");
-        setAuthLoading(false);
-        return;
-      }
-
-      const data = userSnap.data() as UserDoc;
-      setCompanyId(data.companyId ?? "");
-      setAuthLoading(false);
-    } catch (error) {
-      console.error("auth/company read error:", error);
-      setCompanyId("");
-      setAuthLoading(false);
-    }
-  });
-
-  return () => unsub();
-}, [router]);
-
-  useEffect(() => {
-    if (!companyId) return;
-
-    const q = query(
-      collection(db, "users"),
-      where("companyId", "==", companyId)
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const names = snap.docs
-          .map((docSnap) => {
-            const data = docSnap.data() as UserDoc;
-            return data.displayName ?? data.name ?? "";
-          })
-          .filter(Boolean);
-
-        setMemberOptions(names);
-      },
-      (error) => {
-        console.error("users snapshot error:", error);
-        setMemberOptions([]);
-      }
-    );
-
-    return () => unsub();
-  }, [companyId]);
-
-  useEffect(() => {
-    if (!companyId) return;
-
-    setLoadingTables(true);
-
-    const q = query(
-      collection(db, "tables"),
-      where("companyId", "==", companyId)
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const list: TableItem[] = snap.docs
-          .map((docSnap) => {
-            const data = docSnap.data() as {
-              title?: string;
-              labelMeta1?: string;
-              labelMeta2?: string;
-              sort?: number;
-            };
-
-            return {
-              id: docSnap.id,
-              title: data.title ?? "無題",
-              labelMeta1: data.labelMeta1 ?? "車検",
-              labelMeta2: data.labelMeta2 ?? "車種",
-              sort: data.sort ?? 0,
-            };
-          })
-          .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
-
-        setTables(list);
-
-        if (list.length > 0) {
-          setCurrentTableId((prev) =>
-            prev && list.some((t) => t.id === prev) ? prev : list[0].id
-          );
-        } else {
-          setCurrentTableId("");
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      try {
+        if (!user) {
+          setAuthLoading(false);
+          router.replace("/login");
+          return;
         }
 
-        setLoadingTables(false);
-      },
-      (error) => {
-        console.error("tables snapshot error:", error);
-        setTables([]);
-        setLoadingTables(false);
+        const userSnap = await getDoc(doc(db, "users", user.uid));
+        if (!userSnap.exists()) {
+          setAuthLoading(false);
+          router.replace("/setup");
+          return;
+        }
+
+        const data = userSnap.data() as UserDoc;
+        if (!data.companyId) {
+          setAuthLoading(false);
+          router.replace("/setup");
+          return;
+        }
+
+        setCompanyId(data.companyId);
+        setAuthLoading(false);
+      } catch (error) {
+        console.error("auth/company read error:", error);
+        setAuthLoading(false);
+        router.replace("/login");
       }
-    );
+    });
+
+    return () => unsub();
+  }, [router]);
+
+  useEffect(() => {
+    if (!companyId) return;
+
+    const q = query(collection(db, "users"), where("companyId", "==", companyId));
+    const unsub = onSnapshot(q, (snap) => {
+      const names = snap.docs
+        .map((docSnap) => {
+          const data = docSnap.data() as UserDoc;
+          return data.displayName ?? data.name ?? "";
+        })
+        .filter(Boolean);
+      setMemberOptions(names);
+    });
 
     return () => unsub();
   }, [companyId]);
@@ -668,44 +562,36 @@ const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   useEffect(() => {
     if (!companyId) return;
 
-    setLoadingAssets(true);
-
-    const q = query(
-      collection(db, "assets"),
-      where("companyId", "==", companyId)
-    );
-
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const list: AssetItem[] = snap.docs.map((docSnap) => {
+    const q = query(collection(db, "tables"), where("companyId", "==", companyId));
+    const unsub = onSnapshot(q, (snap) => {
+      const list: TableItem[] = snap.docs
+        .map((docSnap) => {
           const data = docSnap.data() as {
-            name?: string;
-            inspection?: string;
-            tableId?: string;
+            title?: string;
+            labelMeta1?: string;
+            labelMeta2?: string;
             sort?: number;
-            assignedUser?: string | null;
           };
 
           return {
             id: docSnap.id,
-            name: data.name ?? "",
-            inspection: data.inspection ?? "",
-            tableId: data.tableId ?? "",
+            title: data.title ?? "無題",
+            labelMeta1: data.labelMeta1 ?? "車検",
+            labelMeta2: data.labelMeta2 ?? "車種",
             sort: data.sort ?? 0,
-            assignedUser: data.assignedUser ?? undefined,
           };
-        });
+        })
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
 
-        setAssets(list);
-        setLoadingAssets(false);
-      },
-      (error) => {
-        console.error("assets snapshot error:", error);
-        setAssets([]);
-        setLoadingAssets(false);
+      setTables(list);
+      if (list.length > 0) {
+        setCurrentTableId((prev) =>
+          prev && list.some((t) => t.id === prev) ? prev : list[0].id
+        );
+      } else {
+        setCurrentTableId("");
       }
-    );
+    });
 
     return () => unsub();
   }, [companyId]);
@@ -713,44 +599,62 @@ const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
   useEffect(() => {
     if (!companyId) return;
 
-    setLoadingReservations(true);
+    const q = query(collection(db, "assets"), where("companyId", "==", companyId));
+    const unsub = onSnapshot(q, (snap) => {
+      const list: AssetItem[] = snap.docs.map((docSnap) => {
+        const data = docSnap.data() as {
+          name?: string;
+          inspection?: string;
+          tableId?: string;
+          sort?: number;
+          assignedUser?: string | null;
+        };
+
+        return {
+          id: docSnap.id,
+          name: data.name ?? "",
+          inspection: data.inspection ?? "",
+          tableId: data.tableId ?? "",
+          sort: data.sort ?? 0,
+          assignedUser: data.assignedUser ?? undefined,
+        };
+      });
+
+      setAssets(list);
+    });
+
+    return () => unsub();
+  }, [companyId]);
+
+  useEffect(() => {
+    if (!companyId) return;
 
     const q = query(
       collection(db, "reservations"),
       where("companyId", "==", companyId)
     );
+    const unsub = onSnapshot(q, (snap) => {
+      const list: ReservationItem[] = snap.docs.map((docSnap) => {
+        const data = docSnap.data() as {
+          assetId?: string;
+          dayKey?: string;
+          userName?: string;
+          site?: string;
+          note?: string;
+        };
 
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const list: ReservationItem[] = snap.docs.map((docSnap) => {
-          const data = docSnap.data() as {
-            assetId?: string;
-            dayKey?: string;
-            userName?: string;
-            site?: string;
-            note?: string;
-          };
+        return {
+          id: docSnap.id,
+          assetId: data.assetId ?? "",
+          dayKey: data.dayKey ?? "",
+          userName: data.userName ?? "",
+          site: data.site ?? "",
+          note: data.note ?? "",
+        };
+      });
 
-          return {
-            id: docSnap.id,
-            assetId: data.assetId ?? "",
-            dayKey: data.dayKey ?? "",
-            userName: data.userName ?? "",
-            site: data.site ?? "",
-            note: data.note ?? "",
-          };
-        });
-
-        setReservations(list);
-        setLoadingReservations(false);
-      },
-      (error) => {
-        console.error("reservations snapshot error:", error);
-        setReservations([]);
-        setLoadingReservations(false);
-      }
-    );
+      setReservations(list);
+    });
 
     return () => unsub();
   }, [companyId]);
@@ -783,185 +687,20 @@ const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     return currentTableAssets.filter((a) => !!a.assignedUser);
   }, [currentTableAssets]);
 
-  const dragSelectedDayKeys = useMemo(() => {
-    if (!dragState) return [];
-    return rangeFromIndices(dragState.startIndex, dragState.currentIndex)
-      .map((index) => days[index]?.key)
-      .filter(Boolean);
-  }, [dragState, days]);
-
-  const isLoading =
-    authLoading || loadingTables || loadingAssets || loadingReservations;
-
-  const openSlotFromIndices = (
-    assetId: string,
-    assetName: string,
-    startIndex: number,
-    endIndex: number
-  ) => {
-    const indices = rangeFromIndices(startIndex, endIndex);
-    const selectedDays = indices.map((index) => days[index]).filter(Boolean);
-
-    if (selectedDays.length === 0) return;
-
-    const first = selectedDays[0];
-    const last = selectedDays[selectedDays.length - 1];
-
-    const dateLabel =
-      selectedDays.length === 1
-        ? `${first.label}（${first.weekday}）`
-        : `${first.label}（${first.weekday}）〜 ${last.label}（${last.weekday}）`;
-
-    setSelectedSlot({
-      assetId,
-      assetName,
-      dayKeys: selectedDays.map((d) => d.key),
-      dateLabel,
-    });
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.replace("/login");
+    } catch (error) {
+      console.error("logout error:", error);
+      alert("ログアウトに失敗しました");
+    }
   };
-
-  const handleCellMouseDown = (
-    assetId: string,
-    assetName: string,
-    dayIndex: number
-  ) => {
-    setDragState({
-      assetId,
-      assetName,
-      startIndex: dayIndex,
-      currentIndex: dayIndex,
-    });
-  };
-
-  const handleCellMouseEnter = (assetId: string, dayIndex: number) => {
-    setDragState((prev) => {
-      if (!prev) return prev;
-      if (prev.assetId !== assetId) return prev;
-      return {
-        ...prev,
-        currentIndex: dayIndex,
-      };
-    });
-  };
-
-  const handleCellMouseUp = (assetId: string) => {
-    if (!dragState) return;
-    if (dragState.assetId !== assetId) return;
-
-    openSlotFromIndices(
-      dragState.assetId,
-      dragState.assetName,
-      dragState.startIndex,
-      dragState.currentIndex
-    );
-    setDragState(null);
-  };
-
-  useEffect(() => {
-    const clearDrag = () => setDragState(null);
-    window.addEventListener("mouseup", clearDrag);
-    return () => window.removeEventListener("mouseup", clearDrag);
-  }, []);
 
   if (authLoading) {
     return (
-      <main className="min-h-screen bg-white text-black p-6">
-        <div className="mx-auto max-w-md text-center text-gray-500">
-          認証確認中...
-        </div>
-      </main>
-    );
-  }
-
-  if (!uid) {
-    return (
-      <main className="min-h-screen bg-white text-black p-6">
-        <div className="mx-auto max-w-md text-center text-gray-500">
-          ログインしてください
-        </div>
-      </main>
-    );
-  }
-
-  if (!companyId) {
-    return (
-      <main className="min-h-screen bg-white text-black p-6">
-        <div className="mx-auto max-w-md text-center text-gray-500 space-y-2">
-          <div>companyId が取得できませんでした</div>
-          <div className="text-xs">
-            users/{uid} に companyId が入っているか確認してください
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (loadingTables && tables.length === 0) {
-    return (
-      <main className="min-h-screen bg-white text-black p-6">
-        <div className="mx-auto max-w-md text-center text-gray-500">
-          読み込み中...
-        </div>
-      </main>
-    );
-  }
-
-  if (tables.length === 0) {
-    return (
-      <main className="min-h-screen bg-white text-black p-3">
-        <div className="mx-auto max-w-md">
-          <div className="rounded-2xl border overflow-hidden bg-white">
-            <div className="py-3 flex items-center justify-center gap-2 border-b bg-white">
-              <img
-                src="/icon.png"
-                alt="配車さん"
-                className="w-12 h-12 object-contain"
-              />
-              <div className="font-bold text-2xl tracking-wide">配車さん</div>
-            </div>
-
-            <div className="bg-yellow-300 text-center font-bold py-3 text-xl border-b">
-              AssetTable初期設定
-            </div>
-
-            <div className="p-6 text-center space-y-4">
-              <p className="text-sm text-gray-600">
-                まず最初のテーブルを作成してください
-              </p>
-
-              <button
-                onClick={() => setShowCreateTable(true)}
-                className="w-full rounded-xl border bg-white py-3 text-sm"
-                type="button"
-              >
-                テーブルを作る
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {showCreateTable && (
-          <CreateTableModal
-            onClose={() => setShowCreateTable(false)}
-            onCreate={async (table) => {
-              try {
-                const docRef = await addDoc(collection(db, "tables"), {
-                  title: table.title,
-                  labelMeta1: table.labelMeta1,
-                  labelMeta2: table.labelMeta2,
-                  companyId,
-                  sort: Date.now(),
-                });
-
-                setCurrentTableId(docRef.id);
-                setShowCreateTable(false);
-              } catch (error) {
-                console.error("table create error:", error);
-                alert(`テーブル作成に失敗しました: ${String(error)}`);
-              }
-            }}
-          />
-        )}
+      <main className="min-h-screen bg-white text-black flex items-center justify-center">
+        <div className="text-gray-500">読み込み中...</div>
       </main>
     );
   }
@@ -970,30 +709,38 @@ const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
     <main className="min-h-screen bg-white text-black p-3">
       <div className="mx-auto max-w-md">
         <div className="mb-3 rounded-2xl border overflow-hidden bg-white">
-          <div className="py-3 flex items-center justify-center gap-2 border-b bg-white">
+          <div className="py-3 flex items-center justify-center gap-2 border-b bg-white relative">
             <img
               src="/icon.png"
               alt="配車さん"
               className="w-12 h-12 object-contain"
             />
             <div className="font-bold text-2xl tracking-wide">配車さん</div>
+
+            <button
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg border px-3 py-1.5 text-sm bg-white"
+              type="button"
+              onClick={handleLogout}
+            >
+              ログアウト
+            </button>
           </div>
 
-         <div className="bg-yellow-300 border-b px-3 py-3 flex items-center justify-between gap-2">
-  <div className="font-bold text-xl truncate">
-    {currentTable?.title ?? "AssetTable"}
-  </div>
+          <div className="bg-yellow-300 border-b px-3 py-3 relative">
+            <div className="text-center font-bold text-xl">
+              {currentTable?.title ?? "AssetTable"}
+            </div>
 
-  {currentTable && (
-    <button
-      className="shrink-0 rounded-lg border border-black/20 bg-white px-3 py-1 text-sm"
-      onClick={() => setShowEditTable(true)}
-      type="button"
-    >
-      編集
-    </button>
-  )}
-</div>
+            {currentTable && (
+              <button
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg border border-black/20 bg-white px-3 py-1 text-sm"
+                onClick={() => setShowEditTable(true)}
+                type="button"
+              >
+                編集
+              </button>
+            )}
+          </div>
 
           <div className="p-3 space-y-3 bg-white">
             {tables.length > 1 && (
@@ -1035,8 +782,6 @@ const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
                 ＋ 資産追加
               </button>
             </div>
-
-            {isLoading && <div className="text-xs text-gray-500">同期中...</div>}
           </div>
 
           <div className="flex items-center justify-between px-3 py-3 bg-gray-50 border-t">
@@ -1048,9 +793,7 @@ const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
               ←
             </button>
 
-            <div className="font-semibold text-lg">
-              {formatWeekTitle(weekStart)}
-            </div>
+            <div className="font-semibold text-lg">{formatWeekTitle(weekStart)}</div>
 
             <button
               className="rounded-xl border bg-white px-4 py-2"
@@ -1078,7 +821,7 @@ const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
         ) : (
           <div className="rounded-xl border overflow-hidden bg-white">
             <div className="overflow-x-auto">
-              <table className="border-collapse text-sm min-w-[760px] w-full select-none">
+              <table className="border-collapse text-sm min-w-[760px] w-full">
                 <thead>
                   <tr>
                     <th className="border bg-red-500 text-white px-2 py-2 w-16">
@@ -1129,82 +872,37 @@ const isMobile = typeof window !== "undefined" && window.innerWidth < 768;
                         {asset.name}
                       </td>
 
-                      {days.map((day, dayIndex) => {
+                      {days.map((day) => {
                         const isSunday = day.date.getDay() === 0;
                         const isSaturday = day.date.getDay() === 6;
 
-                        const defaultBg = isSunday
+                        const cellBg = isSunday
                           ? "bg-red-50"
                           : isSaturday
                           ? "bg-blue-50"
                           : "bg-white";
 
-                       const reservation = reservations.find(
-  (r) => r.assetId === asset.id && r.dayKey === day.key
-);
+                        const reservation = reservations.find(
+                          (r) => r.assetId === asset.id && r.dayKey === day.key
+                        );
 
-const isDragged =
-  dragState?.assetId === asset.id &&
-  dragSelectedDayKeys.includes(day.key);
-
-const isTapSelected =
-  tapStart?.assetId === asset.id &&
-  tapStart.index === dayIndex;
-
-const cellBg = isTapSelected
-  ? "bg-green-200"
-  : isDragged
-  ? "bg-yellow-100"
-  : reservation
-  ? "bg-blue-50"
-  : defaultBg;
                         return (
                           <td
                             key={`${asset.id}-${day.key}`}
                             className={`border p-1 align-top ${cellBg}`}
-                            onMouseEnter={() =>
-                              handleCellMouseEnter(asset.id, dayIndex)
-                            }
-                            onMouseUp={() => handleCellMouseUp(asset.id)}
                           >
-                           <button
-  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 active:scale-[0.99] text-left p-2"
-  onMouseDown={(e) => {
-    if (isMobile) return;
-    e.preventDefault();
-    handleCellMouseDown(asset.id, asset.name, dayIndex);
-  }}
-  onClick={() => {
-    if (!isMobile) return;
-
-    if (!tapStart) {
-      setTapStart({
-        assetId: asset.id,
-        assetName: asset.name,
-        index: dayIndex,
-      });
-      return;
-    }
-
-    if (tapStart.assetId !== asset.id) {
-      setTapStart({
-        assetId: asset.id,
-        assetName: asset.name,
-        index: dayIndex,
-      });
-      return;
-    }
-
-    openSlotFromIndices(
-      asset.id,
-      asset.name,
-      tapStart.index,
-      dayIndex
-    );
-    setTapStart(null);
-  }}
-  type="button"
->
+                            <button
+                              className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
+                              type="button"
+                              onClick={() =>
+                                setSelectedSlot({
+                                  assetId: asset.id,
+                                  assetName: asset.name,
+                                  dayKey: day.key,
+                                  dateLabel: `${day.label}（${day.weekday}）`,
+                                })
+                              }
+                            >
                               <div className="space-y-1">
                                 {reservation ? (
                                   <div className="space-y-1">
@@ -1223,9 +921,7 @@ const cellBg = isTapSelected
                                     )}
                                   </div>
                                 ) : (
-                                  <span className="text-gray-400 text-xs">
-                                    ＋予約
-                                  </span>
+                                  <span className="text-gray-400 text-xs">＋予約</span>
                                 )}
                               </div>
                             </button>
@@ -1239,7 +935,7 @@ const cellBg = isTapSelected
             </div>
 
             <div className="px-3 py-2 text-xs text-gray-500 border-t">
-              セルをドラッグすると複数日まとめて予約できます
+              まずは1日単位の安定版で運用中です
             </div>
           </div>
         )}
@@ -1260,9 +956,7 @@ const cellBg = isTapSelected
                       {asset.inspection || "点検情報なし"}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500">
-                    {asset.assignedUser}
-                  </div>
+                  <div className="text-sm text-gray-500">{asset.assignedUser}</div>
                 </div>
               ))}
             </div>
@@ -1275,148 +969,138 @@ const cellBg = isTapSelected
         </p>
       </div>
 
+      {showCreateTable && (
+        <CreateTableModal
+          onClose={() => setShowCreateTable(false)}
+          onCreate={async ({ title, labelMeta1, labelMeta2 }) => {
+            try {
+              await addDoc(collection(db, "tables"), {
+                companyId,
+                title,
+                labelMeta1,
+                labelMeta2,
+                sort: Date.now(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              setShowCreateTable(false);
+            } catch (error) {
+              console.error("table create error:", error);
+              alert("テーブル作成に失敗しました");
+            }
+          }}
+        />
+      )}
+
+      {showEditTable && currentTable && (
+        <EditTableModal
+          table={currentTable}
+          onClose={() => setShowEditTable(false)}
+          onSave={async ({ title, labelMeta1, labelMeta2 }) => {
+            try {
+              await updateDoc(doc(db, "tables", currentTable.id), {
+                title,
+                labelMeta1,
+                labelMeta2,
+                updatedAt: new Date().toISOString(),
+              });
+              setShowEditTable(false);
+            } catch (error) {
+              console.error("table update error:", error);
+              alert("テーブル更新に失敗しました");
+            }
+          }}
+          onDelete={async () => {
+            const ok = window.confirm("このテーブルを削除しますか？");
+            if (!ok) return;
+
+            try {
+              await deleteDoc(doc(db, "tables", currentTable.id));
+              setShowEditTable(false);
+            } catch (error) {
+              console.error("table delete error:", error);
+              alert("テーブル削除に失敗しました");
+            }
+          }}
+        />
+      )}
+
+      {showAddAsset && (
+        <AddAssetModal
+          tableId={currentTableId}
+          memberOptions={memberOptions}
+          onClose={() => setShowAddAsset(false)}
+          onAdd={async ({ name, inspection, tableId, assignedUser }) => {
+            try {
+              await addDoc(collection(db, "assets"), {
+                companyId,
+                name,
+                inspection,
+                tableId,
+                assignedUser: assignedUser ?? null,
+                sort: Date.now(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              setShowAddAsset(false);
+            } catch (error) {
+              console.error("asset add error:", error);
+              alert("資産追加に失敗しました");
+            }
+          }}
+        />
+      )}
+
       {selectedSlot && (
         <ReservationModal
           slot={selectedSlot}
-          existing={
-            selectedSlot.dayKeys.length === 1
-              ? reservations.find(
-                  (r) =>
-                    r.assetId === selectedSlot.assetId &&
-                    r.dayKey === selectedSlot.dayKeys[0]
-                )
-              : undefined
-          }
+          existing={reservations.find(
+            (r) =>
+              r.assetId === selectedSlot.assetId &&
+              r.dayKey === selectedSlot.dayKey
+          )}
           memberOptions={memberOptions}
           onClose={() => setSelectedSlot(null)}
           onSave={async ({ userName, site, note }) => {
-            if (!selectedSlot) return;
-
             try {
-              await Promise.all(
-                selectedSlot.dayKeys.map((dayKey) =>
-                  setDoc(
-                    doc(
-                      db,
-                      "reservations",
-                      makeReservationDocId(selectedSlot.assetId, dayKey)
-                    ),
-                    {
-                      assetId: selectedSlot.assetId,
-                      dayKey,
-                      userName,
-                      site,
-                      note,
-                      companyId,
-                    }
-                  )
-                )
+              await setDoc(
+                doc(
+                  db,
+                  "reservations",
+                  makeReservationDocId(selectedSlot.assetId, selectedSlot.dayKey)
+                ),
+                {
+                  companyId,
+                  assetId: selectedSlot.assetId,
+                  dayKey: selectedSlot.dayKey,
+                  userName,
+                  site,
+                  note,
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                }
               );
               setSelectedSlot(null);
             } catch (error) {
               console.error("reservation save error:", error);
-              alert(`予約保存に失敗しました: ${String(error)}`);
+              alert("予約保存に失敗しました");
             }
           }}
           onDelete={async () => {
-            if (!selectedSlot) return;
-
             try {
-              await Promise.all(
-                selectedSlot.dayKeys.map((dayKey) =>
-                  deleteDoc(
-                    doc(
-                      db,
-                      "reservations",
-                      makeReservationDocId(selectedSlot.assetId, dayKey)
-                    )
-                  )
+              await deleteDoc(
+                doc(
+                  db,
+                  "reservations",
+                  makeReservationDocId(selectedSlot.assetId, selectedSlot.dayKey)
                 )
               );
               setSelectedSlot(null);
             } catch (error) {
               console.error("reservation delete error:", error);
-              alert(`予約削除に失敗しました: ${String(error)}`);
+              alert("予約削除に失敗しました");
             }
           }}
-        />
-      )}
-
-      {showCreateTable && (
-        <CreateTableModal
-          onClose={() => setShowCreateTable(false)}
-          onCreate={async (table) => {
-            try {
-              const docRef = await addDoc(collection(db, "tables"), {
-                title: table.title,
-                labelMeta1: table.labelMeta1,
-                labelMeta2: table.labelMeta2,
-                companyId,
-                sort: Date.now(),
-              });
-
-              setCurrentTableId(docRef.id);
-              setShowCreateTable(false);
-            } catch (error) {
-              console.error("table create error:", error);
-              alert(`テーブル作成に失敗しました: ${String(error)}`);
-            }
-          }}
-        />
-      )}
-{showEditTable && currentTable && (
-  <EditTableModal
-    table={currentTable}
-    onClose={() => setShowEditTable(false)}
-    onSave={async ({ title, labelMeta1, labelMeta2 }) => {
-      try {
-        await updateDoc(doc(db, "tables", currentTable.id), {
-          title,
-          labelMeta1,
-          labelMeta2,
-        });
-        setShowEditTable(false);
-      } catch (error) {
-        console.error("table update error:", error);
-        alert(`テーブル更新に失敗しました: ${String(error)}`);
-      }
-    }}
-    onDelete={async () => {
-      const ok = window.confirm("このテーブルを削除しますか？");
-      if (!ok) return;
-
-      try {
-        await deleteDoc(doc(db, "tables", currentTable.id));
-        setShowEditTable(false);
-      } catch (error) {
-        console.error("table delete error:", error);
-        alert(`テーブル削除に失敗しました: ${String(error)}`);
-      }
-    }}
-  />
-)}
-      {showAddAsset && (
-        <AddAssetModal
-          onClose={() => setShowAddAsset(false)}
-          onAdd={async (asset) => {
-            try {
-              await addDoc(collection(db, "assets"), {
-                name: asset.name,
-                inspection: asset.inspection,
-                tableId: asset.tableId,
-                assignedUser: asset.assignedUser ?? null,
-                sort: Date.now(),
-                companyId,
-              });
-
-              setShowAddAsset(false);
-            } catch (error) {
-              console.error("asset add error:", error);
-              alert(`資産追加に失敗しました: ${String(error)}`);
-            }
-          }}
-          tableId={currentTableId}
-          memberOptions={memberOptions}
         />
       )}
     </main>
