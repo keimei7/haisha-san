@@ -839,7 +839,7 @@ const toggleTableOpen = (tableId: string) => {
 
           <div className="bg-yellow-300 border-b px-3 py-3 relative">
             <div className="text-center font-bold text-xl">
-              {currentTable?.title ?? "AssetTable"}
+            {currentTable?.title ?? "テーブル未選択"}
             </div>
 
             {currentTable && (
