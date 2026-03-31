@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  doc,
+  updateDoc,
+} from "firebase/firestore";
 
 export default function CreateCompanyPage() {
   const [name, setName] = useState("");
@@ -11,8 +16,9 @@ export default function CreateCompanyPage() {
 
   const submit = async () => {
     const user = auth.currentUser;
+
     if (!user) {
-      window.location.replace("/");
+      window.location.replace("/login");
       return;
     }
 
@@ -26,18 +32,22 @@ export default function CreateCompanyPage() {
 
       const inviteCode = Math.random().toString(36).slice(2, 8);
 
-      await addDoc(collection(db, "companies"), {
+      const companyRef = await addDoc(collection(db, "companies"), {
         name: name.trim(),
         inviteCode,
-        ownerUid: user.uid,
+        ownerId: user.uid,
         createdAt: new Date().toISOString(),
+      });
+
+      await updateDoc(doc(db, "users", user.uid), {
+        companyId: companyRef.id,
       });
 
       alert(`招待コード: ${inviteCode}`);
 
-      window.location.assign("/setup/join");
+      window.location.assign("/reserve");
     } catch (e) {
-      console.error(e);
+      console.error("company create error:", e);
       alert("会社作成失敗");
     } finally {
       setSaving(false);
@@ -57,11 +67,12 @@ export default function CreateCompanyPage() {
         />
 
         <button
-          className="w-full bg-blue-600 text-white py-3 rounded-xl"
+          className="w-full bg-blue-600 text-white py-3 rounded-xl disabled:opacity-50"
           onClick={submit}
           disabled={saving}
+          type="button"
         >
-          作成
+          {saving ? "作成中..." : "作成"}
         </button>
       </div>
     </main>
