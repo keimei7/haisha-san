@@ -856,26 +856,30 @@ const toggleTableOpen = (tableId: string) => {
 
           <div className="p-3 space-y-3 bg-white">
             {tables.length > 1 && (
-              <div className="overflow-x-auto">
-                <div className="flex gap-2 min-w-max">
-                  {tables.map((table) => {
-                    const active = table.id === currentTableId;
-                    return (
-                      <button
-                        key={table.id}
-                        className={`rounded-full border px-3 py-1.5 text-sm ${
-                          active ? "bg-black text-white" : "bg-white text-black"
-                        }`}
-                        onClick={() => setCurrentTableId(table.id)}
-                        type="button"
-                      >
-                        {table.title}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+  <div className="space-y-3">
+    <div className="overflow-x-auto">
+      <div className="flex gap-2 min-w-max">
+        {tables.map((table) => {
+          const active = table.id === currentTableId;
+          return (
+            <button
+              key={table.id}
+              className={`rounded-full border px-3 py-1.5 text-sm ${
+                active ? "bg-black text-white" : "bg-white text-black"
+              }`}
+              onClick={() => setCurrentTableId(table.id)}
+              type="button"
+            >
+              {table.title}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+
+    <div className="border-t border-dashed border-gray-300" />
+  </div>
+)}
 
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -1387,17 +1391,27 @@ const toggleTableOpen = (tableId: string) => {
 
          
 
-            <div className="border rounded-xl overflow-hidden">
-              <div className="px-3 py-2 bg-gray-50 font-semibold">
-                テーブル一覧
-              </div>
+          <div className="px-3 py-2 bg-gray-50 flex items-center justify-between">
+  <div className="font-semibold">テーブル一覧</div>
+
+  <button
+    type="button"
+    className="text-xs px-3 py-1.5 border rounded-lg bg-white"
+    onClick={() => {
+      setShowCreateTable(true);
+      setShowMenu(false);
+    }}
+  >
+    新規
+  </button>
+</div>
 
               <div className="divide-y">
                 {tables.map((table) => {
                   const isOpen = openTableIds.includes(table.id);
 
                   return (
-                    <div key={table.id}>
+                  <div key={table.id}>
   <div className="flex items-center justify-between px-3 py-2 text-sm">
     <button
       className="flex-1 text-left flex justify-between"
@@ -1412,12 +1426,12 @@ const toggleTableOpen = (tableId: string) => {
       className="ml-2 text-xs border px-2 py-1 rounded"
       type="button"
       onClick={() => {
-        setCurrentTableId(table.id); // ←ここ重要
+        setCurrentTableId(table.id);
         setShowAddAsset(true);
-        setShowMenu(false); // メニュー閉じる
+        setShowMenu(false);
       }}
     >
-      ＋追加
+      追加
     </button>
   </div>
 
