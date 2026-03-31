@@ -1,58 +1,55 @@
 "use client";
 
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+} from "firebase/auth";
 import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const router = useRouter();
-
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const submit = async () => {
+  const createUserIfNeeded = async (user: any) => {
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      const now = new Date().toISOString();
+
+      await setDoc(ref, {
+        displayName: "",
+        companyId: "",
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  };
+
+  const handleAuth = async () => {
     try {
       setLoading(true);
 
-      const cred = await signInWithEmailAndPassword(auth, email, password);
-      const user = cred.user;
+      let user;
 
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      const now = new Date().toISOString();
-
-      // 👇 users がなければ作成
-      if (!userSnap.exists()) {
-        await setDoc(userRef, {
-          displayName: user.displayName ?? "",
-          companyId: "",
-          createdAt: now,
-          updatedAt: now,
-        });
-
-        router.replace("/setup");
-        return;
-      }
-
-      const data = userSnap.data() as {
-        companyId?: string;
-      };
-
-      // 👇 所属判定
-      if (data.companyId && data.companyId.trim() !== "") {
-        router.replace("/reserve");
+      if (mode === "login") {
+        const res = await signInWithEmailAndPassword(auth, email, password);
+        user = res.user;
       } else {
-        router.replace("/setup");
+        const res = await createUserWithEmailAndPassword(auth, email, password);
+        user = res.user;
       }
 
-    } catch (e) {
-      console.error("login error:", e);
-      alert("ログイン失敗");
+      await createUserIfNeeded(user);
+
+      window.location.assign("/");
+    } catch (e: any) {
+      alert(e.message);
     } finally {
       setLoading(false);
     }
@@ -60,31 +57,19 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center p-4 bg-white">
-      <div className="w-full max-w-sm space-y-4 rounded-2xl border bg-white p-5">
-        <h1 className="text-xl font-bold text-center">ログイン</h1>
+      <div className="w-full max-w-sm space-y-4 border p-5 rounded-2xl">
+        <h1 className="text-xl font-bold text-center">配車さん</h1>
 
-        <input
-          className="w-full border rounded-lg px-3 py-2"
-          placeholder="メール"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <div className="flex gap-2">
+          <button onClick={() => setMode("login")}>ログイン</button>
+          <button onClick={() => setMode("signup")}>登録</button>
+        </div>
 
-        <input
-          type="password"
-          className="w-full border rounded-lg px-3 py-2"
-          placeholder="パスワード"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="メール" />
+        <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="パスワード" />
 
-        <button
-          className="w-full bg-black text-white py-2 rounded-lg disabled:opacity-50"
-          onClick={submit}
-          disabled={loading}
-          type="button"
-        >
-          {loading ? "ログイン中..." : "ログイン"}
+        <button onClick={handleAuth} disabled={loading}>
+          {loading ? "処理中..." : "進む"}
         </button>
       </div>
     </main>
