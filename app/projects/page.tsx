@@ -275,7 +275,7 @@ export default function ManagePage() {
                 className="w-full border rounded-lg px-3 py-2"
                 disabled={saving}
               >
-                <option value="">未設定（共有車）</option>
+                <option value="">未設定（共有アセット）</option>
                 {registeredUserNames.map((name) => (
                   <option key={name} value={name}>
                     {name}
@@ -284,7 +284,7 @@ export default function ManagePage() {
               </select>
 
               <div className="mt-1 text-xs text-gray-500">
-                担当者が未設定の車は自動で共有車になります。
+                担当者が未設定のアセットは自動で共有アセットになります。
               </div>
             </div>
 
@@ -312,7 +312,7 @@ export default function ManagePage() {
                 disabled={saving}
                 className="w-full rounded-lg bg-blue-600 text-white py-2 disabled:opacity-50"
               >
-                ＋車両登録
+                ＋アセット登録
               </button>
             )}
           </div>
@@ -346,7 +346,7 @@ export default function ManagePage() {
 
         <div className="rounded-2xl border p-4 space-y-3">
           <div className="flex justify-between items-center">
-            <h2 className="font-bold text-lg">共有車</h2>
+            <h2 className="font-bold text-lg">共有アセット</h2>
             {!loadingVehicles && (
               <div className="text-sm text-gray-500">{sharedVehicles.length}台</div>
             )}
@@ -355,7 +355,7 @@ export default function ManagePage() {
           {isLoading ? (
             <div className="text-sm text-gray-500">読み込み中...</div>
           ) : sharedVehicles.length === 0 ? (
-            <div className="text-sm text-gray-500">共有車はありません</div>
+            <div className="text-sm text-gray-500">共有アセットはありません</div>
           ) : (
             <div className="space-y-3">
               {sharedVehicles.map((vehicle) => (
@@ -370,7 +370,7 @@ export default function ManagePage() {
 
                   <div className="text-sm text-gray-500">並び順: {vehicle.sort}</div>
 
-                  <div className="text-sm text-gray-500">区分: 共有車</div>
+                  <div className="text-sm text-gray-500">区分: 共有アセット</div>
 
                   <div className="flex gap-2 pt-1">
                     <button
@@ -395,7 +395,7 @@ export default function ManagePage() {
 
         <div className="rounded-2xl border p-4 space-y-3">
           <div className="flex justify-between items-center">
-            <h2 className="font-bold text-lg">マイカー</h2>
+            <h2 className="font-bold text-lg">Myアセット</h2>
             {!loadingVehicles && (
               <div className="text-sm text-gray-500">{myCarVehicles.length}台</div>
             )}
@@ -404,7 +404,7 @@ export default function ManagePage() {
           {isLoading ? (
             <div className="text-sm text-gray-500">読み込み中...</div>
           ) : myCarVehicles.length === 0 ? (
-            <div className="text-sm text-gray-500">マイカーはありません</div>
+            <div className="text-sm text-gray-500">Myアセットはありません</div>
           ) : (
             <div className="space-y-3">
               {myCarVehicles.map((vehicle) => (
@@ -423,7 +423,7 @@ export default function ManagePage() {
                     担当者: {vehicle.assignedTo}
                   </div>
 
-                  <div className="text-sm text-gray-500">区分: マイカー</div>
+                  <div className="text-sm text-gray-500">区分: Myアセット</div>
 
                   <div className="flex gap-2 pt-1">
                     <button

@@ -29,6 +29,7 @@ type TableItem = {
 type AssetItem = {
   id: string;
   name: string;
+  subLabel?: string;
   inspection: string;
   tableId: string;
   sort: number;
@@ -278,6 +279,7 @@ function AddAssetModal({
   onClose: () => void;
   onAdd: (payload: {
     name: string;
+    subLabel: string;
     inspection: string;
     tableId: string;
     assignedUser?: string;
@@ -286,6 +288,7 @@ function AddAssetModal({
   memberOptions: string[];
 }) {
   const [name, setName] = useState("");
+  const [subLabel, setSubLabel] = useState("");
   const [inspection, setInspection] = useState("");
   const [assignedUser, setAssignedUser] = useState("");
 
@@ -337,21 +340,30 @@ function AddAssetModal({
             className="flex-1 rounded-lg bg-blue-600 text-white py-2"
             type="button"
             onClick={() => {
-              if (!name.trim()) {
-                alert("名前を入れてください");
-                return;
-              }
-              onAdd({
-                name: name.trim(),
-                inspection: inspection.trim(),
-                tableId,
-                assignedUser: assignedUser || undefined,
-              });
-            }}
+  if (!name.trim()) {
+    alert("名前を入れてください");
+    return;
+  }
+  onAdd({
+    name: name.trim(),
+    subLabel: subLabel.trim(),
+    inspection: inspection.trim(),
+    tableId,
+    assignedUser: assignedUser || undefined,
+  });
+}}
           >
             追加
           </button>
-
+<div>
+  <label className="text-sm text-gray-600">ナンバー / 型番</label>
+  <input
+    className="w-full border rounded-lg px-3 py-2"
+    value={subLabel}
+    onChange={(e) => setSubLabel(e.target.value)}
+    placeholder="例：84-89 / WM265G"
+  />
+</div>
           <button
             className="rounded-lg border px-4 py-2"
             type="button"
@@ -376,15 +388,17 @@ function AssetEditModal({
   onClose: () => void;
   onSave: (payload: {
     name: string;
+    subLabel: string;
     inspection: string;
     assignedUser?: string;
   }) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
+
 }) {
   const [name, setName] = useState(asset.name);
   const [inspection, setInspection] = useState(asset.inspection);
   const [assignedUser, setAssignedUser] = useState(asset.assignedUser ?? "");
-
+const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
   return (
     <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
@@ -399,7 +413,14 @@ function AssetEditModal({
               onChange={(e) => setName(e.target.value)}
             />
           </div>
-
+<div>
+  <label className="text-sm text-gray-600">ナンバー / 型番</label>
+  <input
+    className="w-full border rounded-lg px-3 py-2"
+    value={subLabel}
+    onChange={(e) => setSubLabel(e.target.value)}
+  />
+</div>
           <div>
             <label className="text-sm text-gray-600">割り当て</label>
             <select
@@ -435,11 +456,12 @@ function AssetEditModal({
                 alert("名前を入れてください");
                 return;
               }
-              onSave({
-                name: name.trim(),
-                inspection: inspection.trim(),
-                assignedUser: assignedUser || undefined,
-              });
+           onSave({
+  name: name.trim(),
+  subLabel: subLabel.trim(),
+  inspection: inspection.trim(),
+  assignedUser: assignedUser || undefined,
+});
             }}
           >
             保存
@@ -705,24 +727,26 @@ const [myDisplayName, setMyDisplayName] = useState("");
 
     const q = query(collection(db, "assets"), where("companyId", "==", companyId));
     const unsub = onSnapshot(q, (snap) => {
-      const list: AssetItem[] = snap.docs.map((docSnap) => {
-        const data = docSnap.data() as {
-          name?: string;
-          inspection?: string;
-          tableId?: string;
-          sort?: number;
-          assignedUser?: string | null;
-        };
+    const list: AssetItem[] = snap.docs.map((docSnap) => {
+  const data = docSnap.data() as {
+    name?: string;
+    subLabel?: string;
+    inspection?: string;
+    tableId?: string;
+    sort?: number;
+    assignedUser?: string | null;
+  };
 
-        return {
-          id: docSnap.id,
-          name: data.name ?? "",
-          inspection: data.inspection ?? "",
-          tableId: data.tableId ?? "",
-          sort: data.sort ?? 0,
-          assignedUser: data.assignedUser ?? undefined,
-        };
-      });
+  return {
+    id: docSnap.id,
+    name: data.name ?? "",
+    subLabel: data.subLabel ?? "",
+    inspection: data.inspection ?? "",
+    tableId: data.tableId ?? "",
+    sort: data.sort ?? 0,
+    assignedUser: data.assignedUser ?? undefined,
+  };
+});
 
       setAssets(list);
     });
@@ -939,43 +963,127 @@ const toggleTableOpen = (tableId: string) => {
             <div className="overflow-x-auto">
               <table className="border-collapse text-sm min-w-[760px] w-full">
                 <thead>
-                  <tr>
-                    <th className="border bg-red-500 text-white px-2 py-2 w-16">
-                      {currentTable?.labelMeta1 ?? "車検"}
-                    </th>
+  <tr>
+    <th className="border bg-red-500 text-white px-2 py-2 w-[88px]">
+      {currentTable?.labelMeta1 ?? "車検"}
+    </th>
 
-                    <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-24">
-                      {currentTable?.labelMeta2 ?? "車種"}
-                    </th>
+    <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-[136px]">
+      {currentTable?.labelMeta2 ?? "車種"}
+    </th>
 
-                    {days.map((day) => {
-                      const isSunday = day.date.getDay() === 0;
-                      const isSaturday = day.date.getDay() === 6;
+    {days.map((day) => {
+      const isSunday = day.date.getDay() === 0;
+      const isSaturday = day.date.getDay() === 6;
 
-                      const headerBg = isSunday
-                        ? "bg-red-100"
-                        : isSaturday
-                        ? "bg-blue-100"
-                        : "bg-gray-100";
+      const headerBg = isSunday
+        ? "bg-red-100"
+        : isSaturday
+        ? "bg-blue-100"
+        : "bg-gray-100";
 
-                      const weekdayColor = isSunday
-                        ? "text-red-600"
-                        : isSaturday
-                        ? "text-blue-600"
-                        : "text-black";
+      const weekdayColor = isSunday
+        ? "text-red-600"
+        : isSaturday
+        ? "text-blue-600"
+        : "text-black";
 
-                      return (
-                        <th
-                          key={day.key}
-                          className={`border px-2 py-2 min-w-[92px] ${headerBg}`}
-                        >
-                          <div className="font-bold">{day.label}</div>
-                          <div className={weekdayColor}>{day.weekday}</div>
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
+      return (
+        <th
+          key={day.key}
+          className={`border px-2 py-2 min-w-[92px] ${headerBg}`}
+        >
+          <div className="font-bold">{day.label}</div>
+          <div className={weekdayColor}>{day.weekday}</div>
+        </th>
+      );
+    })}
+  </tr>
+</thead>
+
+<tbody>
+  {sharedAssets.map((asset) => (
+    <tr key={asset.id}>
+      <td className="border px-2 py-3 text-center align-middle whitespace-nowrap bg-white">
+        {asset.inspection}
+      </td>
+
+      <td className="sticky left-0 z-10 border px-2 py-3 text-center align-middle bg-gray-50">
+        <button
+          type="button"
+          className="w-full text-center"
+          onClick={() => setEditingAsset(asset)}
+        >
+          <div className="font-medium whitespace-pre-line break-words leading-tight">
+            {asset.name}
+          </div>
+          {asset.subLabel && (
+            <div className="text-xs text-gray-500 mt-1 break-words leading-tight">
+              {asset.subLabel}
+            </div>
+          )}
+        </button>
+      </td>
+
+      {days.map((day) => {
+        const isSunday = day.date.getDay() === 0;
+        const isSaturday = day.date.getDay() === 6;
+
+        const cellBg = isSunday
+          ? "bg-red-50"
+          : isSaturday
+          ? "bg-blue-50"
+          : "bg-white";
+
+        const reservation = reservations.find(
+          (r) => r.assetId === asset.id && r.dayKey === day.key
+        );
+
+        return (
+          <td
+            key={`${asset.id}-${day.key}`}
+            className={`border p-1 align-top ${cellBg}`}
+          >
+            <button
+              className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
+              type="button"
+              onClick={() =>
+                setSelectedSlot({
+                  assetId: asset.id,
+                  assetName: asset.name,
+                  dayKey: day.key,
+                  dateLabel: `${day.label}（${day.weekday}）`,
+                })
+              }
+            >
+              <div className="space-y-1">
+                {reservation ? (
+                  <div className="space-y-1">
+                    {reservation.site && (
+                      <div className="font-bold text-sm">
+                        {reservation.site}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-700">
+                      {reservation.userName}
+                    </div>
+                    {reservation.note && (
+                      <div className="text-xs text-gray-500">
+                        {reservation.note}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-gray-400 text-xs">＋予約</span>
+                )}
+              </div>
+            </button>
+          </td>
+        );
+      })}
+    </tr>
+  ))}
+</tbody>
 
                 <tbody>
                   {sharedAssets.map((asset) => (
@@ -1073,12 +1181,19 @@ const toggleTableOpen = (tableId: string) => {
                   className="rounded-xl border px-3 py-3 flex items-center justify-between"
                 >
                   <div>
-                   <button
+                 <button
   type="button"
-  className="font-medium text-left"
+  className="w-full text-center"
   onClick={() => setEditingAsset(asset)}
 >
-  {asset.name}
+  <div className="font-medium whitespace-pre-line break-words">
+    {asset.name}
+  </div>
+  {asset.subLabel && (
+    <div className="text-xs text-gray-500 mt-1 break-words">
+      {asset.subLabel}
+    </div>
+  )}
 </button>
                     <div className="text-sm text-gray-500">
                       {asset.inspection || "点検情報なし"}
@@ -1158,24 +1273,25 @@ const toggleTableOpen = (tableId: string) => {
           tableId={currentTableId}
           memberOptions={memberOptions}
           onClose={() => setShowAddAsset(false)}
-          onAdd={async ({ name, inspection, tableId, assignedUser }) => {
-            try {
-              await addDoc(collection(db, "assets"), {
-                companyId,
-                name,
-                inspection,
-                tableId,
-                assignedUser: assignedUser ?? null,
-                sort: Date.now(),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              });
-              setShowAddAsset(false);
-            } catch (error) {
-              console.error("asset add error:", error);
-              alert("アセット追加に失敗しました");
-            }
-          }}
+        onAdd={async ({ name, subLabel, inspection, tableId, assignedUser }) => {
+  try {
+    await addDoc(collection(db, "assets"), {
+      companyId,
+      name,
+      subLabel,
+      inspection,
+      tableId,
+      assignedUser: assignedUser ?? null,
+      sort: Date.now(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    setShowAddAsset(false);
+  } catch (error) {
+    console.error("asset add error:", error);
+    alert("アセット追加に失敗しました");
+  }
+}}
         />
       )}
 
@@ -1233,40 +1349,40 @@ const toggleTableOpen = (tableId: string) => {
       )}
 
        
+{editingAsset && (
+  <AssetEditModal
+    asset={editingAsset}
+    memberOptions={memberOptions}
+    onClose={() => setEditingAsset(null)}
+    onSave={async ({ name, subLabel, inspection, assignedUser }) => {
+      try {
+        await updateDoc(doc(db, "assets", editingAsset.id), {
+          name,
+          subLabel,
+          inspection,
+          assignedUser: assignedUser ?? null,
+          updatedAt: new Date().toISOString(),
+        });
+        setEditingAsset(null);
+      } catch (error) {
+        console.error("asset update error:", error);
+        alert("アセット更新に失敗しました");
+      }
+    }}
+    onDelete={async () => {
+      const ok = window.confirm("このアセットを削除しますか？");
+      if (!ok) return;
 
-      {editingAsset && (
-        <AssetEditModal
-          asset={editingAsset}
-          memberOptions={memberOptions}
-          onClose={() => setEditingAsset(null)}
-          onSave={async ({ name, inspection, assignedUser }) => {
-            try {
-              await updateDoc(doc(db, "assets", editingAsset.id), {
-                name,
-                inspection,
-                assignedUser: assignedUser ?? null,
-                updatedAt: new Date().toISOString(),
-              });
-              setEditingAsset(null);
-            } catch (error) {
-              console.error("asset update error:", error);
-              alert("アセット更新に失敗しました");
-            }
-          }}
-          onDelete={async () => {
-            const ok = window.confirm("このアセットを削除しますか？");
-            if (!ok) return;
-
-            try {
-              await deleteDoc(doc(db, "assets", editingAsset.id));
-              setEditingAsset(null);
-            } catch (error) {
-              console.error("asset delete error:", error);
-              alert("アセット削除に失敗しました");
-            }
-          }}
-        />
-      )}
+      try {
+        await deleteDoc(doc(db, "assets", editingAsset.id));
+        setEditingAsset(null);
+      } catch (error) {
+        console.error("asset delete error:", error);
+        alert("アセット削除に失敗しました");
+      }
+    }}
+  />
+)}
 
       {showMenu && (
         <div className="fixed inset-0 z-[300]">
