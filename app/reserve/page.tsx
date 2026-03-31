@@ -94,6 +94,23 @@ function makeDayKey(date: Date): string {
 function makeReservationDocId(assetId: string, dayKey: string): string {
   return `${assetId}_${dayKey}`;
 }
+function escapeCsv(value: string): string {
+  const text = String(value ?? "");
+  if (text.includes('"') || text.includes(",") || text.includes("\n")) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function downloadCsv(filename: string, content: string) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 function formatInspectionShort(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
@@ -880,6 +897,51 @@ const saveMyDisplayName = async () => {
     setSavingDisplayName(false);
   }
 };
+const exportWeeklyReservationsCsv = () => {
+  if (!currentTable) {
+    alert("テーブルが選択されていません");
+    return;
+  }
+
+  const header = [
+    "アセット名",
+    "ナンバー/型番",
+    "点検・車検",
+    ...days.map((day) => `${day.label}(${day.weekday})`),
+  ];
+
+  const rows = sharedAssets.map((asset) => {
+    const dayCells = days.map((day) => {
+      const reservation = reservations.find(
+        (r) => r.assetId === asset.id && r.dayKey === day.key
+      );
+
+      if (!reservation) return "";
+
+      return [
+        reservation.site || "",
+        reservation.userName || "",
+        reservation.note || "",
+      ]
+        .filter(Boolean)
+        .join(" / ");
+    });
+
+    return [
+      asset.name,
+      asset.subLabel ?? "",
+      asset.inspection,
+      ...dayCells,
+    ];
+  });
+
+  const csv = [header, ...rows]
+    .map((row) => row.map((cell) => escapeCsv(cell)).join(","))
+    .join("\n");
+
+  const filename = `${currentTable.title}_${formatWeekTitle(weekStart)}.csv`;
+  downloadCsv(filename, csv);
+};
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -981,25 +1043,35 @@ const saveMyDisplayName = async () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between px-3 py-3 bg-gray-50 border-t">
-            <button
-              className="rounded-xl border bg-white px-4 py-2"
-              onClick={() => setWeekStart(addDays(weekStart, -7))}
-              type="button"
-            >
-              ←
-            </button>
+         <div className="px-3 py-3 bg-gray-50 border-t space-y-2">
+  <div className="flex items-center justify-between">
+    <button
+      className="rounded-xl border bg-white px-4 py-2"
+      onClick={() => setWeekStart(addDays(weekStart, -7))}
+      type="button"
+    >
+      ←
+    </button>
 
-            <div className="font-semibold text-lg">{formatWeekTitle(weekStart)}</div>
+    <div className="font-semibold text-lg">{formatWeekTitle(weekStart)}</div>
 
-            <button
-              className="rounded-xl border bg-white px-4 py-2"
-              onClick={() => setWeekStart(addDays(weekStart, 7))}
-              type="button"
-            >
-              →
-            </button>
-          </div>
+    <button
+      className="rounded-xl border bg-white px-4 py-2"
+      onClick={() => setWeekStart(addDays(weekStart, 7))}
+      type="button"
+    >
+      →
+    </button>
+  </div>
+
+  <button
+    className="w-full rounded-xl border bg-white py-2 text-sm"
+    type="button"
+    onClick={exportWeeklyReservationsCsv}
+  >
+    この週をCSV出力
+  </button>
+</div>
         </div>
 
         {currentTableAssets.length === 0 ? (
