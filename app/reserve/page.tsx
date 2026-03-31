@@ -589,6 +589,7 @@ function ReservationModal({
 }
 
 export default function ReservePage() {
+    const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
   const [companyId, setCompanyId] = useState("");
@@ -819,7 +820,13 @@ const [myDisplayName, setMyDisplayName] = useState("");
               className="w-12 h-12 object-contain"
             />
             <div className="font-bold text-2xl tracking-wide">配車さん</div>
-
+<button
+  className="absolute left-3 top-1/2 -translate-y-1/2 text-xl"
+  onClick={() => setShowMenu(true)}
+  type="button"
+>
+  ☰
+</button>
             <button
               className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg border px-3 py-1.5 text-sm bg-white"
               type="button"
@@ -842,6 +849,7 @@ const [myDisplayName, setMyDisplayName] = useState("");
               >
                 編集
               </button>
+
             )}
           </div>
 
@@ -1166,7 +1174,7 @@ const [myDisplayName, setMyDisplayName] = useState("");
         />
       )}
 
-      {selectedSlot && (
+           {selectedSlot && (
         <ReservationModal
           slot={selectedSlot}
           existing={reservations.find(
@@ -1218,39 +1226,127 @@ const [myDisplayName, setMyDisplayName] = useState("");
           }}
         />
       )}
-      {editingAsset && (
-  <AssetEditModal
-    asset={editingAsset}
-    memberOptions={memberOptions}
-    onClose={() => setEditingAsset(null)}
-    onSave={async ({ name, inspection, assignedUser }) => {
-      try {
-        await updateDoc(doc(db, "assets", editingAsset.id), {
-          name,
-          inspection,
-          assignedUser: assignedUser ?? null,
-          updatedAt: new Date().toISOString(),
-        });
-        setEditingAsset(null);
-      } catch (error) {
-        console.error("asset update error:", error);
-        alert("アセット更新に失敗しました");
-      }
-    }}
-    onDelete={async () => {
-      const ok = window.confirm("このアセットを削除しますか？");
-      if (!ok) return;
 
-      try {
-        await deleteDoc(doc(db, "assets", editingAsset.id));
-        setEditingAsset(null);
-      } catch (error) {
-        console.error("asset delete error:", error);
-        alert("アセット削除に失敗しました");
-      }
-    }}
-  />
-)}
+      {editingAsset && (
+        <AssetEditModal
+          asset={editingAsset}
+          memberOptions={memberOptions}
+          onClose={() => setEditingAsset(null)}
+          onSave={async ({ name, inspection, assignedUser }) => {
+            try {
+              await updateDoc(doc(db, "assets", editingAsset.id), {
+                name,
+                inspection,
+                assignedUser: assignedUser ?? null,
+                updatedAt: new Date().toISOString(),
+              });
+              setEditingAsset(null);
+            } catch (error) {
+              console.error("asset update error:", error);
+              alert("アセット更新に失敗しました");
+            }
+          }}
+          onDelete={async () => {
+            const ok = window.confirm("このアセットを削除しますか？");
+            if (!ok) return;
+
+            try {
+              await deleteDoc(doc(db, "assets", editingAsset.id));
+              setEditingAsset(null);
+            } catch (error) {
+              console.error("asset delete error:", error);
+              alert("アセット削除に失敗しました");
+            }
+          }}
+        />
+      )}
+
+      {showMenu && (
+        <div className="fixed inset-0 z-[300]">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setShowMenu(false)}
+          />
+
+          <div className="absolute left-0 top-0 h-full w-72 bg-white shadow-xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="font-bold text-lg">メニュー</div>
+              <button type="button" onClick={() => setShowMenu(false)}>
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <div className="font-semibold mb-2">割り振り済みアセット</div>
+              <div className="space-y-2 max-h-40 overflow-auto">
+                {assets
+                  .filter((a) => a.assignedUser)
+                  .map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="border rounded-lg p-2 text-sm flex justify-between items-center"
+                    >
+                      <div>
+                        <div className="font-medium">{asset.name}</div>
+                        <div className="text-xs text-gray-500">
+                          {asset.assignedUser}
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="text-xs border px-2 py-1 rounded"
+                        onClick={() => {
+                          setEditingAsset(asset);
+                          setShowMenu(false);
+                        }}
+                      >
+                        編集
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="font-semibold mb-2">テーブル別アセット一覧</div>
+              <div className="space-y-3 max-h-60 overflow-auto">
+                {tables.map((table) => (
+                  <div key={table.id}>
+                    <div className="text-sm font-medium mb-1">{table.title}</div>
+
+                    <div className="space-y-1">
+                      {assets
+                        .filter((a) => a.tableId === table.id)
+                        .map((asset) => (
+                          <div
+                            key={asset.id}
+                            className="text-xs border rounded px-2 py-1 flex justify-between"
+                          >
+                            <span>{asset.name}</span>
+                            {asset.assignedUser && (
+                              <span className="text-gray-400">
+                                {asset.assignedUser}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="w-full border rounded-lg py-2 mt-4"
+              onClick={handleLogout}
+            >
+              ログアウト
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
