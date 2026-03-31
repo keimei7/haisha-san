@@ -794,11 +794,11 @@ const toggleTableOpen = (tableId: string) => {
     return currentTableAssets.filter((a) => !a.assignedUser);
   }, [currentTableAssets]);
 
-  const myAssets = useMemo(() => {
-  return currentTableAssets.filter(
-    (a) => !!a.assignedUser && a.assignedUser === myDisplayName
-  );
-}, [currentTableAssets, myDisplayName]);
+ const myAssets = useMemo(() => {
+  return assets
+    .filter((a) => !!a.assignedUser && a.assignedUser === myDisplayName)
+    .sort((a, b) => a.sort - b.sort);
+}, [assets, myDisplayName]);
 
   const handleLogout = async () => {
     try {
