@@ -111,8 +111,8 @@ function CreateTableModal({
   }) => void | Promise<void>;
 }) {
   const [title, setTitle] = useState("");
-  const [meta1, setMeta1] = useState("車検");
-  const [meta2, setMeta2] = useState("車種");
+  const [meta1, setMeta1] = useState("");
+  const [meta2, setMeta2] = useState("");
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
@@ -131,20 +131,22 @@ function CreateTableModal({
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">左ラベル1</label>
+            <label className="text-sm text-gray-600">車検・点検等</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
               value={meta1}
               onChange={(e) => setMeta1(e.target.value)}
+              placeholder="例：車検"
             />
           </div>
 
           <div>
-            <label className="text-sm text-gray-600">左ラベル2</label>
+            <label className="text-sm text-gray-600">アセット名</label>
             <input
               className="w-full border rounded-lg px-3 py-2"
               value={meta2}
               onChange={(e) => setMeta2(e.target.value)}
+              placeholder="例：車種"
             />
           </div>
         </div>
