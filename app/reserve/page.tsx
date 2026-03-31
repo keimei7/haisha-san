@@ -588,7 +588,7 @@ function ReservationModal({
               className="w-full border rounded-lg px-3 py-2"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="例：打合せ"
+              placeholder="例：搬入"
             />
           </div>
         </div>
