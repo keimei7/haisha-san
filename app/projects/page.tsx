@@ -23,6 +23,15 @@ type Vehicle = {
   updatedAt?: string;
 };
 
+type AssetItem = {
+  id: string;
+  name: string;
+  subLabel?: string;
+  inspection: string;
+  tableId: string;
+  sort: number;
+  assignedUser?: string;
+};
 type UserItem = {
   id: string;
   name: string;
