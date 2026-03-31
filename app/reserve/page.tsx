@@ -648,7 +648,7 @@ const [myDisplayName, setMyDisplayName] = useState("");
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
   const [memberOptions, setMemberOptions] = useState<string[]>([]);
-
+const [isDraggingRange, setIsDraggingRange] = useState(false);
   const [currentTableId, setCurrentTableId] = useState("");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
 const [selectionStart, setSelectionStart] = useState<{
@@ -1176,73 +1176,80 @@ const isSelected = (assetId: string, dayKey: string) => {
               return (
                 <td
                   key={`${asset.id}-${day.key}`}
-                  className={`border p-1 align-top ${cellBg} ${
-                    isSelected(asset.id, day.key) ? "bg-blue-200" : ""
-                  }`}
+                className={`border p-1 align-top ${
+  isSelected(asset.id, day.key) ? "bg-blue-200" : cellBg
+}`}
                 >
-                  <button
-                    className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
-                    type="button"
-                    onMouseDown={() => {
-                      setSelectionStart({ assetId: asset.id, dayKey: day.key });
-                      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-                    }}
-                    onMouseEnter={(e) => {
-                      if (e.buttons === 1 && selectionStart?.assetId === asset.id) {
-                        setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-                      }
-                    }}
-                    onMouseUp={() => {
-                      if (selectionStart && selectionEnd) {
-                        console.log("範囲選択:", selectionStart, selectionEnd);
-                      }
-                    }}
-                    onTouchEnd={() => {
-                      const now = Date.now();
+                <button
+  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
+  type="button"
+  onMouseDown={() => {
+    setIsDraggingRange(true);
+    setSelectionStart({ assetId: asset.id, dayKey: day.key });
+    setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+  }}
+  onMouseEnter={(e) => {
+    if (e.buttons === 1 && selectionStart?.assetId === asset.id) {
+      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+    }
+  }}
+  onMouseUp={() => {
+    setTimeout(() => {
+      setIsDraggingRange(false);
+    }, 0);
+  }}
+  onTouchEnd={() => {
+    const now = Date.now();
 
-                      if (
-                        now - lastTapRef.current < 300 &&
-                        selectionStart?.assetId === asset.id
-                      ) {
-                        setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-                      } else {
-                        setSelectionStart({ assetId: asset.id, dayKey: day.key });
-                        setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-                      }
+    if (!selectionStart || selectionStart.assetId !== asset.id) {
+      setSelectionStart({ assetId: asset.id, dayKey: day.key });
+      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+      lastTapRef.current = now;
+      return;
+    }
 
-                      lastTapRef.current = now;
-                    }}
-                    onClick={() =>
-                      setSelectedSlot({
-                        assetId: asset.id,
-                        assetName: asset.name,
-                        dayKey: day.key,
-                        dateLabel: `${day.label}（${day.weekday}）`,
-                      })
-                    }
-                  >
-                    <div className="space-y-1">
-                      {reservation ? (
-                        <>
-                          {reservation.site && (
-                            <div className="font-bold text-sm">
-                              {reservation.site}
-                            </div>
-                          )}
-                          <div className="text-xs text-gray-700">
-                            {reservation.userName}
-                          </div>
-                          {reservation.note && (
-                            <div className="text-xs text-gray-500">
-                              {reservation.note}
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <span className="text-gray-400 text-xs">＋予約</span>
-                      )}
-                    </div>
-                  </button>
+    if (now - lastTapRef.current < 300) {
+      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+    } else {
+      setSelectionStart({ assetId: asset.id, dayKey: day.key });
+      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
+    }
+
+    lastTapRef.current = now;
+  }}
+  onClick={() => {
+    if (isDraggingRange) return;
+
+    setSelectedSlot({
+      assetId: asset.id,
+      assetName: asset.name,
+      dayKey: day.key,
+      dateLabel: `${day.label}（${day.weekday}）`,
+    });
+  }}
+>
+  <div className="space-y-1">
+    {reservation ? (
+      <>
+        {reservation.site && (
+          <div className="font-bold text-sm">
+            {reservation.site}
+          </div>
+        )}
+        <div className="text-xs text-gray-700">
+          {reservation.userName}
+        </div>
+        {reservation.note && (
+          <div className="text-xs text-gray-500">
+            {reservation.note}
+          </div>
+        )}
+      </>
+    ) : (
+      <span className="text-gray-400 text-xs">＋予約</span>
+    )}
+  </div>
+</button>
                 </td>
               );
             })}
@@ -1253,7 +1260,7 @@ const isSelected = (assetId: string, dayKey: string) => {
   </div>
 
   <div className="px-3 py-2 text-xs text-gray-500 border-t leading-5">
-  PCではドラッグで複数日選択できます。スマホでは同じ行の日付をダブルタップして選択します。
+  PCではドラッグで複数日選択できます。スマホでは同じ行の日付を1回タップして開始し、別の日付をもう1回タップして範囲を選択します。
 </div>
 </div>
         )}
