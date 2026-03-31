@@ -633,10 +633,31 @@ const [myDisplayName, setMyDisplayName] = useState("");
   const [currentTableId, setCurrentTableId] = useState("");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
 
+  const [companyName, setCompanyName] = useState("");
+const [myProfileOpen, setMyProfileOpen] = useState(false);
+const [editingDisplayName, setEditingDisplayName] = useState("");
+const [savingDisplayName, setSavingDisplayName] = useState(false);
+
   const [showCreateTable, setShowCreateTable] = useState(false);
   const [showEditTable, setShowEditTable] = useState(false);
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
+
+useEffect(() => {
+  if (!companyId) return;
+
+  const unsub = onSnapshot(doc(db, "companies", companyId), (snap) => {
+    if (!snap.exists()) {
+      setCompanyName("");
+      return;
+    }
+
+    const data = snap.data() as { name?: string };
+    setCompanyName(data.name ?? "");
+  });
+
+  return () => unsub();
+}, [companyId]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -828,7 +849,36 @@ const toggleTableOpen = (tableId: string) => {
     .filter((a) => !!a.assignedUser && a.assignedUser === myDisplayName)
     .sort((a, b) => a.sort - b.sort);
 }, [assets, myDisplayName]);
+const saveMyDisplayName = async () => {
+  const nextName = editingDisplayName.trim();
 
+  if (!auth.currentUser) {
+    alert("ログイン情報が見つかりません");
+    return;
+  }
+
+  if (!nextName) {
+    alert("表示名を入力してください");
+    return;
+  }
+
+  try {
+    setSavingDisplayName(true);
+
+    await updateDoc(doc(db, "users", auth.currentUser.uid), {
+      displayName: nextName,
+      updatedAt: new Date().toISOString(),
+    });
+
+    setMyDisplayName(nextName);
+    setMyProfileOpen(false);
+  } catch (error) {
+    console.error("displayName update error:", error);
+    alert("表示名の更新に失敗しました");
+  } finally {
+    setSavingDisplayName(false);
+  }
+};
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -1280,7 +1330,43 @@ const toggleTableOpen = (tableId: string) => {
         />
       )}
 
-       
+       {myProfileOpen && (
+  <div className="fixed inset-0 z-[210] bg-black/40 flex items-center justify-center px-4">
+    <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+      <h2 className="text-lg font-bold">表示名を編集</h2>
+
+      <div>
+        <label className="text-sm text-gray-600">表示名</label>
+        <input
+          className="w-full border rounded-lg px-3 py-2 mt-1"
+          value={editingDisplayName}
+          onChange={(e) => setEditingDisplayName(e.target.value)}
+          placeholder="表示名"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          className="flex-1 rounded-lg bg-blue-600 text-white py-2 disabled:opacity-50"
+          onClick={saveMyDisplayName}
+          disabled={savingDisplayName}
+        >
+          {savingDisplayName ? "保存中..." : "保存"}
+        </button>
+
+        <button
+          type="button"
+          className="rounded-lg border px-4 py-2"
+          onClick={() => setMyProfileOpen(false)}
+          disabled={savingDisplayName}
+        >
+          閉じる
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 {editingAsset && (
   <AssetEditModal
     asset={editingAsset}
@@ -1333,6 +1419,30 @@ const toggleTableOpen = (tableId: string) => {
                 ✕
               </button>
             </div>
+            <div className="px-1 space-y-2">
+  {companyName && (
+    <div className="text-sm text-gray-500">
+      {companyName}
+    </div>
+  )}
+
+  <div className="flex items-center justify-between">
+    <div className="text-sm text-gray-600">
+      {myDisplayName || "表示名未設定"}
+    </div>
+
+    <button
+      type="button"
+      className="text-xs border px-2 py-1 rounded bg-white"
+      onClick={() => {
+        setEditingDisplayName(myDisplayName);
+        setMyProfileOpen(true);
+      }}
+    >
+      編集
+    </button>
+  </div>
+</div>
 <div className="border rounded-xl overflow-hidden">
   <button
     type="button"
