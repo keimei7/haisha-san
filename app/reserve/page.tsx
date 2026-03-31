@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import {
@@ -56,6 +56,7 @@ type SelectedSlot = {
   assetName: string;
   dayKey: string;
   dateLabel: string;
+  endDayKey: string;
 } | null;
 
 type UserDoc = {
@@ -511,11 +512,11 @@ const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
       </div>
     </div>
   );
-}
-function ReservationModal({
+}function ReservationModal({
   slot,
   existing,
   memberOptions,
+  days,
   onClose,
   onSave,
   onDelete,
@@ -523,17 +524,32 @@ function ReservationModal({
   slot: NonNullable<SelectedSlot>;
   existing?: ReservationItem;
   memberOptions: string[];
+  days: DayItem[];
   onClose: () => void;
   onSave: (payload: {
     userName: string;
     site: string;
     note: string;
+    endDayKey: string;
   }) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
 }) {
   const [userName, setUserName] = useState(existing?.userName ?? "");
   const [site, setSite] = useState(existing?.site ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
+  const [endDayKey, setEndDayKey] = useState(slot.endDayKey);
+
+  const startIndex = days.findIndex((d) => d.key === slot.dayKey);
+  const selectableDays = startIndex >= 0 ? days.slice(startIndex) : days;
+
+  const selectedEndDay = selectableDays.find((d) => d.key === endDayKey);
+  const durationDays =
+    startIndex >= 0
+      ? Math.max(
+          1,
+          days.findIndex((d) => d.key === endDayKey) - startIndex + 1
+        )
+      : 1;
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
@@ -544,7 +560,7 @@ function ReservationModal({
             <p className="text-sm text-gray-500">
               {slot.assetName}
               <br />
-              {slot.dateLabel}
+              開始日: {slot.dateLabel}
             </p>
           </div>
 
@@ -572,6 +588,26 @@ function ReservationModal({
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">終了日</label>
+            <select
+              className="w-full border rounded-lg px-3 py-2 bg-white"
+              value={endDayKey}
+              onChange={(e) => setEndDayKey(e.target.value)}
+            >
+              {selectableDays.map((day) => (
+                <option key={day.key} value={day.key}>
+                  {day.label}（{day.weekday}）
+                </option>
+              ))}
+            </select>
+            <div className="mt-1 text-xs text-gray-500">
+              {selectedEndDay
+                ? `${selectedEndDay.label}（${selectedEndDay.weekday}）まで / ${durationDays}日予約`
+                : `${durationDays}日予約`}
+            </div>
           </div>
 
           <div>
@@ -604,10 +640,12 @@ function ReservationModal({
                 alert("予約者を選択してください");
                 return;
               }
+
               onSave({
                 userName: userName.trim(),
                 site: site.trim(),
                 note: note.trim(),
+                endDayKey,
               });
             }}
           >
@@ -634,149 +672,14 @@ function ReservationModal({
     </div>
   );
 }
-function BulkReservationModal({
-  assetName,
-  dayKeys,
-  dayLabels,
-  memberOptions,
-  onClose,
-  onSave,
-  onDelete,
-}: {
-  assetName: string;
-  dayKeys: string[];
-  dayLabels: string[];
-  memberOptions: string[];
-  onClose: () => void;
-  onSave: (payload: {
-    userName: string;
-    site: string;
-    note: string;
-  }) => void | Promise<void>;
-  onDelete: () => void | Promise<void>;
-}) {
-  const [userName, setUserName] = useState("");
-  const [site, setSite] = useState("");
-  const [note, setNote] = useState("");
 
-  return (
-    <div className="fixed inset-0 z-[220] bg-black/40 flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold">一括予約</h2>
-            <p className="text-sm text-gray-500">
-              {assetName}
-              <br />
-              {dayLabels.join(" / ")}
-            </p>
-          </div>
 
-          <button
-            className="text-2xl leading-none text-gray-500"
-            type="button"
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="text-sm text-gray-600">予約者名</label>
-            <select
-              className="w-full border rounded-lg px-3 py-2 bg-white"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-            >
-              <option value="">選択してください</option>
-              {memberOptions.map((member) => (
-                <option key={member} value={member}>
-                  {member}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-600">行先</label>
-            <input
-              className="w-full border rounded-lg px-3 py-2"
-              value={site}
-              onChange={(e) => setSite(e.target.value)}
-              placeholder="例：現場"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm text-gray-600">用途・備考</label>
-            <input
-              className="w-full border rounded-lg px-3 py-2"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="例：搬入"
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            className="flex-1 rounded-lg bg-blue-600 text-white py-2"
-            type="button"
-            onClick={() => {
-              if (!userName.trim()) {
-                alert("予約者を選択してください");
-                return;
-              }
-              onSave({
-                userName: userName.trim(),
-                site: site.trim(),
-                note: note.trim(),
-              });
-            }}
-          >
-            一括で決定
-          </button>
-
-          <button
-            className="rounded-lg border px-4 py-2"
-            type="button"
-            onClick={onClose}
-          >
-            閉じる
-          </button>
-        </div>
-
-        <button
-          className="w-full rounded-lg border border-red-400 text-red-500 py-2"
-          type="button"
-          onClick={onDelete}
-        >
-          選択範囲の予約を削除
-        </button>
-      </div>
-    </div>
-  );
-}
 export default function ReservePage() {
     const [menuMyAssetsOpen, setMenuMyAssetsOpen] = useState(true);
 const [openTableIds, setOpenTableIds] = useState<string[]>([]);
     const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
-  const [selectionStart, setSelectionStart] = useState<{
-  assetId: string;
-  dayKey: string;
-} | null>(null);
-
-const [selectionEnd, setSelectionEnd] = useState<{
-  assetId: string;
-  dayKey: string;
-} | null>(null);
-
-const [isDraggingRange, setIsDraggingRange] = useState(false);
-const [showBulkReservation, setShowBulkReservation] = useState(false);
-const [mobileRangeSelecting, setMobileRangeSelecting] = useState(false);
-const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+ 
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
   const [companyId, setCompanyId] = useState("");
   const [authLoading, setAuthLoading] = useState(true);
@@ -1052,39 +955,6 @@ const exportWeeklyReservationsCsv = () => {
   const filename = `${currentTable.title}_${formatWeekTitle(weekStart)}.csv`;
   downloadCsv(filename, csv);
 };
-const dayIndexMap = useMemo(() => {
-  const map: Record<string, number> = {};
-  days.forEach((d, i) => {
-    map[d.key] = i;
-  });
-  return map;
-}, [days]);
-const isSelected = (assetId: string, dayKey: string) => {
-  if (!selectionStart || !selectionEnd) return false;
-  if (selectionStart.assetId !== assetId) return false;
-
-  const start = dayIndexMap[selectionStart.dayKey];
-  const end = dayIndexMap[selectionEnd.dayKey];
-  const current = dayIndexMap[dayKey];
-
-  const min = Math.min(start, end);
-  const max = Math.max(start, end);
-
-  return current >= min && current <= max;
-};
-
-
-const getSelectedDayKeys = () => {
-  if (!selectionStart || !selectionEnd) return [];
-  if (selectionStart.assetId !== selectionEnd.assetId) return [];
-
-  const start = dayIndexMap[selectionStart.dayKey];
-  const end = dayIndexMap[selectionEnd.dayKey];
-  const min = Math.min(start, end);
-  const max = Math.max(start, end);
-
-  return days.slice(min, max + 1).map((d) => d.key);
-};
 
 
   const handleLogout = async () => {
@@ -1315,116 +1185,24 @@ const getSelectedDayKeys = () => {
         );
 
         return (
-          <td
-            key={`${asset.id}-${day.key}`}
-            className={`border p-1 align-top ${
-              isSelected(asset.id, day.key) ? "bg-blue-200" : cellBg
-            }`}
-          >
+         <td
+  key={`${asset.id}-${day.key}`}
+  className={`border p-1 align-top ${cellBg}`}
+>
            <button
-  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2 select-none touch-manipulation [-webkit-user-select:none] [-webkit-touch-callout:none]"
+  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
   type="button"
-  draggable={false}
-  onContextMenu={(e) => e.preventDefault()}
-  onMouseDown={() => {
-    setIsDraggingRange(true);
-    setSelectionStart({ assetId: asset.id, dayKey: day.key });
-    setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-  }}
-  onMouseEnter={(e) => {
-    if (e.buttons === 1 && selectionStart?.assetId === asset.id) {
-      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-    }
-  }}
-  onMouseUp={() => {
-    if (
-      isDraggingRange &&
-      selectionStart &&
-      selectionEnd &&
-      selectionStart.assetId === asset.id &&
-      selectionStart.dayKey !== selectionEnd.dayKey
-    ) {
-      setShowBulkReservation(true);
-    }
-
-    setTimeout(() => {
-      setIsDraggingRange(false);
-    }, 0);
-  }}
-  onTouchStart={(e) => {
-    e.preventDefault();
-
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-
-    longPressTimerRef.current = setTimeout(() => {
-      setSelectionStart({ assetId: asset.id, dayKey: day.key });
-      setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-      setMobileRangeSelecting(true);
-
-      if (navigator.vibrate) {
-        navigator.vibrate(10);
-      }
-
-      longPressTimerRef.current = null;
-    }, 450);
-  }}
-  onTouchMove={() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }}
-  onTouchEnd={(e) => {
-    e.preventDefault();
-
-    // まだタイマーが生きてる = 短いタップ
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-
-      // すでに長押しで範囲選択モードに入っているなら、今回のタップで終点を決める
-      if (mobileRangeSelecting) {
-        if (selectionStart?.assetId !== asset.id) {
-          return;
-        }
-
-        setSelectionEnd({ assetId: asset.id, dayKey: day.key });
-
-        if (selectionStart.dayKey !== day.key) {
-          setShowBulkReservation(true);
-        }
-
-        return;
-      }
-
-      // 通常の単タップ = 単日予約
-      setSelectedSlot({
-        assetId: asset.id,
-        assetName: asset.name,
-        dayKey: day.key,
-        dateLabel: `${day.label}（${day.weekday}）`,
-      });
-
-      return;
-    }
-
-    // 長押しが発火した直後の touchend は何もしない
-  }}
-  onClick={() => {
-    if (isDraggingRange || mobileRangeSelecting) return;
-
+  onClick={() =>
     setSelectedSlot({
       assetId: asset.id,
       assetName: asset.name,
       dayKey: day.key,
       dateLabel: `${day.label}（${day.weekday}）`,
-    });
-  }}
+      endDayKey: day.key,
+    })
+  }
 >
-  <div className="space-y-1 pointer-events-none select-none">
+  <div className="space-y-1">
     {reservation ? (
       <>
         {reservation.site && (
@@ -1442,7 +1220,7 @@ const getSelectedDayKeys = () => {
         )}
       </>
     ) : (
-      <span className="text-gray-400 text-xs select-none">＋予約</span>
+      <span className="text-gray-400 text-xs">＋予約</span>
     )}
   </div>
 </button>
@@ -1456,7 +1234,7 @@ const getSelectedDayKeys = () => {
   </div>
 
   <div className="px-3 py-2 text-xs text-gray-500 border-t leading-5">
-  PCではドラッグで複数日選択して一括予約できます。スマホでは1回長押しで選択開始し、もう1回別の日をタップして範囲を選択します。単日予約は1回タップです。
+  予約日をタップすると終了日を選べます。同日なら1日、先の日付を選ぶと複数日予約になります。
 </div>
 </div>
         )}
@@ -1586,89 +1364,41 @@ const getSelectedDayKeys = () => {
         />
       )}
 
-           {selectedSlot && (
-        <ReservationModal
-          slot={selectedSlot}
-          existing={reservations.find(
-            (r) =>
-              r.assetId === selectedSlot.assetId &&
-              r.dayKey === selectedSlot.dayKey
-          )}
-          memberOptions={memberOptions}
-          onClose={() => setSelectedSlot(null)}
-          onSave={async ({ userName, site, note }) => {
-            try {
-              await setDoc(
-                doc(
-                  db,
-                  "reservations",
-                  makeReservationDocId(selectedSlot.assetId, selectedSlot.dayKey)
-                ),
-                {
-                  companyId,
-                  assetId: selectedSlot.assetId,
-                  dayKey: selectedSlot.dayKey,
-                  userName,
-                  site,
-                  note,
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                }
-              );
-              setSelectedSlot(null);
-            } catch (error) {
-              console.error("reservation save error:", error);
-              alert("予約保存に失敗しました");
-            }
-          }}
-          onDelete={async () => {
-            try {
-              await deleteDoc(
-                doc(
-                  db,
-                  "reservations",
-                  makeReservationDocId(selectedSlot.assetId, selectedSlot.dayKey)
-                )
-              );
-              setSelectedSlot(null);
-            } catch (error) {
-              console.error("reservation delete error:", error);
-              alert("予約削除に失敗しました");
-            }
-          }}
-        />
-      )}
-
-       {showBulkReservation && selectionStart && selectionEnd && (
-  <BulkReservationModal
-    assetName={
-      assets.find((a) => a.id === selectionStart.assetId)?.name ?? "アセット"
-    }
-    dayKeys={getSelectedDayKeys()}
-    dayLabels={getSelectedDayKeys().map((key) => {
-      const day = days.find((d) => d.key === key);
-      return day ? `${day.label}（${day.weekday}）` : key;
-    })}
+          {selectedSlot && (
+  <ReservationModal
+    slot={selectedSlot}
+    existing={reservations.find(
+      (r) =>
+        r.assetId === selectedSlot.assetId &&
+        r.dayKey === selectedSlot.dayKey
+    )}
     memberOptions={memberOptions}
-  onClose={() => {
-  setShowBulkReservation(false);
-  setSelectionStart(null);
-  setSelectionEnd(null);
-  setMobileRangeSelecting(false);
-}}
-    onSave={async ({ userName, site, note }) => {
+    days={days}
+    onClose={() => setSelectedSlot(null)}
+    onSave={async ({ userName, site, note, endDayKey }) => {
       try {
-        const assetId = selectionStart.assetId;
-        const selectedKeys = getSelectedDayKeys();
+        const startIndex = days.findIndex((d) => d.key === selectedSlot.dayKey);
+        const endIndex = days.findIndex((d) => d.key === endDayKey);
+
+        if (startIndex < 0 || endIndex < 0 || endIndex < startIndex) {
+          alert("終了日の選択が不正です");
+          return;
+        }
+
+        const targetDays = days.slice(startIndex, endIndex + 1);
 
         await Promise.all(
-          selectedKeys.map((dayKey) =>
+          targetDays.map((day) =>
             setDoc(
-              doc(db, "reservations", makeReservationDocId(assetId, dayKey)),
+              doc(
+                db,
+                "reservations",
+                makeReservationDocId(selectedSlot.assetId, day.key)
+              ),
               {
                 companyId,
-                assetId,
-                dayKey,
+                assetId: selectedSlot.assetId,
+                dayKey: day.key,
                 userName,
                 site,
                 note,
@@ -1679,39 +1409,31 @@ const getSelectedDayKeys = () => {
           )
         );
 
-        setShowBulkReservation(false);
-setSelectionStart(null);
-setSelectionEnd(null);
-setMobileRangeSelecting(false);
+        setSelectedSlot(null);
       } catch (error) {
-        console.error("bulk reservation save error:", error);
-        alert("一括予約に失敗しました");
+        console.error("reservation save error:", error);
+        alert("予約保存に失敗しました");
       }
     }}
     onDelete={async () => {
       try {
-        const assetId = selectionStart.assetId;
-        const selectedKeys = getSelectedDayKeys();
-
-        await Promise.all(
-          selectedKeys.map((dayKey) =>
-            deleteDoc(
-              doc(db, "reservations", makeReservationDocId(assetId, dayKey))
-            )
+        await deleteDoc(
+          doc(
+            db,
+            "reservations",
+            makeReservationDocId(selectedSlot.assetId, selectedSlot.dayKey)
           )
         );
-
-        setShowBulkReservation(false);
-setSelectionStart(null);
-setSelectionEnd(null);
-setMobileRangeSelecting(false);
+        setSelectedSlot(null);
       } catch (error) {
-        console.error("bulk reservation delete error:", error);
-        alert("一括予約削除に失敗しました");
+        console.error("reservation delete error:", error);
+        alert("予約削除に失敗しました");
       }
     }}
   />
 )}
+
+    
 {editingAsset && (
   <AssetEditModal
     asset={editingAsset}
