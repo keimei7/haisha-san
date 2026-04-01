@@ -999,10 +999,10 @@ downloadCsv(filename, csv);
   <img
     src="/icon.png"
     
-    
-    className="w-12 h-12 object-contain"
+
+    className="w-16 h-16 object-contain"
   />
-  <div className="font-bold text-2xl tracking-wide">配車さん</div>
+ 
 
   <button
     className="absolute left-3 top-1/2 -translate-y-1/2 text-xl"
