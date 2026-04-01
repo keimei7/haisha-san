@@ -216,35 +216,46 @@ export default function CompanyAdminPage() {
       setSaving(false);
     }
   };
+const changeRole = async (targetUid: string, nextRole: UserRole) => {
+  if (!companyId) return;
 
-  const changeRole = async (targetUid: string, nextRole: UserRole) => {
-    if (!companyId) return;
+  const target = members.find((m) => m.uid === targetUid);
+  if (!target) return;
 
-    const target = members.find((m) => m.uid === targetUid);
-    if (!target) return;
+  const adminCount = members.filter((m) => m.role === "admin").length;
 
-    if (targetUid === myUid && nextRole === "member") {
-      alert("自分自身をmemberには変更できません");
-      return;
-    }
+  // 自分自身をmemberに落とす事故を防ぐ
+  if (targetUid === myUid && nextRole === "member") {
+    alert("自分自身をmemberには変更できません");
+    return;
+  }
 
-    try {
-      setSaving(true);
+  // 最後のadminをmemberに落とすのを防ぐ
+  if (
+    target.role === "admin" &&
+    nextRole === "member" &&
+    adminCount <= 1
+  ) {
+    alert("最後のadminはmemberに変更できません");
+    return;
+  }
 
-      await updateDoc(doc(db, "users", targetUid), {
-        role: nextRole,
-        updatedAt: new Date().toISOString(),
-      });
+  try {
+    setSaving(true);
 
-      await fetchMembers(companyId);
-    } catch (error) {
-      console.error(error);
-      alert("権限変更に失敗しました");
-    } finally {
-      setSaving(false);
-    }
-  };
+    await updateDoc(doc(db, "users", targetUid), {
+      role: nextRole,
+      updatedAt: new Date().toISOString(),
+    });
 
+    await fetchMembers(companyId);
+  } catch (error) {
+    console.error(error);
+    alert("権限変更に失敗しました");
+  } finally {
+    setSaving(false);
+  }
+};
   if (loading) {
     return <div className="p-4">読み込み中...</div>;
   }
