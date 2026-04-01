@@ -995,12 +995,13 @@ downloadCsv(filename, csv);
     <main className="min-h-screen bg-white text-black p-3">
       <div className="mx-auto max-w-md">
         <div className="mb-3 rounded-2xl border overflow-hidden bg-white">
-        <div className="h-20 flex items-center justify-center border-b bg-white relative">
+        <div className="h-24 flex items-center justify-center border-b bg-white relative">
   <img
     src="/icon.png"
     alt="gotab"
-    className="h-10 w-auto"
+    className="h-14 w-auto"
   />
+</div>
 
   <button
     className="absolute left-3 top-1/2 -translate-y-1/2 text-xl"
