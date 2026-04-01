@@ -54,9 +54,8 @@ export default function LoginPage() {
           <img
             src="/icon.png"
             alt="gotab"
-            className="w-20 h-20 object-contain"
+            className="w-25 h-25 object-contain"
           />
-          <div className="text-2xl font-bold tracking-wide">gotab</div>
           <div className="text-sm text-gray-500">
             ログインして予約画面へ進みます
           </div>
