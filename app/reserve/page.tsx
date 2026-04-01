@@ -63,6 +63,7 @@ type UserDoc = {
   companyId?: string;
   displayName?: string;
   name?: string;
+  role?: "owner" | "admin" | "member";
 };
 
 function getMonday(date: Date): Date {
@@ -680,9 +681,11 @@ const [openTableIds, setOpenTableIds] = useState<string[]>([]);
   const router = useRouter();
  
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
-  const [companyId, setCompanyId] = useState("");
-  const [authLoading, setAuthLoading] = useState(true);
+ const [companyId, setCompanyId] = useState("");
+const [myRole, setMyRole] = useState<"owner" | "admin" | "member" | "">("");
+const [authLoading, setAuthLoading] = useState(true);
 const [myDisplayName, setMyDisplayName] = useState("");
+
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
@@ -734,9 +737,10 @@ useEffect(() => {
           return;
         }
 
-        const data = userSnap.data() as UserDoc;
-        setMyDisplayName(data.displayName ?? data.name ?? "");
-        if (!data.companyId) {
+       const data = userSnap.data() as UserDoc;
+setMyDisplayName(data.displayName ?? data.name ?? "");
+setMyRole(data.role ?? "member");
+if (!data.companyId) {
           setAuthLoading(false);
           router.replace("/setup");
           return;
@@ -953,7 +957,23 @@ const exportWeeklyReservationsCsv = () => {
 
   const filename = `${currentTable.title}_${formatWeekTitle(weekStart)}.csv`;
 };
+const promoteMeToAdmin = async () => {
+  const user = auth.currentUser;
+  if (!user) return;
 
+  try {
+    await updateDoc(doc(db, "users", user.uid), {
+      role: "admin",
+      updatedAt: new Date().toISOString(),
+    });
+
+    setMyRole("admin");
+    alert("仮で admin に設定しました");
+  } catch (error) {
+    console.error("promote admin error:", error);
+    alert("admin 設定に失敗しました");
+  }
+};
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -976,21 +996,32 @@ const exportWeeklyReservationsCsv = () => {
     <main className="min-h-screen bg-white text-black p-3">
       <div className="mx-auto max-w-md">
         <div className="mb-3 rounded-2xl border overflow-hidden bg-white">
-          <div className="py-3 flex items-center justify-center gap-2 border-b bg-white relative">
-            <img
-              src="/icon.png"
-              alt="配車さん"
-              className="w-12 h-12 object-contain"
-            />
-            <div className="font-bold text-2xl tracking-wide">配車さん</div>
-<button
-  className="absolute left-3 top-1/2 -translate-y-1/2 text-xl"
-  onClick={() => setShowMenu(true)}
-  type="button"
->
-  ☰
-</button>
-          </div>
+         <div className="py-3 flex items-center justify-center gap-2 border-b bg-white relative">
+  <img
+    src="/icon.png"
+    alt="配車さん"
+    className="w-12 h-12 object-contain"
+  />
+  <div className="font-bold text-2xl tracking-wide">配車さん</div>
+
+  <button
+    className="absolute left-3 top-1/2 -translate-y-1/2 text-xl"
+    onClick={() => setShowMenu(true)}
+    type="button"
+  >
+    ☰
+  </button>
+
+  {myRole !== "admin" && myRole !== "owner" && (
+    <button
+      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg border bg-white px-3 py-1 text-xs"
+      onClick={promoteMeToAdmin}
+      type="button"
+    >
+      仮admin
+    </button>
+  )}
+</div>
 
           <div className="bg-yellow-300 border-b px-3 py-2.5 relative">
             <div className="text-center font-bold text-xl">
@@ -1703,7 +1734,18 @@ const exportWeeklyReservationsCsv = () => {
     })}
   </div>
 </div>
-
+{(myRole === "owner" || myRole === "admin") && (
+  <button
+    type="button"
+    className="w-full border rounded-lg py-2 mt-4"
+    onClick={() => {
+      router.push("/company-admin");
+      setShowMenu(false);
+    }}
+  >
+    会社管理
+  </button>
+)}
             <button
               type="button"
               className="w-full border rounded-lg py-2 mt-4"
