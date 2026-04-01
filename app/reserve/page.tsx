@@ -144,7 +144,7 @@ function CreateTableModal({
               className="w-full border rounded-lg px-3 py-2"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="例：トラック予約表"
+              placeholder="例：トラック予約表、ドローン貸し出し"
             />
           </div>
 
@@ -338,7 +338,7 @@ function AddAssetModal({
               className="w-full border rounded-lg px-3 py-2"
               value={subLabel}
               onChange={(e) => setSubLabel(e.target.value)}
-              placeholder="例：84-89 / WM265G"
+              placeholder="例：12-34/ AB123C"
             />
           </div>
 
@@ -364,7 +364,7 @@ function AddAssetModal({
               className="w-full border rounded-lg px-3 py-2"
               value={inspection}
               onChange={(e) => setInspection(e.target.value)}
-              placeholder="例：2026/03/18"
+              placeholder="例：2026/01/01"
             />
           </div>
         </div>
