@@ -997,11 +997,10 @@ downloadCsv(filename, csv);
         <div className="mb-3 rounded-2xl border overflow-hidden bg-white">
          <div className="py-3 flex items-center justify-center gap-2 border-b bg-white relative">
   <img
-    src="/icon.png"
-    
-
-    className="w-16 h-16 object-contain"
-  />
+  src="/icon.png"
+  alt="gotab"
+  className="w-16 h-16"
+/>
  
 
   <button
