@@ -1125,11 +1125,11 @@ downloadCsv(filename, csv);
     <table className="border-collapse text-sm min-w-[620px] w-full table-fixed">
       <thead>
         <tr>
-          <th className="border bg-red-500 text-white px-2 py-2 w-[7%]">
+          <th className="sticky top-0 z-30 border bg-red-500 text-white px-2 py-2 w-[7%]">
             {currentTable?.labelMeta1 ?? "車検"}
           </th>
 
-         <th className="sticky left-0 z-20 border bg-green-600 text-white px-2 py-2 w-[11%]">
+    <th className="sticky top-0 left-0 z-40 border bg-green-600 text-white px-2 py-2 w-[11%]">
             {currentTable?.labelMeta2 ?? "車種"}
           </th>
 
@@ -1151,9 +1151,9 @@ downloadCsv(filename, csv);
 
   return (
     <th
-      key={day.key}
-      className={`border px-2 py-2 min-w-[92px] ${headerBg}`}
-    >
+  key={day.key}
+  className={`sticky top-0 z-30 border px-2 py-2 min-w-[92px] ${headerBg}`}
+>
       <div className="font-bold">{day.label}</div>
       <div className={weekdayColor}>{day.weekday}</div>
     </th>
