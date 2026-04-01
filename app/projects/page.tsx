@@ -30,7 +30,7 @@ type AssetItem = {
   inspection: string;
   tableId: string;
   sort: number;
-  assignedUser?: string;
+  assignedUid?: string;
 };
 type UserItem = {
   id: string;

@@ -998,7 +998,8 @@ downloadCsv(filename, csv);
          <div className="py-3 flex items-center justify-center gap-2 border-b bg-white relative">
   <img
     src="/icon.png"
-    alt="配車さん"
+    
+    
     className="w-12 h-12 object-contain"
   />
   <div className="font-bold text-2xl tracking-wide">配車さん</div>
