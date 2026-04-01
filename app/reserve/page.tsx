@@ -967,13 +967,8 @@ const promoteMeToAdmin = async () => {
       updatedAt: new Date().toISOString(),
     });
 
-    setMyRole("admin");
-    alert("仮で admin に設定しました");
-  } catch (error) {
-    console.error("promote admin error:", error);
-    alert("admin 設定に失敗しました");
-  }
-};
+   
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -1012,15 +1007,7 @@ const promoteMeToAdmin = async () => {
     ☰
   </button>
 
-  {myRole !== "admin" && myRole !== "owner" && (
-    <button
-      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg border bg-white px-3 py-1 text-xs"
-      onClick={promoteMeToAdmin}
-      type="button"
-    >
-      仮admin
-    </button>
-  )}
+ 
 </div>
 
           <div className="bg-yellow-300 border-b px-3 py-2.5 relative">
