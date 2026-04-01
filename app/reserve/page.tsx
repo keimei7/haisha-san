@@ -32,7 +32,7 @@ type AssetItem = {
   inspection: string;
   tableId: string;
   sort: number;
-  assignedUser?: string;
+  assignedUid?: string;
 };
 
 type ReservationItem = {
@@ -63,6 +63,7 @@ type UserDoc = {
   companyId?: string;
   displayName?: string;
   name?: string;
+  role?: "owner" | "admin" | "member";
 };
 
 function getMonday(date: Date): Date {
@@ -301,12 +302,12 @@ function AddAssetModal({
 }: {
   onClose: () => void;
   onAdd: (payload: {
-    name: string;
-    subLabel: string;
-    inspection: string;
-    tableId: string;
-    assignedUser?: string;
-  }) => void | Promise<void>;
+  name: string;
+  subLabel: string;
+  inspection: string;
+  tableId: string;
+  assignedUid?: string;
+}) => void | Promise<void>;
   tableId: string;
   memberOptions: string[];
 }) {
@@ -413,10 +414,11 @@ function AssetEditModal({
   memberOptions: string[];
   onClose: () => void;
   onSave: (payload: {
-    name: string;
-    subLabel: string;
-    inspection: string;
-    assignedUser?: string;
+   name: string;
+  subLabel: string;
+  inspection: string;
+  tableId: string;
+  assignedUid?: string;
   }) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
 
@@ -534,6 +536,7 @@ const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
   }) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
 }) {
+ 
   const [userName, setUserName] = useState(existing?.userName ?? "");
   const [site, setSite] = useState(existing?.site ?? "");
   const [note, setNote] = useState(existing?.note ?? "");
@@ -681,9 +684,11 @@ const [openTableIds, setOpenTableIds] = useState<string[]>([]);
   const router = useRouter();
  
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
-  const [companyId, setCompanyId] = useState("");
-  const [authLoading, setAuthLoading] = useState(true);
+const [companyId, setCompanyId] = useState("");
+const [myRole, setMyRole] = useState<"owner" | "admin" | "member" | "">("");
+const [authLoading, setAuthLoading] = useState(true);
 const [myDisplayName, setMyDisplayName] = useState("");
+
   const [tables, setTables] = useState<TableItem[]>([]);
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [reservations, setReservations] = useState<ReservationItem[]>([]);
@@ -693,10 +698,11 @@ const [myDisplayName, setMyDisplayName] = useState("");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
 
   const [companyName, setCompanyName] = useState("");
-
+const [myUid, setMyUid] = useState("");
 const [isEditingName, setIsEditingName] = useState(false);
 const [editingDisplayName, setEditingDisplayName] = useState("");
 const [savingDisplayName, setSavingDisplayName] = useState(false);
+const [assignedUid, setAssignedUid] = useState("");
 
   const [showCreateTable, setShowCreateTable] = useState(false);
   const [showEditTable, setShowEditTable] = useState(false);
@@ -720,40 +726,45 @@ useEffect(() => {
 }, [companyId]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      try {
-        if (!user) {
-          setAuthLoading(false);
-          router.replace("/login");
-          return;
-        }
-
-        const userSnap = await getDoc(doc(db, "users", user.uid));
-        if (!userSnap.exists()) {
-          setAuthLoading(false);
-          router.replace("/setup");
-          return;
-        }
-
-        const data = userSnap.data() as UserDoc;
-        setMyDisplayName(data.displayName ?? data.name ?? "");
-        if (!data.companyId) {
-          setAuthLoading(false);
-          router.replace("/setup");
-          return;
-        }
-
-        setCompanyId(data.companyId);
-        setAuthLoading(false);
-      } catch (error) {
-        console.error("auth/company read error:", error);
+  const unsub = onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) {
         setAuthLoading(false);
         router.replace("/login");
+        return;
       }
-    });
 
-    return () => unsub();
-  }, [router]);
+      setMyUid(user.uid);
+
+      const userSnap = await getDoc(doc(db, "users", user.uid));
+      if (!userSnap.exists()) {
+        setAuthLoading(false);
+        router.replace("/setup");
+        return;
+      }
+
+      const data = userSnap.data() as UserDoc;
+
+      setMyDisplayName(data.displayName ?? data.name ?? "");
+      setMyRole(data.role ?? "member");
+
+      if (!data.companyId) {
+        setAuthLoading(false);
+        router.replace("/setup");
+        return;
+      }
+
+      setCompanyId(data.companyId);
+      setAuthLoading(false);
+    } catch (error) {
+      console.error("auth/company read error:", error);
+      setAuthLoading(false);
+      router.replace("/login");
+    }
+  });
+
+  return () => unsub();
+}, [router]);
 
   useEffect(() => {
     if (!companyId) return;
@@ -816,23 +827,23 @@ useEffect(() => {
     const unsub = onSnapshot(q, (snap) => {
     const list: AssetItem[] = snap.docs.map((docSnap) => {
   const data = docSnap.data() as {
-    name?: string;
-    subLabel?: string;
-    inspection?: string;
-    tableId?: string;
-    sort?: number;
-    assignedUser?: string | null;
-  };
+  name?: string;
+  subLabel?: string;
+  inspection?: string;
+  tableId?: string;
+  sort?: number;
+  assignedUid?: string | null;
+};
 
   return {
-    id: docSnap.id,
-    name: data.name ?? "",
-    subLabel: data.subLabel ?? "",
-    inspection: data.inspection ?? "",
-    tableId: data.tableId ?? "",
-    sort: data.sort ?? 0,
-    assignedUser: data.assignedUser ?? undefined,
-  };
+  id: docSnap.id,
+  name: data.name ?? "",
+  subLabel: data.subLabel ?? "",
+  inspection: data.inspection ?? "",
+  tableId: data.tableId ?? "",
+  sort: data.sort ?? 0,
+  assignedUid: data.assignedUid ?? undefined,
+};
 });
 
       setAssets(list);
@@ -901,14 +912,14 @@ const toggleTableOpen = (tableId: string) => {
   }, [assets, currentTableId]);
 
   const sharedAssets = useMemo(() => {
-    return currentTableAssets.filter((a) => !a.assignedUser);
-  }, [currentTableAssets]);
+  return currentTableAssets.filter((a) => !a.assignedUid);
+}, [currentTableAssets]);
 
  const myAssets = useMemo(() => {
   return assets
-    .filter((a) => !!a.assignedUser && a.assignedUser === myDisplayName)
+    .filter((a) => !!a.assignedUid && a.assignedUid === myUid)
     .sort((a, b) => a.sort - b.sort);
-}, [assets, myDisplayName]);
+}, [assets, myUid]);
 
 const exportWeeklyReservationsCsv = () => {
   if (!currentTable) {
@@ -1705,8 +1716,20 @@ const exportWeeklyReservationsCsv = () => {
       );
     })}
   </div>
+  
 </div>
-
+{(myRole === "owner" || myRole === "admin") && (
+  <button
+    type="button"
+    className="w-full border rounded-lg py-2 mt-4"
+    onClick={() => {
+      router.push("/company-admin");
+      setShowMenu(false);
+    }}
+  >
+    会社管理
+  </button>
+)}
             <button
               type="button"
               className="w-full border rounded-lg py-2 mt-4"
