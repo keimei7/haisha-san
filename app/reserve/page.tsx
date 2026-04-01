@@ -1120,8 +1120,8 @@ downloadCsv(filename, csv);
             </button>
           </div>
         ) : (
-        <div className="rounded-xl border overflow-hidden bg-white">
-  <div className="overflow-x-auto">
+     <div className="rounded-xl border bg-white">
+  <div className="max-h-[70vh] overflow-auto">
     <table className="border-collapse text-sm min-w-[620px] w-full table-fixed">
       <thead>
         <tr>
@@ -1129,133 +1129,133 @@ downloadCsv(filename, csv);
             {currentTable?.labelMeta1 ?? "車検"}
           </th>
 
-    <th className="sticky top-0 left-0 z-40 border bg-green-600 text-white px-2 py-2 w-[11%]">
+          <th className="sticky top-0 left-0 z-40 border bg-green-600 text-white px-2 py-2 w-[11%]">
             {currentTable?.labelMeta2 ?? "車種"}
           </th>
 
-      {days.map((day) => {
-  const isSunday = day.date.getDay() === 0;
-  const isSaturday = day.date.getDay() === 6;
+          {days.map((day) => {
+            const isSunday = day.date.getDay() === 0;
+            const isSaturday = day.date.getDay() === 6;
 
-  const headerBg = isSunday
-    ? "bg-red-100"
-    : isSaturday
-    ? "bg-blue-100"
-    : "bg-gray-100";
+            const headerBg = isSunday
+              ? "bg-red-100"
+              : isSaturday
+              ? "bg-blue-100"
+              : "bg-gray-100";
 
-  const weekdayColor = isSunday
-    ? "text-red-600"
-    : isSaturday
-    ? "text-blue-600"
-    : "text-black";
+            const weekdayColor = isSunday
+              ? "text-red-600"
+              : isSaturday
+              ? "text-blue-600"
+              : "text-black";
 
-  return (
-    <th
-  key={day.key}
-  className={`sticky top-0 z-30 border px-2 py-2 min-w-[92px] ${headerBg}`}
->
-      <div className="font-bold">{day.label}</div>
-      <div className={weekdayColor}>{day.weekday}</div>
-    </th>
-  );
-})}
+            return (
+              <th
+                key={day.key}
+                className={`sticky top-0 z-30 border px-2 py-2 min-w-[92px] ${headerBg}`}
+              >
+                <div className="font-bold">{day.label}</div>
+                <div className={weekdayColor}>{day.weekday}</div>
+              </th>
+            );
+          })}
         </tr>
       </thead>
 
       <tbody>
-  {sharedAssets.map((asset) => (
-    <tr key={asset.id}>
-      <td className="border px-2 py-3 text-center align-middle bg-white w-[7%]">
-        {formatInspectionShort(asset.inspection)}
-      </td>
+        {sharedAssets.map((asset) => (
+          <tr key={asset.id}>
+            <td className="border px-2 py-3 text-center align-middle bg-white w-[7%]">
+              {formatInspectionShort(asset.inspection)}
+            </td>
 
-      <td className="sticky left-0 z-10 border px-2 py-2 text-center align-middle bg-white w-[11%]">
-        <button
-          type="button"
-          className="w-full text-center"
-          onClick={() => setEditingAsset(asset)}
-        >
-          <div className="leading-tight">
-            <div className="text-[16px] font-medium break-words">
-              {asset.name}
-            </div>
-            {asset.subLabel && (
-              <div className="text-[12px] text-gray-600 mt-1 break-words">
-                {asset.subLabel}
-              </div>
-            )}
-          </div>
-        </button>
-      </td>
+            <td className="sticky left-0 z-10 border px-2 py-2 text-center align-middle bg-white w-[11%]">
+              <button
+                type="button"
+                className="w-full text-center"
+                onClick={() => setEditingAsset(asset)}
+              >
+                <div className="leading-tight">
+                  <div className="text-[16px] font-medium break-words">
+                    {asset.name}
+                  </div>
+                  {asset.subLabel && (
+                    <div className="text-[12px] text-gray-600 mt-1 break-words">
+                      {asset.subLabel}
+                    </div>
+                  )}
+                </div>
+              </button>
+            </td>
 
-      {days.map((day) => {
-        const isSunday = day.date.getDay() === 0;
-        const isSaturday = day.date.getDay() === 6;
+            {days.map((day) => {
+              const isSunday = day.date.getDay() === 0;
+              const isSaturday = day.date.getDay() === 6;
 
-        const cellBg = isSunday
-          ? "bg-red-50"
-          : isSaturday
-          ? "bg-blue-50"
-          : "bg-white";
+              const cellBg = isSunday
+                ? "bg-red-50"
+                : isSaturday
+                ? "bg-blue-50"
+                : "bg-white";
 
-        const reservation = reservations.find(
-          (r) => r.assetId === asset.id && r.dayKey === day.key
-        );
+              const reservation = reservations.find(
+                (r) => r.assetId === asset.id && r.dayKey === day.key
+              );
 
-        return (
-         <td
-  key={`${asset.id}-${day.key}`}
-  className={`border p-1 align-top ${cellBg}`}
->
-           <button
-  className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
-  type="button"
-  onClick={() =>
-    setSelectedSlot({
-      assetId: asset.id,
-      assetName: asset.name,
-      dayKey: day.key,
-      dateLabel: `${day.label}（${day.weekday}）`,
-      endDayKey: day.key,
-    })
-  }
->
-  <div className="space-y-1">
-    {reservation ? (
-      <>
-        {reservation.site && (
-          <div className="font-bold text-sm">
-            {reservation.site}
-          </div>
-        )}
-        <div className="text-xs text-gray-700">
-          {reservation.userName}
-        </div>
-        {reservation.note && (
-          <div className="text-xs text-gray-500">
-            {reservation.note}
-          </div>
-        )}
-      </>
-    ) : (
-      <span className="text-gray-400 text-xs">＋予約</span>
-    )}
-  </div>
-</button>
-          </td>
-        );
-      })}
-    </tr>
-  ))}
-</tbody>
+              return (
+                <td
+                  key={`${asset.id}-${day.key}`}
+                  className={`border p-1 align-top ${cellBg}`}
+                >
+                  <button
+                    className="w-full min-h-[64px] rounded-lg border border-dashed border-gray-300 hover:bg-gray-50 text-left p-2"
+                    type="button"
+                    onClick={() =>
+                      setSelectedSlot({
+                        assetId: asset.id,
+                        assetName: asset.name,
+                        dayKey: day.key,
+                        dateLabel: `${day.label}（${day.weekday}）`,
+                        endDayKey: day.key,
+                      })
+                    }
+                  >
+                    <div className="space-y-1">
+                      {reservation ? (
+                        <>
+                          {reservation.site && (
+                            <div className="font-bold text-sm">
+                              {reservation.site}
+                            </div>
+                          )}
+                          <div className="text-xs text-gray-700">
+                            {reservation.userName}
+                          </div>
+                          {reservation.note && (
+                            <div className="text-xs text-gray-500">
+                              {reservation.note}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-gray-400 text-xs">＋予約</span>
+                      )}
+                    </div>
+                  </button>
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
     </table>
   </div>
 
   <div className="px-3 py-2 text-xs text-gray-500 border-t leading-5">
-  予約日をタップすると終了日を選べます。同日なら1日、先の日付を選ぶと複数日予約になります。
+    予約日をタップすると終了日を選べます。同日なら1日、先の日付を選ぶと複数日予約になります。
+  </div>
 </div>
-</div>
-        )}
+ )}
 
         {myAssets.length > 0 && (
           <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
