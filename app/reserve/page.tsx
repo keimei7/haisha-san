@@ -1013,7 +1013,7 @@ downloadCsv(filename, csv);
   </button>
 </div>
 
-          <div className="bg-green-500 border-b px-3 py-2.5 relative">
+          <div className="bg-green-300 border-b px-3 py-2.5 relative">
             <div className="text-center font-bold text-xl">
             {currentTable?.title ?? "テーブル未選択"}
             </div>
