@@ -1,314 +1,308 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase-client";
-import { db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import {
-  addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
-  onSnapshot,
-  orderBy,
+  getDocs,
   query,
   updateDoc,
   where,
 } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase-client";
+import { db } from "@/lib/firebase";
 
-type Asset = {
-  id: string;
-  name: string;
-  inspection: string;
-  sort: number;
-  companyId?: string;
-  assignedUid?: string;
-  assignedUser?: string;
-};
+type UserRole = "owner" | "admin" | "member";
 
-type UserItem = {
+type Member = {
   uid: string;
   displayName?: string;
-  name?: string;
+  email?: string;
+  role?: UserRole;
 };
 
-type UserDoc = {
-  companyId?: string;
-  displayName?: string;
-  name?: string;
-  role?: "owner" | "admin" | "member";
-};
-export default function ManagePage() {
+export default function CompanyAdminPage() {
   const router = useRouter();
 
-  const [companyId, setCompanyId] = useState("");
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [users, setUsers] = useState<UserItem[]>([]);
-
-  const [name, setName] = useState("");
-  const [inspection, setInspection] = useState("");
-  const [assignedUid, setAssignedUid] = useState("");
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editInspection, setEditInspection] = useState("");
-  const [editAssignedUid, setEditAssignedUid] = useState("");
-
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  // =========================
-  // 認証
-  // =========================
+  const [myUid, setMyUid] = useState("");
+  const [myRole, setMyRole] = useState<UserRole | "">("");
+
+  const [companyId, setCompanyId] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [ownerUid, setOwnerUid] = useState("");
+
+  const [members, setMembers] = useState<Member[]>([]);
+
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         router.replace("/login");
         return;
       }
 
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (!snap.exists()) {
-        router.replace("/setup");
-        return;
+      try {
+        setMyUid(user.uid);
+
+        const userRef = doc(db, "users", user.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data();
+
+        if (!userData?.companyId) {
+          router.replace("/");
+          return;
+        }
+
+        if (userData.role !== "owner" && userData.role !== "admin") {
+          router.replace("/");
+          return;
+        }
+
+        const currentCompanyId = userData.companyId as string;
+        const currentRole = userData.role as UserRole;
+
+        setCompanyId(currentCompanyId);
+        setMyRole(currentRole);
+
+        const companyRef = doc(db, "companies", currentCompanyId);
+        const companySnap = await getDoc(companyRef);
+        const companyData = companySnap.data();
+
+        setCompanyName(companyData?.name ?? "");
+        setInviteCode(companyData?.inviteCode ?? "");
+        setOwnerUid(companyData?.ownerUid ?? "");
+
+        await fetchMembers(currentCompanyId);
+      } catch (error) {
+        console.error(error);
+        alert("管理ページの初期化に失敗しました");
+      } finally {
+        setLoading(false);
       }
-
-     const data = snap.data() as UserDoc;
-
-if (!data.companyId) {
-  router.replace("/setup");
-  return;
-}
-
-setCompanyId(data.companyId);
-setLoading(false);
-
     });
 
-    return () => unsub();
+    return () => unsubscribe();
   }, [router]);
 
-  // =========================
-  // ユーザ取得
-  // =========================
-  useEffect(() => {
-    if (!companyId) return;
-
-    const q = query(collection(db, "users"), where("companyId", "==", companyId));
-
-    return onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => {
-        const data = d.data() as UserDoc;
-        return {
-          uid: d.id,
-          displayName: data.displayName ?? "",
-          name: data.name ?? "",
-        };
-      });
-
-      setUsers(list);
-    });
-  }, [companyId]);
-
-  // =========================
-  // アセット取得
-  // =========================
-  useEffect(() => {
-    if (!companyId) return;
-
+  const fetchMembers = async (targetCompanyId: string) => {
     const q = query(
-      collection(db, "assets"),
-      where("companyId", "==", companyId),
-      orderBy("sort", "asc")
+      collection(db, "users"),
+      where("companyId", "==", targetCompanyId)
     );
 
-    return onSnapshot(q, (snap) => {
-      const list = snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          name: data.name ?? "",
-          inspection: data.inspection ?? "",
-          sort: data.sort ?? 0,
-          assignedUid: data.assignedUid ?? "",
-          assignedUser: data.assignedUser ?? "",
-        };
+    const snap = await getDocs(q);
+
+    const list: Member[] = snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        uid: d.id,
+        displayName: data.displayName ?? "",
+        email: data.email ?? "",
+        role: data.role ?? "member",
+      };
+    });
+
+    const sorted = list.sort((a, b) => {
+      const rank = { owner: 0, admin: 1, member: 2 };
+      return rank[a.role ?? "member"] - rank[b.role ?? "member"];
+    });
+
+    setMembers(sorted);
+  };
+
+  const saveCompanyName = async () => {
+    if (!companyId) return;
+
+    try {
+      setSaving(true);
+
+      await updateDoc(doc(db, "companies", companyId), {
+        name: companyName,
+        updatedAt: new Date().toISOString(),
       });
 
-      setAssets(list);
-    });
-  }, [companyId]);
-
-  // =========================
-  // ユーザ表示名
-  // =========================
-  const userOptions = useMemo(() => {
-    return users.map((u) => ({
-      uid: u.uid,
-      label: u.displayName || u.name || "",
-    }));
-  }, [users]);
-
-  const getUserName = (uid: string) => {
-    return userOptions.find((u) => u.uid === uid)?.label ?? "";
+      alert("会社名を保存しました");
+    } catch (error) {
+      console.error(error);
+      alert("会社名の保存に失敗しました");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // =========================
-  // 追加
-  // =========================
-  const addAsset = async () => {
-    if (!name.trim()) return alert("名前いれて");
+  const regenerateInviteCode = async () => {
+    if (!companyId) return;
 
-    const maxSort = assets.length
-      ? Math.max(...assets.map((a) => a.sort))
-      : 0;
+    try {
+      setSaving(true);
 
-    await addDoc(collection(db, "assets"), {
-      name,
-      inspection,
-      sort: maxSort + 1,
-      companyId,
-      assignedUid,
-      assignedUser: assignedUid ? getUserName(assignedUid) : "",
-      updatedAt: new Date().toISOString(),
-    });
+      const newCode = Math.random().toString(36).slice(2, 10).toUpperCase();
 
-    setName("");
-    setInspection("");
-    setAssignedUid("");
+      await updateDoc(doc(db, "companies", companyId), {
+        inviteCode: newCode,
+        updatedAt: new Date().toISOString(),
+      });
+
+      setInviteCode(newCode);
+      alert("招待コードを再発行しました");
+    } catch (error) {
+      console.error(error);
+      alert("招待コードの再発行に失敗しました");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  // =========================
-  // 編集
-  // =========================
-  const startEdit = (a: Asset) => {
-    setEditingId(a.id);
-    setEditName(a.name);
-    setEditInspection(a.inspection);
-    setEditAssignedUid(a.assignedUid ?? "");
+  const changeRole = async (targetUid: string, nextRole: UserRole) => {
+    if (!companyId) return;
+
+    const target = members.find((m) => m.uid === targetUid);
+    if (!target) return;
+
+    // ownerは変更禁止
+    if (target.uid === ownerUid || target.role === "owner") {
+      alert("ownerの権限はここでは変更できません");
+      return;
+    }
+
+    // adminはadminを作れないようにする
+    if (myRole !== "owner" && nextRole === "admin") {
+      alert("adminへの変更はownerのみ可能です");
+      return;
+    }
+
+    // 自分自身をmemberに落とす事故を防ぐ
+    if (targetUid === myUid && nextRole === "member") {
+      alert("自分自身をmemberには変更できません");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await updateDoc(doc(db, "users", targetUid), {
+        role: nextRole,
+        updatedAt: new Date().toISOString(),
+      });
+
+      await fetchMembers(companyId);
+    } catch (error) {
+      console.error(error);
+      alert("権限変更に失敗しました");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const saveEdit = async (id: string) => {
-    await updateDoc(doc(db, "assets", id), {
-      name: editName,
-      inspection: editInspection,
-      assignedUid: editAssignedUid,
-      assignedUser: editAssignedUid ? getUserName(editAssignedUid) : "",
-      updatedAt: new Date().toISOString(),
-    });
-
-    setEditingId(null);
-  };
-
-  const remove = async (id: string) => {
-    if (!confirm("削除する？")) return;
-    await deleteDoc(doc(db, "assets", id));
-  };
-
-  if (loading) return <div>loading...</div>;
+  if (loading) {
+    return <div className="p-4">読み込み中...</div>;
+  }
 
   return (
-    <main className="p-4 max-w-md mx-auto space-y-4">
+    <main className="p-4 max-w-3xl mx-auto space-y-6">
+      <h1 className="text-xl font-bold">会社管理</h1>
 
-      {/* 追加フォーム */}
-      <div className="border rounded-xl p-4 space-y-3">
-        <div className="font-bold">アセット追加</div>
+      {/* 会社情報 */}
+      <section className="border rounded-2xl p-4 space-y-3">
+        <h2 className="font-semibold">会社情報</h2>
 
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="名前"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <div>
+          <div className="text-sm text-gray-500">Company ID</div>
+          <div className="text-sm break-all">{companyId}</div>
+        </div>
 
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="点検"
-          value={inspection}
-          onChange={(e) => setInspection(e.target.value)}
-        />
+        <div>
+          <div className="text-sm text-gray-500">Owner UID</div>
+          <div className="text-sm break-all">{ownerUid}</div>
+        </div>
 
-        <select
-          className="w-full border p-2 rounded"
-          value={assignedUid}
-          onChange={(e) => setAssignedUid(e.target.value)}
-        >
-          <option value="">共有</option>
-          {userOptions.map((u) => (
-            <option key={u.uid} value={u.uid}>
-              {u.label}
-            </option>
-          ))}
-        </select>
+        <div>
+          <div className="text-sm text-gray-500">会社名</div>
+          <input
+            className="w-full border rounded-lg px-3 py-2 mt-1"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+          />
+          <button
+            className="mt-2 w-full bg-blue-600 text-white rounded-lg py-2 disabled:opacity-50"
+            onClick={saveCompanyName}
+            disabled={saving}
+          >
+            保存
+          </button>
+        </div>
+      </section>
+
+      {/* 招待コード */}
+      <section className="border rounded-2xl p-4 space-y-3">
+        <h2 className="font-semibold">招待コード</h2>
+
+        <div className="text-lg font-mono tracking-widest">{inviteCode}</div>
 
         <button
-          className="w-full bg-blue-600 text-white py-2 rounded"
-          onClick={addAsset}
+          className="w-full border rounded-lg py-2 disabled:opacity-50"
+          onClick={regenerateInviteCode}
+          disabled={saving}
         >
-          追加
+          再発行
         </button>
-      </div>
+      </section>
 
-      {/* 一覧 */}
-      <div className="space-y-3">
-        {assets.map((a) => (
-          <div key={a.id} className="border p-3 rounded-xl">
+      {/* メンバー管理 */}
+      <section className="border rounded-2xl p-4 space-y-4">
+        <h2 className="font-semibold">メンバー管理</h2>
 
-            {editingId === a.id ? (
-              <>
-                <input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="w-full border p-2 mb-2"
-                />
+        <div className="space-y-3">
+          {members.map((member) => {
+          const canEdit = myRole === "admin";
 
-                <input
-                  value={editInspection}
-                  onChange={(e) => setEditInspection(e.target.value)}
-                  className="w-full border p-2 mb-2"
-                />
-
-                <select
-                  value={editAssignedUid}
-                  onChange={(e) => setEditAssignedUid(e.target.value)}
-                  className="w-full border p-2 mb-2"
-                >
-                  <option value="">共有</option>
-                  {userOptions.map((u) => (
-                    <option key={u.uid} value={u.uid}>
-                      {u.label}
-                    </option>
-                  ))}
-                </select>
-
-                <button onClick={() => saveEdit(a.id)}>保存</button>
-              </>
-            ) : (
-              <>
-                <div className="font-bold">{a.name}</div>
-                <div className="text-sm">{a.inspection}</div>
-                <div className="text-sm text-gray-500">
-                  {a.assignedUser || "共有"}
+            return (
+              <div
+                key={member.uid}
+                className="border rounded-xl p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium">
+                    {member.displayName || "名前未設定"}
+                  </div>
+                  <div className="text-sm text-gray-500 break-all">
+                    {member.email || "メール未設定"}
+                  </div>
+                  <div className="text-xs text-gray-400 break-all mt-1">
+                    UID: {member.uid}
+                  </div>
                 </div>
 
-                <div className="flex gap-2 mt-2">
-                  <button onClick={() => startEdit(a)}>編集</button>
-                  <button onClick={() => remove(a.id)}>削除</button>
-                </div>
-              </>
-            )}
-
-          </div>
-        ))}
-      </div>
-
-      <button
-        className="w-full border py-2 rounded"
-        onClick={() => router.push("/reserve")}
-      >
-        ← 戻る
-      </button>
+                <div className="flex items-center gap-2">
+  {canEdit ? (
+    <select
+      className="border rounded-lg px-3 py-2"
+      value={member.role}
+      onChange={(e) =>
+        changeRole(member.uid, e.target.value as UserRole)
+      }
+      disabled={saving || member.uid === myUid}
+    >
+      <option value="member">member</option>
+      <option value="admin">admin</option>
+    </select>
+  ) : (
+    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
+      {member.role}
+    </div>
+  )}
+</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </main>
   );
-}
+}　

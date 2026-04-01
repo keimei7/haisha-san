@@ -59,10 +59,10 @@ export default function CompanyAdminPage() {
           return;
         }
 
-        if (userData.role !== "owner" && userData.role !== "admin") {
-          router.replace("/");
-          return;
-        }
+       if (userData.role !== "admin") {
+  router.replace("/");
+  return;
+}
 
         const currentCompanyId = userData.companyId as string;
         const currentRole = userData.role as UserRole;
@@ -160,46 +160,33 @@ export default function CompanyAdminPage() {
   };
 
   const changeRole = async (targetUid: string, nextRole: UserRole) => {
-    if (!companyId) return;
+  if (!companyId) return;
 
-    const target = members.find((m) => m.uid === targetUid);
-    if (!target) return;
+  const target = members.find((m) => m.uid === targetUid);
+  if (!target) return;
 
-    // ownerは変更禁止
-    if (target.uid === ownerUid || target.role === "owner") {
-      alert("ownerの権限はここでは変更できません");
-      return;
-    }
+  // 自分自身をmemberに落とす事故を防ぐ
+  if (targetUid === myUid && nextRole === "member") {
+    alert("自分自身をmemberには変更できません");
+    return;
+  }
 
-    // adminはadminを作れないようにする
-    if (myRole !== "owner" && nextRole === "admin") {
-      alert("adminへの変更はownerのみ可能です");
-      return;
-    }
+  try {
+    setSaving(true);
 
-    // 自分自身をmemberに落とす事故を防ぐ
-    if (targetUid === myUid && nextRole === "member") {
-      alert("自分自身をmemberには変更できません");
-      return;
-    }
+    await updateDoc(doc(db, "users", targetUid), {
+      role: nextRole,
+      updatedAt: new Date().toISOString(),
+    });
 
-    try {
-      setSaving(true);
-
-      await updateDoc(doc(db, "users", targetUid), {
-        role: nextRole,
-        updatedAt: new Date().toISOString(),
-      });
-
-      await fetchMembers(companyId);
-    } catch (error) {
-      console.error(error);
-      alert("権限変更に失敗しました");
-    } finally {
-      setSaving(false);
-    }
-  };
-
+    await fetchMembers(companyId);
+  } catch (error) {
+    console.error(error);
+    alert("権限変更に失敗しました");
+  } finally {
+    setSaving(false);
+  }
+};
   if (loading) {
     return <div className="p-4">読み込み中...</div>;
   }
@@ -260,13 +247,7 @@ export default function CompanyAdminPage() {
 
         <div className="space-y-3">
           {members.map((member) => {
-            const isOwner = member.uid === ownerUid || member.role === "owner";
-            const canEdit =
-              !isOwner &&
-              (
-                myRole === "owner" ||
-                (myRole === "admin" && member.role === "member")
-              );
+          const canEdit = myRole === "admin" && member.uid !== myUid;
 
             return (
               <div
@@ -285,29 +266,25 @@ export default function CompanyAdminPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  {isOwner ? (
-                    <div className="px-3 py-2 rounded-lg bg-gray-100 text-sm">
-                      owner
-                    </div>
-                  ) : canEdit ? (
-                    <select
-                      className="border rounded-lg px-3 py-2"
-                      value={member.role}
-                      onChange={(e) =>
-                        changeRole(member.uid, e.target.value as UserRole)
-                      }
-                      disabled={saving}
-                    >
-                      <option value="member">member</option>
-                      <option value="admin">admin</option>
-                    </select>
-                  ) : (
-                    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
-                      {member.role}
-                    </div>
-                  )}
-                </div>
+               <div className="flex items-center gap-2">
+  {canEdit ? (
+    <select
+      className="border rounded-lg px-3 py-2"
+      value={member.role}
+      onChange={(e) =>
+        changeRole(member.uid, e.target.value as UserRole)
+      }
+      disabled={saving || member.uid === myUid}
+    >
+      <option value="member">member</option>
+      <option value="admin">admin</option>
+    </select>
+  ) : (
+    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
+      {member.role}
+    </div>
+  )}
+</div>
               </div>
             );
           })}

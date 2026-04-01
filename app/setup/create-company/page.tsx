@@ -35,12 +35,12 @@ export default function CreateCompanyPage() {
       const inviteCode = Math.random().toString(36).slice(2, 8).toUpperCase();
 
       const companyRef = await addDoc(collection(db, "companies"), {
-        name: name.trim(),
-        inviteCode,
-        ownerUid: user.uid,
-        createdAt: now,
-        updatedAt: now,
-      });
+  name: name.trim(),
+  inviteCode,
+  ownerUid: user.uid,
+  createdAt: now,
+  updatedAt: now,
+});
 
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
@@ -51,17 +51,17 @@ export default function CreateCompanyPage() {
           createdAt?: string;
         };
 
-        await setDoc(
-          userRef,
-          {
-            displayName: current.displayName ?? user.displayName ?? "管理者",
-            companyId: companyRef.id,
-            role: "admin",
-            createdAt: current.createdAt ?? now,
-            updatedAt: now,
-          },
-          { merge: true }
-        );
+      await setDoc(
+  userRef,
+  {
+    displayName: current.displayName ?? user.displayName ?? "管理者",
+    companyId: companyRef.id,
+    role: "admin",
+    createdAt: current.createdAt ?? now,
+    updatedAt: now,
+  },
+  { merge: true }
+);
       } else {
         await setDoc(userRef, {
           displayName: user.displayName ?? "管理者",
