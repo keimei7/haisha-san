@@ -53,10 +53,10 @@ export default function LoginPage() {
         <div className="px-6 pt-8 pb-6 flex flex-col items-center gap-3 border-b">
           <img
             src="/icon.png"
-            alt="配車さん"
+            alt="gotab"
             className="w-20 h-20 object-contain"
           />
-          <div className="text-2xl font-bold tracking-wide">配車さん</div>
+          <div className="text-2xl font-bold tracking-wide">gotab</div>
           <div className="text-sm text-gray-500">
             ログインして予約画面へ進みます
           </div>
