@@ -63,6 +63,7 @@ type UserDoc = {
   companyId?: string;
   displayName?: string;
   name?: string;
+  email?: string;
   role?: "owner" | "admin" | "member";
 };
 
@@ -720,43 +721,55 @@ useEffect(() => {
 
   return () => unsub();
 }, [companyId]);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      try {
-        if (!user) {
-          setAuthLoading(false);
-          router.replace("/login");
-          return;
-        }
-
-        const userSnap = await getDoc(doc(db, "users", user.uid));
-        if (!userSnap.exists()) {
-          setAuthLoading(false);
-          router.replace("/setup");
-          return;
-        }
-
-       const data = userSnap.data() as UserDoc;
-setMyDisplayName(data.displayName ?? data.name ?? "");
-setMyRole((data as any).role ?? "member");
-if (!data.companyId) {
-          setAuthLoading(false);
-          router.replace("/setup");
-          return;
-        }
-
-        setCompanyId(data.companyId);
-        setAuthLoading(false);
-      } catch (error) {
-        console.error("auth/company read error:", error);
+useEffect(() => {
+  const unsub = onAuthStateChanged(auth, async (user) => {
+    try {
+      if (!user) {
         setAuthLoading(false);
         router.replace("/login");
+        return;
       }
-    });
 
-    return () => unsub();
-  }, [router]);
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        setAuthLoading(false);
+        router.replace("/setup");
+        return;
+      }
+
+      const data = userSnap.data() as UserDoc;
+
+      // 既存ユーザー救済:
+      // Firestore側に email が無くて、Auth側に email があるなら自動補完
+      if (!data.email && user.email) {
+        await updateDoc(userRef, {
+          email: user.email,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      setMyDisplayName(data.displayName ?? data.name ?? "");
+      setMyRole(data.role ?? "member");
+
+      if (!data.companyId) {
+        setAuthLoading(false);
+        router.replace("/setup");
+        return;
+      }
+
+      setCompanyId(data.companyId);
+      setAuthLoading(false);
+    } catch (error) {
+      console.error("auth/company read error:", error);
+      setAuthLoading(false);
+      router.replace("/login");
+    }
+  });
+
+  return () => unsub();
+}, [router]);
 
   useEffect(() => {
     if (!companyId) return;
