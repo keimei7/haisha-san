@@ -967,8 +967,13 @@ const promoteMeToAdmin = async () => {
       updatedAt: new Date().toISOString(),
     });
 
-   
-
+    setMyRole("admin");
+    alert("仮で admin に設定しました");
+  } catch (error) {
+    console.error("promote admin error:", error);
+    alert("admin 設定に失敗しました");
+  }
+};
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -1007,7 +1012,7 @@ const promoteMeToAdmin = async () => {
     ☰
   </button>
 
- 
+  
 </div>
 
           <div className="bg-yellow-300 border-b px-3 py-2.5 relative">
