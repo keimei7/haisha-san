@@ -999,7 +999,8 @@ downloadCsv(filename, csv);
   <img
     src="/icon.png"
     alt="gotab"
-    className="h-10 w-auto"
+    className="h-12 w-auto"
+
   />
 
   <button
