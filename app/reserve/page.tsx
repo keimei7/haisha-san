@@ -1018,6 +1018,7 @@ downloadCsv(filename, csv);
             {currentTable?.title ?? "テーブル未選択"}
             </div>
 
+
             {currentTable && (
               <button
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg border border-black/20 bg-white px-3 py-1 text-sm"
@@ -1120,18 +1121,18 @@ downloadCsv(filename, csv);
             </button>
           </div>
         ) : (
-     <div className="rounded-xl border bg-white">
+    <div className="rounded-xl border bg-white overflow-hidden">
   <div className="max-h-[70vh] overflow-auto">
     <table className="border-collapse text-sm min-w-[620px] w-full table-fixed">
       <thead>
         <tr>
-          <th className="sticky top-0 z-30 border bg-red-500 text-white px-2 py-2 w-[7%]">
-            {currentTable?.labelMeta1 ?? "車検"}
-          </th>
+          <th className="sticky top-0 z-20 border bg-red-100 text-red-700 px-2 py-2 w-[7%]">
+  {currentTable?.labelMeta1 ?? "車検"}
+</th>
 
-          <th className="sticky top-0 left-0 z-40 border bg-green-600 text-white px-2 py-2 w-[11%]">
-            {currentTable?.labelMeta2 ?? "車種"}
-          </th>
+          <th className="sticky top-0 left-0 z-20 border bg-green-100 text-green-700 px-2 py-2 w-[11%]">
+  {currentTable?.labelMeta2 ?? "車種"}
+</th>
 
           {days.map((day) => {
             const isSunday = day.date.getDay() === 0;
