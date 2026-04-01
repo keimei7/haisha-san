@@ -290,6 +290,15 @@ export default function CompanyAdminPage() {
           })}
         </div>
       </section>
+      <div className="pt-2">
+  <button
+    type="button"
+    className="w-full border rounded-lg py-3"
+    onClick={() => router.push("/reserve")}
+  >
+    予約画面に戻る
+  </button>
+</div>
     </main>
   );
 }
