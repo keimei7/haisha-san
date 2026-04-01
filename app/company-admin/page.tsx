@@ -39,6 +39,7 @@ export default function CompanyAdminPage() {
   const [ownerUid, setOwnerUid] = useState("");
 
   const [members, setMembers] = useState<Member[]>([]);
+  const [editingNames, setEditingNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -59,10 +60,10 @@ export default function CompanyAdminPage() {
           return;
         }
 
-       if (userData.role !== "admin") {
-  router.replace("/");
-  return;
-}
+        if (userData.role !== "admin") {
+          router.replace("/");
+          return;
+        }
 
         const currentCompanyId = userData.companyId as string;
         const currentRole = userData.role as UserRole;
@@ -114,6 +115,16 @@ export default function CompanyAdminPage() {
     });
 
     setMembers(sorted);
+
+    setEditingNames((prev) => {
+      const next = { ...prev };
+      for (const member of sorted) {
+        if (next[member.uid] === undefined) {
+          next[member.uid] = member.displayName ?? "";
+        }
+      }
+      return next;
+    });
   };
 
   const saveCompanyName = async () => {
@@ -159,34 +170,81 @@ export default function CompanyAdminPage() {
     }
   };
 
+  const claimOwnerUid = async () => {
+    if (!companyId || !myUid) return;
+
+    try {
+      setSaving(true);
+
+      await updateDoc(doc(db, "companies", companyId), {
+        ownerUid: myUid,
+        updatedAt: new Date().toISOString(),
+      });
+
+      setOwnerUid(myUid);
+      alert("ownerUid を設定しました");
+    } catch (error) {
+      console.error(error);
+      alert("ownerUid の設定に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveDisplayName = async (targetUid: string) => {
+    const nextName = editingNames[targetUid]?.trim();
+
+    if (!nextName) {
+      alert("表示名を入力してください");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await updateDoc(doc(db, "users", targetUid), {
+        displayName: nextName,
+        updatedAt: new Date().toISOString(),
+      });
+
+      await fetchMembers(companyId);
+      alert("表示名を更新しました");
+    } catch (error) {
+      console.error(error);
+      alert("表示名の更新に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const changeRole = async (targetUid: string, nextRole: UserRole) => {
-  if (!companyId) return;
+    if (!companyId) return;
 
-  const target = members.find((m) => m.uid === targetUid);
-  if (!target) return;
+    const target = members.find((m) => m.uid === targetUid);
+    if (!target) return;
 
-  // 自分自身をmemberに落とす事故を防ぐ
-  if (targetUid === myUid && nextRole === "member") {
-    alert("自分自身をmemberには変更できません");
-    return;
-  }
+    if (targetUid === myUid && nextRole === "member") {
+      alert("自分自身をmemberには変更できません");
+      return;
+    }
 
-  try {
-    setSaving(true);
+    try {
+      setSaving(true);
 
-    await updateDoc(doc(db, "users", targetUid), {
-      role: nextRole,
-      updatedAt: new Date().toISOString(),
-    });
+      await updateDoc(doc(db, "users", targetUid), {
+        role: nextRole,
+        updatedAt: new Date().toISOString(),
+      });
 
-    await fetchMembers(companyId);
-  } catch (error) {
-    console.error(error);
-    alert("権限変更に失敗しました");
-  } finally {
-    setSaving(false);
-  }
-};
+      await fetchMembers(companyId);
+    } catch (error) {
+      console.error(error);
+      alert("権限変更に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-4">読み込み中...</div>;
   }
@@ -195,7 +253,6 @@ export default function CompanyAdminPage() {
     <main className="p-4 max-w-3xl mx-auto space-y-6">
       <h1 className="text-xl font-bold">会社管理</h1>
 
-      {/* 会社情報 */}
       <section className="border rounded-2xl p-4 space-y-3">
         <h2 className="font-semibold">会社情報</h2>
 
@@ -206,8 +263,19 @@ export default function CompanyAdminPage() {
 
         <div>
           <div className="text-sm text-gray-500">Owner UID</div>
-          <div className="text-sm break-all">{ownerUid}</div>
+          <div className="text-sm break-all">{ownerUid || "未設定"}</div>
         </div>
+
+        {!ownerUid && (
+          <button
+            type="button"
+            className="w-full border rounded-lg py-2 mt-2"
+            onClick={claimOwnerUid}
+            disabled={saving}
+          >
+            このアカウントを ownerUid に設定
+          </button>
+        )}
 
         <div>
           <div className="text-sm text-gray-500">会社名</div>
@@ -220,13 +288,13 @@ export default function CompanyAdminPage() {
             className="mt-2 w-full bg-blue-600 text-white rounded-lg py-2 disabled:opacity-50"
             onClick={saveCompanyName}
             disabled={saving}
+            type="button"
           >
             保存
           </button>
         </div>
       </section>
 
-      {/* 招待コード */}
       <section className="border rounded-2xl p-4 space-y-3">
         <h2 className="font-semibold">招待コード</h2>
 
@@ -236,69 +304,96 @@ export default function CompanyAdminPage() {
           className="w-full border rounded-lg py-2 disabled:opacity-50"
           onClick={regenerateInviteCode}
           disabled={saving}
+          type="button"
         >
           再発行
         </button>
       </section>
 
-      {/* メンバー管理 */}
       <section className="border rounded-2xl p-4 space-y-4">
         <h2 className="font-semibold">メンバー管理</h2>
 
         <div className="space-y-3">
           {members.map((member) => {
-          const canEdit = myRole === "admin" && member.uid !== myUid;
+            const canEdit = myRole === "admin" && member.uid !== myUid;
 
             return (
               <div
                 key={member.uid}
                 className="border rounded-xl p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
               >
-                <div className="min-w-0">
-                  <div className="font-medium">
-                    {member.displayName || "名前未設定"}
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">表示名</div>
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 border rounded-lg px-3 py-2"
+                        value={editingNames[member.uid] ?? ""}
+                        onChange={(e) =>
+                          setEditingNames((prev) => ({
+                            ...prev,
+                            [member.uid]: e.target.value,
+                          }))
+                        }
+                        disabled={saving}
+                      />
+                      <button
+                        type="button"
+                        className="border rounded-lg px-3 py-2"
+                        onClick={() => saveDisplayName(member.uid)}
+                        disabled={saving}
+                      >
+                        保存
+                      </button>
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500 break-all">
-                    {member.email || "メール未設定"}
+
+                  <div>
+                    <div className="text-xs text-gray-500">メール</div>
+                    <div className="text-sm text-gray-700 break-all">
+                      {member.email || "メール未設定"}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-400 break-all mt-1">
+
+                  <div className="text-xs text-gray-400 break-all">
                     UID: {member.uid}
                   </div>
                 </div>
 
-               <div className="flex items-center gap-2">
-  {canEdit ? (
-    <select
-      className="border rounded-lg px-3 py-2"
-      value={member.role}
-      onChange={(e) =>
-        changeRole(member.uid, e.target.value as UserRole)
-      }
-      disabled={saving || member.uid === myUid}
-    >
-      <option value="member">member</option>
-      <option value="admin">admin</option>
-    </select>
-  ) : (
-    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
-      {member.role}
-    </div>
-  )}
-</div>
+                <div className="flex items-center gap-2">
+                  {canEdit ? (
+                    <select
+                      className="border rounded-lg px-3 py-2"
+                      value={member.role}
+                      onChange={(e) =>
+                        changeRole(member.uid, e.target.value as UserRole)
+                      }
+                      disabled={saving}
+                    >
+                      <option value="member">member</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  ) : (
+                    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
+                      {member.role}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       </section>
+
       <div className="pt-2">
-  <button
-    type="button"
-    className="w-full border rounded-lg py-3"
-    onClick={() => router.push("/reserve")}
-  >
-    予約画面に戻る
-  </button>
-</div>
+        <button
+          type="button"
+          className="w-full border rounded-lg py-3"
+          onClick={() => router.push("/reserve")}
+        >
+          予約画面に戻る
+        </button>
+      </div>
     </main>
   );
 }
