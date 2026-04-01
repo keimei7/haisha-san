@@ -22,6 +22,7 @@ type Member = {
   displayName?: string;
   email?: string;
   role?: UserRole;
+  isActive?: boolean;
 };
 
 export default function CompanyAdminPage() {
@@ -106,6 +107,7 @@ export default function CompanyAdminPage() {
         displayName: data.displayName ?? "",
         email: data.email ?? "",
         role: data.role ?? "member",
+        isActive: data.isActive ?? true,
       };
     });
 
@@ -216,46 +218,92 @@ export default function CompanyAdminPage() {
       setSaving(false);
     }
   };
-const changeRole = async (targetUid: string, nextRole: UserRole) => {
-  if (!companyId) return;
 
-  const target = members.find((m) => m.uid === targetUid);
-  if (!target) return;
+  const changeRole = async (targetUid: string, nextRole: UserRole) => {
+    if (!companyId) return;
 
-  const adminCount = members.filter((m) => m.role === "admin").length;
+    const target = members.find((m) => m.uid === targetUid);
+    if (!target) return;
 
-  // 自分自身をmemberに落とす事故を防ぐ
-  if (targetUid === myUid && nextRole === "member") {
-    alert("自分自身をmemberには変更できません");
-    return;
-  }
+    const activeAdminCount = members.filter(
+      (m) => m.role === "admin" && (m.isActive ?? true)
+    ).length;
 
-  // 最後のadminをmemberに落とすのを防ぐ
-  if (
-    target.role === "admin" &&
-    nextRole === "member" &&
-    adminCount <= 1
-  ) {
-    alert("最後のadminはmemberに変更できません");
-    return;
-  }
+    if (targetUid === myUid && nextRole === "member") {
+      alert("自分自身をmemberには変更できません");
+      return;
+    }
 
-  try {
-    setSaving(true);
+    if (
+      target.role === "admin" &&
+      nextRole === "member" &&
+      (target.isActive ?? true) &&
+      activeAdminCount <= 1
+    ) {
+      alert("最後の管理者は member に変更できません");
+      return;
+    }
 
-    await updateDoc(doc(db, "users", targetUid), {
-      role: nextRole,
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      setSaving(true);
 
-    await fetchMembers(companyId);
-  } catch (error) {
-    console.error(error);
-    alert("権限変更に失敗しました");
-  } finally {
-    setSaving(false);
-  }
-};
+      await updateDoc(doc(db, "users", targetUid), {
+        role: nextRole,
+        updatedAt: new Date().toISOString(),
+      });
+
+      await fetchMembers(companyId);
+    } catch (error) {
+      console.error(error);
+      alert("権限変更に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleMemberActive = async (targetUid: string, nextActive: boolean) => {
+    if (!companyId) return;
+
+    const target = members.find((m) => m.uid === targetUid);
+    if (!target) return;
+
+    if (targetUid === myUid && !nextActive) {
+      alert("自分自身は無効化できません");
+      return;
+    }
+
+    const activeAdminCount = members.filter(
+      (m) => m.role === "admin" && (m.isActive ?? true)
+    ).length;
+
+    if (
+      !nextActive &&
+      target.role === "admin" &&
+      (target.isActive ?? true) &&
+      activeAdminCount <= 1
+    ) {
+      alert("最後の管理者は無効化できません");
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      await updateDoc(doc(db, "users", targetUid), {
+        isActive: nextActive,
+        updatedAt: new Date().toISOString(),
+      });
+
+      await fetchMembers(companyId);
+      alert(nextActive ? "ユーザーを復活しました" : "ユーザーを無効化しました");
+    } catch (error) {
+      console.error(error);
+      alert("ユーザー状態の更新に失敗しました");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-4">読み込み中...</div>;
   }
@@ -327,6 +375,7 @@ const changeRole = async (targetUid: string, nextRole: UserRole) => {
         <div className="space-y-3">
           {members.map((member) => {
             const canEdit = myRole === "admin" && member.uid !== myUid;
+            const isActive = member.isActive ?? true;
 
             return (
               <div
@@ -366,32 +415,53 @@ const changeRole = async (targetUid: string, nextRole: UserRole) => {
                     </div>
                   </div>
 
+                  <div className="text-xs text-gray-400">
+                    状態: {isActive ? "有効" : "無効"}
+                  </div>
+
                   <div className="text-xs text-gray-400 break-all">
                     UID: {member.uid}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2">
                   {canEdit ? (
                     <select
-  className="border rounded-lg px-3 py-2"
-  value={member.role}
-  onChange={(e) =>
-    changeRole(member.uid, e.target.value as UserRole)
-  }
-  disabled={saving || member.uid === myUid}
->
-  <option value="member">member</option>
-  <option value="admin">管理者</option>
-</select>
+                      className="border rounded-lg px-3 py-2"
+                      value={member.role}
+                      onChange={(e) =>
+                        changeRole(member.uid, e.target.value as UserRole)
+                      }
+                      disabled={saving || member.uid === myUid || !isActive}
+                    >
+                      <option value="member">member</option>
+                      <option value="admin">管理者</option>
+                    </select>
                   ) : (
-                   <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
-  {member.role === "admin"
-    ? "管理者"
-    : member.role === "owner"
-    ? "owner"
-    : "member"}
-</div>
+                    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm text-center">
+                      {member.role === "admin"
+                        ? "管理者"
+                        : member.role === "owner"
+                        ? "owner"
+                        : "member"}
+                    </div>
+                  )}
+
+                  {member.uid !== myUid && (
+                    <button
+                      type="button"
+                      className={`px-3 py-2 rounded-lg border text-sm ${
+                        isActive
+                          ? "border-red-300 text-red-600"
+                          : "border-green-300 text-green-600"
+                      }`}
+                      onClick={() =>
+                        toggleMemberActive(member.uid, !isActive)
+                      }
+                      disabled={saving}
+                    >
+                      {isActive ? "無効化" : "復活"}
+                    </button>
                   )}
                 </div>
               </div>

@@ -774,16 +774,17 @@ useEffect(() => {
   useEffect(() => {
     if (!companyId) return;
 
-    const q = query(collection(db, "users"), where("companyId", "==", companyId));
-    const unsub = onSnapshot(q, (snap) => {
-      const names = snap.docs
-        .map((docSnap) => {
-          const data = docSnap.data() as UserDoc;
-          return data.displayName ?? data.name ?? "";
-        })
-        .filter(Boolean);
-      setMemberOptions(names);
-    });
+   const q = query(collection(db, "users"), where("companyId", "==", companyId));
+const unsub = onSnapshot(q, (snap) => {
+  const names = snap.docs
+    .map((docSnap) => {
+      const data = docSnap.data() as UserDoc & { isActive?: boolean };
+      if (data.isActive === false) return "";
+      return data.displayName ?? data.name ?? "";
+    })
+    .filter(Boolean);
+  setMemberOptions(names);
+});
 
     return () => unsub();
   }, [companyId]);
