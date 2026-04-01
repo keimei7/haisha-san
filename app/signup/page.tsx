@@ -66,10 +66,10 @@ export default function SignupPage() {
         <div className="px-6 pt-8 pb-6 flex flex-col items-center gap-3 border-b">
           <img
             src="/icon.png"
-            alt="配車さん"
+            alt=""
             className="w-20 h-20 object-contain"
           />
-          <div className="text-2xl font-bold tracking-wide">配車さん</div>
+          <div className="text-2xl font-bold tracking-wide"></div>
           <div className="text-sm text-gray-500">
             新規登録して初期設定へ進みます
           </div>
