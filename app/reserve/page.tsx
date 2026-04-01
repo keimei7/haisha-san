@@ -682,7 +682,7 @@ const [openTableIds, setOpenTableIds] = useState<string[]>([]);
  
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
  const [companyId, setCompanyId] = useState("");
-const [myRole, setMyRole] = useState<"admin" | "member">("member");
+const [myRole, setMyRole] = useState<"owner" | "admin" | "member">("member");
 const [authLoading, setAuthLoading] = useState(true);
 const [myDisplayName, setMyDisplayName] = useState("");
 
@@ -955,25 +955,10 @@ const exportWeeklyReservationsCsv = () => {
     .map((row) => row.map((cell) => escapeCsv(cell)).join(","))
     .join("\n");
 
-  const filename = `${currentTable.title}_${formatWeekTitle(weekStart)}.csv`;
+ const filename = `${currentTable.title}_${formatWeekTitle(weekStart)}.csv`;
+downloadCsv(filename, csv);
 };
-const promoteMeToAdmin = async () => {
-  const user = auth.currentUser;
-  if (!user) return;
 
-  try {
-    await updateDoc(doc(db, "users", user.uid), {
-      role: "admin",
-      updatedAt: new Date().toISOString(),
-    });
-
-    setMyRole("admin");
-    alert("仮で admin に設定しました");
-  } catch (error) {
-    console.error("promote admin error:", error);
-    alert("admin 設定に失敗しました");
-  }
-};
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -1726,9 +1711,14 @@ const promoteMeToAdmin = async () => {
     })}
   </div>
 </div>
-{myRole === "admin" && (
+{(myRole === "admin" || myRole === "owner") && (
   <button
-    onClick={() => router.push("/company-admin")}
+    type="button"
+    className="w-full border rounded-lg py-2 mt-4"
+    onClick={() => {
+      router.push("/company-admin");
+      setShowMenu(false);
+    }}
   >
     会社管理
   </button>
