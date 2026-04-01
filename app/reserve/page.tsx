@@ -1737,16 +1737,16 @@ const exportWeeklyReservationsCsv = () => {
   
 </div>
 {(myRole === "owner" || myRole === "admin") && (
-  <button
-    type="button"
-    className="w-full border rounded-lg py-2 mt-4"
-    onClick={() => {
-      router.push("/company-admin");
-      setShowMenu(false);
-    }}
-  >
-    会社管理
-  </button>
+<button
+  type="button"
+  className="w-full border rounded-lg py-2 mt-4"
+  onClick={() => {
+    router.push("/company-admin");
+    setShowMenu(false);
+  }}
+>
+  会社管理
+</button>
 )}
             <button
               type="button"
