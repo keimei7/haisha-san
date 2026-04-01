@@ -999,7 +999,7 @@ downloadCsv(filename, csv);
   <img
   src="/icon.png"
   alt="gotab"
-  className="w-20 h-20"
+  className="w-30 h-30"
 />
  
 
