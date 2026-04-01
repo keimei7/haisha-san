@@ -682,7 +682,7 @@ const [openTableIds, setOpenTableIds] = useState<string[]>([]);
  
 const [editingAsset, setEditingAsset] = useState<AssetItem | null>(null);
  const [companyId, setCompanyId] = useState("");
-const [myRole, setMyRole] = useState<"owner" | "admin" | "member" | "">("");
+const [myRole, setMyRole] = useState<"admin" | "member">("member");
 const [authLoading, setAuthLoading] = useState(true);
 const [myDisplayName, setMyDisplayName] = useState("");
 
@@ -739,7 +739,7 @@ useEffect(() => {
 
        const data = userSnap.data() as UserDoc;
 setMyDisplayName(data.displayName ?? data.name ?? "");
-setMyRole(data.role ?? "member");
+setMyRole((data as any).role ?? "member");
 if (!data.companyId) {
           setAuthLoading(false);
           router.replace("/setup");
@@ -1726,14 +1726,9 @@ const promoteMeToAdmin = async () => {
     })}
   </div>
 </div>
-{(myRole === "owner" || myRole === "admin") && (
+{myRole === "admin" && (
   <button
-    type="button"
-    className="w-full border rounded-lg py-2 mt-4"
-    onClick={() => {
-      router.push("/company-admin");
-      setShowMenu(false);
-    }}
+    onClick={() => router.push("/company-admin")}
   >
     会社管理
   </button>
