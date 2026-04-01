@@ -374,20 +374,24 @@ const changeRole = async (targetUid: string, nextRole: UserRole) => {
                 <div className="flex items-center gap-2">
                   {canEdit ? (
                     <select
-                      className="border rounded-lg px-3 py-2"
-                      value={member.role}
-                      onChange={(e) =>
-                        changeRole(member.uid, e.target.value as UserRole)
-                      }
-                      disabled={saving}
-                    >
-                      <option value="member">member</option>
-                      <option value="admin">admin</option>
-                    </select>
+  className="border rounded-lg px-3 py-2"
+  value={member.role}
+  onChange={(e) =>
+    changeRole(member.uid, e.target.value as UserRole)
+  }
+  disabled={saving || member.uid === myUid}
+>
+  <option value="member">member</option>
+  <option value="admin">管理者</option>
+</select>
                   ) : (
-                    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
-                      {member.role}
-                    </div>
+                   <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
+  {member.role === "admin"
+    ? "管理者"
+    : member.role === "owner"
+    ? "owner"
+    : "member"}
+</div>
                   )}
                 </div>
               </div>

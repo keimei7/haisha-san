@@ -1515,23 +1515,31 @@ downloadCsv(filename, csv);
   )}
 
   {!isEditingName ? (
-    <div className="flex items-center justify-between">
-      <div className="text-sm text-gray-600">
+  <div className="flex items-center justify-between gap-2">
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="text-sm text-gray-600 truncate">
         {myDisplayName || "表示名未設定"}
       </div>
 
-      <button
-        type="button"
-        className="text-xs border px-2 py-1 rounded bg-white"
-        onClick={() => {
-          setEditingDisplayName(myDisplayName);
-          setIsEditingName(true);
-        }}
-      >
-        編集
-      </button>
+      {(myRole === "admin" || myRole === "owner") && (
+        <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 whitespace-nowrap">
+          管理者
+        </span>
+      )}
     </div>
-  ) : (
+
+    <button
+      type="button"
+      className="text-xs border px-2 py-1 rounded bg-white"
+      onClick={() => {
+        setEditingDisplayName(myDisplayName);
+        setIsEditingName(true);
+      }}
+    >
+      編集
+    </button>
+  </div>
+) : (
     <div className="space-y-2">
       <input
         className="w-full border rounded-lg px-3 py-2 text-sm"
