@@ -38,8 +38,8 @@ type UserDoc = {
   companyId?: string;
   displayName?: string;
   name?: string;
+  role?: "owner" | "admin" | "member";
 };
-
 export default function ManagePage() {
   const router = useRouter();
 
@@ -74,15 +74,16 @@ export default function ManagePage() {
         return;
       }
 
-      const data = snap.data() as UserDoc;
+     const data = snap.data() as UserDoc;
 
-      if (!data.companyId) {
-        router.replace("/setup");
-        return;
-      }
+if (!data.companyId) {
+  router.replace("/setup");
+  return;
+}
 
-      setCompanyId(data.companyId);
-      setLoading(false);
+setCompanyId(data.companyId);
+setLoading(false);
+
     });
 
     return () => unsub();
@@ -233,7 +234,7 @@ export default function ManagePage() {
           value={assignedUid}
           onChange={(e) => setAssignedUid(e.target.value)}
         >
-          <option value="">共有アセット</option>
+          <option value="">共有</option>
           {userOptions.map((u) => (
             <option key={u.uid} value={u.uid}>
               {u.label}
@@ -273,7 +274,7 @@ export default function ManagePage() {
                   onChange={(e) => setEditAssignedUid(e.target.value)}
                   className="w-full border p-2 mb-2"
                 >
-                  <option value="">共有アセット</option>
+                  <option value="">共有</option>
                   {userOptions.map((u) => (
                     <option key={u.uid} value={u.uid}>
                       {u.label}
