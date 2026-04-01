@@ -65,6 +65,10 @@ type UserDoc = {
   name?: string;
   role?: "owner" | "admin" | "member";
 };
+type MemberOption = {
+  uid: string;
+  label: string;
+};
 
 function getMonday(date: Date): Date {
   const d = new Date(date);
@@ -302,19 +306,19 @@ function AddAssetModal({
 }: {
   onClose: () => void;
   onAdd: (payload: {
-  name: string;
-  subLabel: string;
-  inspection: string;
+    name: string;
+    subLabel: string;
+    inspection: string;
+    tableId: string;
+    assignedUid?: string;
+  }) => void | Promise<void>;
   tableId: string;
-  assignedUid?: string;
-}) => void | Promise<void>;
-  tableId: string;
-  memberOptions: string[];
+  memberOptions: MemberOption[];
 }) {
   const [name, setName] = useState("");
   const [subLabel, setSubLabel] = useState("");
   const [inspection, setInspection] = useState("");
-  const [assignedUser, setAssignedUser] = useState("");
+  const [assignedUid, setAssignedUid] = useState("");
 
   return (
     <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
@@ -345,17 +349,17 @@ function AddAssetModal({
           <div>
             <label className="text-sm text-gray-600">割り当て</label>
             <select
-              className="w-full border rounded-lg px-3 py-2 bg-white"
-              value={assignedUser}
-              onChange={(e) => setAssignedUser(e.target.value)}
-            >
-              <option value="">共有</option>
-              {memberOptions.map((member) => (
-                <option key={member} value={member}>
-                  {member}
-                </option>
-              ))}
-            </select>
+  className="w-full border rounded-lg px-3 py-2 bg-white"
+  value={assignedUid}
+  onChange={(e) => setAssignedUid(e.target.value)}
+>
+  <option value="">共有</option>
+  {memberOptions.map((member) => (
+    <option key={member.uid} value={member.uid}>
+      {member.label}
+    </option>
+  ))}
+</select>
           </div>
 
           <div>
@@ -379,12 +383,12 @@ function AddAssetModal({
                 return;
               }
 
-              onAdd({
-                name: name.trim(),
-                subLabel: subLabel.trim(),
-                inspection: inspection.trim(),
-                tableId,
-                assignedUser: assignedUser || undefined,
+            onAdd({
+  name: name.trim(),
+  subLabel: subLabel.trim(),
+  inspection: inspection.trim(),
+  tableId,
+  assignedUid: assignedUid || undefined,
               });
             }}
           >
@@ -403,6 +407,7 @@ function AddAssetModal({
     </div>
   );
 }
+
 function AssetEditModal({
   asset,
   memberOptions,
@@ -411,22 +416,20 @@ function AssetEditModal({
   onDelete,
 }: {
   asset: AssetItem;
-  memberOptions: string[];
+  memberOptions: MemberOption[];
   onClose: () => void;
   onSave: (payload: {
-   name: string;
-  subLabel: string;
-  inspection: string;
-  tableId: string;
-  assignedUid?: string;
+    name: string;
+    subLabel: string;
+    inspection: string;
+    assignedUid?: string;
   }) => void | Promise<void>;
   onDelete: () => void | Promise<void>;
-
 }) {
   const [name, setName] = useState(asset.name);
   const [inspection, setInspection] = useState(asset.inspection);
-  const [assignedUser, setAssignedUser] = useState(asset.assignedUser ?? "");
-const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
+  const [assignedUid, setAssignedUid] = useState(asset.assignedUid ?? "");
+  const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
   return (
     <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
@@ -451,18 +454,18 @@ const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
 </div>
           <div>
             <label className="text-sm text-gray-600">割り当て</label>
-            <select
-              className="w-full border rounded-lg px-3 py-2 bg-white"
-              value={assignedUser}
-              onChange={(e) => setAssignedUser(e.target.value)}
-            >
-              <option value="">共有</option>
-              {memberOptions.map((member) => (
-                <option key={member} value={member}>
-                  {member}
-                </option>
-              ))}
-            </select>
+           <select
+  className="w-full border rounded-lg px-3 py-2 bg-white"
+  value={assignedUid}
+  onChange={(e) => setAssignedUid(e.target.value)}
+>
+  <option value="">共有</option>
+  {memberOptions.map((member) => (
+    <option key={member.uid} value={member.uid}>
+      {member.label}
+    </option>
+  ))}
+</select>
           </div>
 
           <div>
@@ -488,7 +491,7 @@ const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
   name: name.trim(),
   subLabel: subLabel.trim(),
   inspection: inspection.trim(),
-  assignedUser: assignedUser || undefined,
+  assignedUid: assignedUid || undefined,
 });
             }}
           >
@@ -514,7 +517,8 @@ const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
       </div>
     </div>
   );
-}function ReservationModal({
+}
+function ReservationModal({
   slot,
   existing,
   memberOptions,
@@ -689,20 +693,19 @@ const [myRole, setMyRole] = useState<"owner" | "admin" | "member" | "">("");
 const [authLoading, setAuthLoading] = useState(true);
 const [myDisplayName, setMyDisplayName] = useState("");
 
-  const [tables, setTables] = useState<TableItem[]>([]);
-  const [assets, setAssets] = useState<AssetItem[]>([]);
-  const [reservations, setReservations] = useState<ReservationItem[]>([]);
-  const [memberOptions, setMemberOptions] = useState<string[]>([]);
+const [tables, setTables] = useState<TableItem[]>([]);
+const [assets, setAssets] = useState<AssetItem[]>([]);
+const [reservations, setReservations] = useState<ReservationItem[]>([]);
+const [memberOptions, setMemberOptions] = useState<MemberOption[]>([]);
 
-  const [currentTableId, setCurrentTableId] = useState("");
+const [currentTableId, setCurrentTableId] = useState("");
   const [weekStart, setWeekStart] = useState(getMonday(new Date()));
 
-  const [companyName, setCompanyName] = useState("");
+const [companyName, setCompanyName] = useState("");
 const [myUid, setMyUid] = useState("");
 const [isEditingName, setIsEditingName] = useState(false);
 const [editingDisplayName, setEditingDisplayName] = useState("");
 const [savingDisplayName, setSavingDisplayName] = useState(false);
-const [assignedUid, setAssignedUid] = useState("");
 
   const [showCreateTable, setShowCreateTable] = useState(false);
   const [showEditTable, setShowEditTable] = useState(false);
@@ -712,14 +715,23 @@ const [assignedUid, setAssignedUid] = useState("");
 useEffect(() => {
   if (!companyId) return;
 
-  const unsub = onSnapshot(doc(db, "companies", companyId), (snap) => {
-    if (!snap.exists()) {
-      setCompanyName("");
-      return;
-    }
+  const q = query(collection(db, "users"), where("companyId", "==", companyId));
+  const unsub = onSnapshot(q, (snap) => {
+    const list = snap.docs
+      .map((docSnap) => {
+        const data = docSnap.data() as UserDoc;
+        const label = data.displayName ?? data.name ?? "";
 
-    const data = snap.data() as { name?: string };
-    setCompanyName(data.name ?? "");
+        if (!label) return null;
+
+        return {
+          uid: docSnap.id,
+          label,
+        };
+      })
+      .filter(Boolean) as MemberOption[];
+
+    setMemberOptions(list);
   });
 
   return () => unsub();
@@ -770,15 +782,18 @@ useEffect(() => {
     if (!companyId) return;
 
     const q = query(collection(db, "users"), where("companyId", "==", companyId));
-    const unsub = onSnapshot(q, (snap) => {
-      const names = snap.docs
-        .map((docSnap) => {
-          const data = docSnap.data() as UserDoc;
-          return data.displayName ?? data.name ?? "";
-        })
-        .filter(Boolean);
-      setMemberOptions(names);
-    });
+const unsub = onSnapshot(q, (snap) => {
+  const list = snap.docs.map((docSnap) => {
+    const data = docSnap.data() as UserDoc;
+
+    return {
+      uid: docSnap.id,
+      label: data.displayName ?? data.name ?? "名無し",
+    };
+  });
+
+  setMemberOptions(list);
+});
 
     return () => unsub();
   }, [companyId]);
@@ -1279,7 +1294,7 @@ const exportWeeklyReservationsCsv = () => {
                       {asset.inspection || "点検情報なし"}
                     </div>
                   </div>
-                  <div className="text-sm text-gray-500">{asset.assignedUser}</div>
+                  <div className="text-sm text-gray-500">自分に割り当て</div>
                 </div>
               ))}
             </div>
@@ -1347,35 +1362,34 @@ const exportWeeklyReservationsCsv = () => {
           }}
         />
       )}
-
       {showAddAsset && (
         <AddAssetModal
           tableId={currentTableId}
           memberOptions={memberOptions}
           onClose={() => setShowAddAsset(false)}
-        onAdd={async ({ name, subLabel, inspection, tableId, assignedUser }) => {
-  try {
-    await addDoc(collection(db, "assets"), {
-      companyId,
-      name,
-      subLabel,
-      inspection,
-      tableId,
-      assignedUser: assignedUser ?? null,
-      sort: Date.now(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    setShowAddAsset(false);
-  } catch (error) {
-    console.error("asset add error:", error);
-    alert("アセット追加に失敗しました");
-  }
-}}
+          onAdd={async ({ name, subLabel, inspection, tableId, assignedUid }) => {
+            try {
+              await addDoc(collection(db, "assets"), {
+                companyId,
+                name,
+                subLabel,
+                inspection,
+                tableId,
+                assignedUid: assignedUid ?? null,
+                sort: Date.now(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+              setShowAddAsset(false);
+            } catch (error) {
+              console.error("asset add error:", error);
+              alert("アセット追加に失敗しました");
+            }
+          }}
         />
       )}
 
-          {selectedSlot && (
+      {selectedSlot && (
   <ReservationModal
     slot={selectedSlot}
     existing={reservations.find(
@@ -1383,50 +1397,57 @@ const exportWeeklyReservationsCsv = () => {
         r.assetId === selectedSlot.assetId &&
         r.dayKey === selectedSlot.dayKey
     )}
-    memberOptions={memberOptions}
+    memberOptions={memberOptions.map((m) => m.label)}
     days={days}
     onClose={() => setSelectedSlot(null)}
-    onSave={async ({ userName, site, note, endDayKey }) => {
-      try {
-        const startIndex = days.findIndex((d) => d.key === selectedSlot.dayKey);
-        const endIndex = days.findIndex((d) => d.key === endDayKey);
+   onSave={async (payload) => {
+  if (!selectedSlot) return;
 
-        if (startIndex < 0 || endIndex < 0 || endIndex < startIndex) {
-          alert("終了日の選択が不正です");
-          return;
-        }
+  const { userName, site, note, endDayKey } = payload;
 
-        const targetDays = days.slice(startIndex, endIndex + 1);
+  try {
+    const startIndex = days.findIndex((d) => d.key === selectedSlot.dayKey);
+    const endIndex = days.findIndex((d) => d.key === endDayKey);
 
-        await Promise.all(
-          targetDays.map((day) =>
-            setDoc(
-              doc(
-                db,
-                "reservations",
-                makeReservationDocId(selectedSlot.assetId, day.key)
-              ),
-              {
-                companyId,
-                assetId: selectedSlot.assetId,
-                dayKey: day.key,
-                userName,
-                site,
-                note,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }
-            )
-          )
-        );
+    if (startIndex < 0 || endIndex < 0 || endIndex < startIndex) {
+      alert("終了日の選択が不正です");
+      return;
+    }
 
-        setSelectedSlot(null);
-      } catch (error) {
-        console.error("reservation save error:", error);
-        alert("予約保存に失敗しました");
-      }
-    }}
+    const targetDays = days.slice(startIndex, endIndex + 1);
+    const now = new Date().toISOString();
+
+    await Promise.all(
+      targetDays.map((day) =>
+        setDoc(
+          doc(
+            db,
+            "reservations",
+            makeReservationDocId(selectedSlot.assetId, day.key)
+          ),
+          {
+            companyId,
+            assetId: selectedSlot.assetId,
+            dayKey: day.key,
+            userName,
+            site,
+            note,
+            createdAt: now,
+            updatedAt: now,
+          }
+        )
+      )
+    );
+
+    setSelectedSlot(null);
+  } catch (error) {
+    console.error("reservation save error:", error);
+    alert("予約保存に失敗しました");
+  }
+}}
     onDelete={async () => {
+      if (!selectedSlot) return;
+
       try {
         await deleteDoc(
           doc(
@@ -1443,43 +1464,40 @@ const exportWeeklyReservationsCsv = () => {
     }}
   />
 )}
+      {editingAsset && (
+        <AssetEditModal
+          asset={editingAsset}
+          memberOptions={memberOptions}
+          onClose={() => setEditingAsset(null)}
+          onSave={async ({ name, subLabel, inspection, assignedUid }) => {
+            try {
+              await updateDoc(doc(db, "assets", editingAsset.id), {
+                name,
+                subLabel,
+                inspection,
+                assignedUid: assignedUid ?? null,
+                updatedAt: new Date().toISOString(),
+              });
+              setEditingAsset(null);
+            } catch (error) {
+              console.error("asset update error:", error);
+              alert("アセット更新に失敗しました");
+            }
+          }}
+          onDelete={async () => {
+            const ok = window.confirm("このアセットを削除しますか？");
+            if (!ok) return;
 
-    
-{editingAsset && (
-  <AssetEditModal
-    asset={editingAsset}
-    memberOptions={memberOptions}
-    onClose={() => setEditingAsset(null)}
-    onSave={async ({ name, subLabel, inspection, assignedUser }) => {
-      try {
-        await updateDoc(doc(db, "assets", editingAsset.id), {
-          name,
-          subLabel,
-          inspection,
-          assignedUser: assignedUser ?? null,
-          updatedAt: new Date().toISOString(),
-        });
-        setEditingAsset(null);
-      } catch (error) {
-        console.error("asset update error:", error);
-        alert("アセット更新に失敗しました");
-      }
-    }}
-    onDelete={async () => {
-      const ok = window.confirm("このアセットを削除しますか？");
-      if (!ok) return;
-
-      try {
-        await deleteDoc(doc(db, "assets", editingAsset.id));
-        setEditingAsset(null);
-      } catch (error) {
-        console.error("asset delete error:", error);
-        alert("アセット削除に失敗しました");
-      }
-    }}
-  />
-)}
-
+            try {
+              await deleteDoc(doc(db, "assets", editingAsset.id));
+              setEditingAsset(null);
+            } catch (error) {
+              console.error("asset delete error:", error);
+              alert("アセット削除に失敗しました");
+            }
+          }}
+        />
+      )}
       {showMenu && (
         <div className="fixed inset-0 z-[300]">
           <div
@@ -1688,8 +1706,8 @@ const exportWeeklyReservationsCsv = () => {
                     <div>
                       <div>{asset.name}</div>
                       <div className="text-gray-400">
-                        {asset.assignedUser || "共有"}
-                      </div>
+  {asset.assignedUid || "共有"}
+</div>
                     </div>
 
                     <button
