@@ -37,7 +37,7 @@ export default function CreateCompanyPage() {
       const companyRef = await addDoc(collection(db, "companies"), {
         name: name.trim(),
         inviteCode,
-        ownerId: user.uid,
+        ownerUid: user.uid,
         createdAt: now,
         updatedAt: now,
       });
@@ -54,8 +54,9 @@ export default function CreateCompanyPage() {
         await setDoc(
           userRef,
           {
-            displayName: current.displayName ?? user.displayName ?? "オーナー",
+            displayName: current.displayName ?? user.displayName ?? "管理者",
             companyId: companyRef.id,
+            role: "admin",
             createdAt: current.createdAt ?? now,
             updatedAt: now,
           },
@@ -63,8 +64,9 @@ export default function CreateCompanyPage() {
         );
       } else {
         await setDoc(userRef, {
-          displayName: user.displayName ?? "オーナー",
+          displayName: user.displayName ?? "管理者",
           companyId: companyRef.id,
+          role: "admin",
           createdAt: now,
           updatedAt: now,
         });
