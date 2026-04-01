@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+} from "firebase/auth";
 import { auth } from "@/lib/firebase-client";
 
 export default function LoginPage() {
@@ -20,6 +23,24 @@ export default function LoginPage() {
       window.location.replace("/");
     } catch (error: any) {
       console.error("LOGIN ERROR", error);
+      alert(`${error.code} / ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email.trim()) {
+      alert("メールアドレスを入力してください");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await sendPasswordResetEmail(auth, email.trim());
+      alert("パスワード再設定メールを送信しました。メールをご確認ください。");
+    } catch (error: any) {
+      console.error("RESET ERROR", error);
       alert(`${error.code} / ${error.message}`);
     } finally {
       setLoading(false);
@@ -77,6 +98,15 @@ export default function LoginPage() {
             className="w-full rounded-2xl bg-blue-600 py-3.5 text-white font-medium disabled:opacity-50"
           >
             {loading ? "ログイン中..." : "ログイン"}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResetPassword}
+            disabled={loading}
+            className="w-full text-sm text-blue-600 underline disabled:opacity-50"
+          >
+            パスワードを忘れた場合
           </button>
 
           <button
