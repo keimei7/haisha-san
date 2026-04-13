@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -48,6 +48,12 @@ export default function CompanyAdminPage() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [editingNames, setEditingNames] = useState<Record<string, string>>({});
+
+  const activeAdminCount = useMemo(() => {
+    return members.filter(
+      (m) => m.role === "admin" && (m.isActive ?? true)
+    ).length;
+  }, [members]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -135,9 +141,7 @@ export default function CompanyAdminPage() {
     setEditingNames((prev) => {
       const next = { ...prev };
       for (const member of sorted) {
-        if (next[member.uid] === undefined) {
-          next[member.uid] = member.displayName ?? "";
-        }
+        next[member.uid] = next[member.uid] ?? member.displayName ?? "";
       }
       return next;
     });
@@ -199,13 +203,10 @@ export default function CompanyAdminPage() {
     const target = members.find((m) => m.uid === targetUid);
     if (!target) return;
 
-    const canEditTarget =
-      myRole === "owner" ||
-      (myRole === "admin" &&
-        target.uid !== ownerUid &&
-        target.role !== "admin");
+    const isOwner = target.uid === ownerUid || target.role === "owner";
+    const isSelf = target.uid === myUid;
 
-    if (!canEditTarget) {
+    if (isOwner || isSelf) {
       alert("このユーザーの表示名は編集できません");
       return;
     }
@@ -234,40 +235,25 @@ export default function CompanyAdminPage() {
     const target = members.find((m) => m.uid === targetUid);
     if (!target) return;
 
-    if (target.uid === ownerUid || target.role === "owner") {
+    const currentRole = target.role ?? "pending";
+    const isOwner = target.uid === ownerUid || currentRole === "owner";
+    const isSelf = target.uid === myUid;
+    const isActive = target.isActive ?? true;
+    const isDroppingAdmin = currentRole === "admin" && nextRole !== "admin";
+
+    if (isOwner) {
       alert("ownerの権限はここでは変更できません");
       return;
     }
 
-    if (targetUid === myUid) {
+    if (isSelf) {
       alert("自分自身の権限はここでは変更できません");
       return;
     }
 
-    const activeAdminCount = members.filter(
-      (m) => m.role === "admin" && (m.isActive ?? true)
-    ).length;
-
-    if (
-      target.role === "admin" &&
-      nextRole !== "admin" &&
-      (target.isActive ?? true) &&
-      activeAdminCount <= 1
-    ) {
-      alert("最後の管理者の権限は下げられません");
+    if (isDroppingAdmin && isActive && activeAdminCount <= 1) {
+      alert("最後の有効 admin は降格できません");
       return;
-    }
-
-    if (myRole === "admin") {
-      if (target.role === "admin") {
-        alert("他のadminの権限変更はownerのみ可能です");
-        return;
-      }
-
-      if (nextRole === "admin") {
-        alert("adminへの変更はownerのみ可能です");
-        return;
-      }
     }
 
     try {
@@ -293,32 +279,28 @@ export default function CompanyAdminPage() {
     const target = members.find((m) => m.uid === targetUid);
     if (!target) return;
 
-    if (target.uid === ownerUid || target.role === "owner") {
+    const currentRole = target.role ?? "pending";
+    const isOwner = target.uid === ownerUid || currentRole === "owner";
+    const isSelf = target.uid === myUid;
+    const isCurrentlyActive = target.isActive ?? true;
+    const isLastActiveAdmin =
+      currentRole === "admin" &&
+      isCurrentlyActive &&
+      !nextActive &&
+      activeAdminCount <= 1;
+
+    if (isOwner) {
       alert("ownerは無効化できません");
       return;
     }
 
-    if (targetUid === myUid && !nextActive) {
+    if (isSelf) {
       alert("自分自身は無効化できません");
       return;
     }
 
-    const activeAdminCount = members.filter(
-      (m) => m.role === "admin" && (m.isActive ?? true)
-    ).length;
-
-    if (
-      !nextActive &&
-      target.role === "admin" &&
-      (target.isActive ?? true) &&
-      activeAdminCount <= 1
-    ) {
-      alert("最後の管理者は無効化できません");
-      return;
-    }
-
-    if (myRole === "admin" && target.role === "admin") {
-      alert("他のadminの有効/無効変更はownerのみ可能です");
+    if (isLastActiveAdmin) {
+      alert("最後の有効 admin は無効化できません");
       return;
     }
 
@@ -345,15 +327,8 @@ export default function CompanyAdminPage() {
       return ["owner"];
     }
 
-    if (myRole === "owner") {
+    if (myRole === "owner" || myRole === "admin") {
       return ["pending", "member", "admin"];
-    }
-
-    if (myRole === "admin") {
-      if (member.role === "admin") {
-        return ["admin"];
-      }
-      return ["pending", "member"];
     }
 
     return [member.role ?? "pending"];
@@ -418,26 +393,25 @@ export default function CompanyAdminPage() {
 
         <div className="space-y-3">
           {members.map((member) => {
-            const isOwner = member.uid === ownerUid || member.role === "owner";
+            const role = member.role ?? "pending";
+            const isOwner = member.uid === ownerUid || role === "owner";
             const isSelf = member.uid === myUid;
             const isActive = member.isActive ?? true;
 
             const canEditRole =
               !isOwner &&
               !isSelf &&
-              (myRole === "owner" ||
-                (myRole === "admin" && member.role !== "admin"));
+              (myRole === "owner" || myRole === "admin");
 
             const canEditName =
+              !isOwner &&
               !isSelf &&
-              (myRole === "owner" ||
-                (myRole === "admin" && !isOwner && member.role !== "admin"));
+              (myRole === "owner" || myRole === "admin");
 
             const canToggleActive =
               !isOwner &&
               !isSelf &&
-              (myRole === "owner" ||
-                (myRole === "admin" && member.role !== "admin"));
+              (myRole === "owner" || myRole === "admin");
 
             const editableRoles = getEditableRoles(member);
 
@@ -490,7 +464,7 @@ export default function CompanyAdminPage() {
                   </div>
 
                   <div className="text-xs text-gray-400">
-                    権限: {ROLE_LABEL[member.role ?? "pending"]}
+                    権限: {ROLE_LABEL[role]}
                   </div>
 
                   <div className="text-xs text-gray-400 break-all">
@@ -502,21 +476,21 @@ export default function CompanyAdminPage() {
                   {canEditRole ? (
                     <select
                       className="border rounded-lg px-3 py-2"
-                      value={member.role ?? "pending"}
+                      value={role}
                       onChange={(e) =>
                         changeRole(member.uid, e.target.value as UserRole)
                       }
                       disabled={saving || !isActive}
                     >
-                      {editableRoles.map((role) => (
-                        <option key={role} value={role}>
-                          {ROLE_LABEL[role]}
+                      {editableRoles.map((candidateRole) => (
+                        <option key={candidateRole} value={candidateRole}>
+                          {ROLE_LABEL[candidateRole]}
                         </option>
                       ))}
                     </select>
                   ) : (
                     <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm text-center">
-                      {ROLE_LABEL[member.role ?? "pending"]}
+                      {ROLE_LABEL[role]}
                     </div>
                   )}
 
