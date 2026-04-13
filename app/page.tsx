@@ -6,6 +6,11 @@ import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
+type UserData = {
+  companyId?: string;
+  role?: "owner" | "admin" | "member" | "pending";
+};
+
 export default function HomePage() {
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -22,13 +27,34 @@ export default function HomePage() {
           return;
         }
 
-        const data = snap.data() as { companyId?: string };
+        const data = snap.data() as UserData;
 
-        if (data.companyId && data.companyId.trim() !== "") {
-          window.location.replace("/reserve");
-        } else {
+        // 会社未所属
+        if (!data.companyId || data.companyId.trim() === "") {
           window.location.replace("/setup");
+          return;
         }
+
+        const role = data.role ?? "pending";
+
+        // 🔴 未承認ユーザー
+        if (role === "pending") {
+          window.location.replace("/waiting");
+          return;
+        }
+
+        // 🟢 利用可能ユーザー
+        if (
+          role === "owner" ||
+          role === "admin" ||
+          role === "member"
+        ) {
+          window.location.replace("/reserve");
+          return;
+        }
+
+        // 想定外
+        window.location.replace("/login");
       } catch (error) {
         console.error("root routing error:", error);
         window.location.replace("/login");

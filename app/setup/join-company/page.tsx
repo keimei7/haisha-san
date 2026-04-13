@@ -36,7 +36,7 @@ export default function JoinCompanyPage() {
 
       const q = query(
         collection(db, "companies"),
-        where("inviteCode", "==", inviteCode.trim())
+        where("inviteCode", "==", inviteCode.trim().toUpperCase())
       );
 
       const snap = await getDocs(q);
@@ -62,6 +62,7 @@ export default function JoinCompanyPage() {
           {
             displayName: displayName.trim(),
             companyId,
+            role: "pending",
             createdAt: current.createdAt ?? now,
             updatedAt: now,
           },
@@ -71,12 +72,13 @@ export default function JoinCompanyPage() {
         await setDoc(userRef, {
           displayName: displayName.trim(),
           companyId,
+          role: "pending",
           createdAt: now,
           updatedAt: now,
         });
       }
 
-      window.location.assign("/reserve");
+      window.location.assign("/waiting");
     } catch (error: any) {
       console.error("JOIN ERROR", error);
       alert(`${error.code} / ${error.message}`);
