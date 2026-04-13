@@ -46,7 +46,7 @@ export default function SignupPage() {
         email: user.email ?? "",
         displayName: "",
         companyId: "",
-        role: "member",
+        role: "pending",
         createdAt: now,
         updatedAt: now,
       });
@@ -69,7 +69,6 @@ export default function SignupPage() {
             alt=""
             className="w-20 h-20 object-contain"
           />
-          <div className="text-2xl font-bold tracking-wide"></div>
           <div className="text-sm text-gray-500">
             新規登録して初期設定へ進みます
           </div>

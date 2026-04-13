@@ -15,13 +15,20 @@ import {
 import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
 
-type UserRole = "owner" | "admin" | "member";
+type UserRole = "owner" | "admin" | "member" | "pending";
 
 type Member = {
   uid: string;
   displayName?: string;
   email?: string;
   role?: UserRole;
+};
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  owner: "オーナー",
+  admin: "管理者",
+  member: "社員",
+  pending: "承認待ち",
 };
 
 export default function CompanyAdminPage() {
@@ -59,16 +66,17 @@ export default function CompanyAdminPage() {
           return;
         }
 
-        if (userData.role !== "owner" && userData.role !== "admin") {
+        const role = (userData.role ?? "pending") as UserRole;
+
+        if (role !== "owner" && role !== "admin") {
           router.replace("/");
           return;
         }
 
         const currentCompanyId = userData.companyId as string;
-        const currentRole = userData.role as UserRole;
 
         setCompanyId(currentCompanyId);
-        setMyRole(currentRole);
+        setMyRole(role);
 
         const companyRef = doc(db, "companies", currentCompanyId);
         const companySnap = await getDoc(companyRef);
@@ -104,13 +112,18 @@ export default function CompanyAdminPage() {
         uid: d.id,
         displayName: data.displayName ?? "",
         email: data.email ?? "",
-        role: data.role ?? "member",
+        role: (data.role ?? "pending") as UserRole,
       };
     });
 
     const sorted = list.sort((a, b) => {
-      const rank = { owner: 0, admin: 1, member: 2 };
-      return rank[a.role ?? "member"] - rank[b.role ?? "member"];
+      const rank: Record<UserRole, number> = {
+        owner: 0,
+        admin: 1,
+        member: 2,
+        pending: 3,
+      };
+      return rank[a.role ?? "pending"] - rank[b.role ?? "pending"];
     });
 
     setMembers(sorted);
@@ -165,21 +178,23 @@ export default function CompanyAdminPage() {
     const target = members.find((m) => m.uid === targetUid);
     if (!target) return;
 
-    // ownerは変更禁止
     if (target.uid === ownerUid || target.role === "owner") {
       alert("ownerの権限はここでは変更できません");
       return;
     }
 
-    // adminはadminを作れないようにする
-    if (myRole !== "owner" && nextRole === "admin") {
+    if (targetUid === myUid) {
+      alert("自分自身の権限はここでは変更できません");
+      return;
+    }
+
+    if (myRole === "admin" && nextRole === "admin") {
       alert("adminへの変更はownerのみ可能です");
       return;
     }
 
-    // 自分自身をmemberに落とす事故を防ぐ
-    if (targetUid === myUid && nextRole === "member") {
-      alert("自分自身をmemberには変更できません");
+    if (myRole === "admin" && target.role === "admin") {
+      alert("他のadminの権限変更はownerのみ可能です");
       return;
     }
 
@@ -200,6 +215,25 @@ export default function CompanyAdminPage() {
     }
   };
 
+  const getEditableRoles = (member: Member): UserRole[] => {
+    if (member.uid === ownerUid || member.role === "owner") {
+      return ["owner"];
+    }
+
+    if (myRole === "owner") {
+      return ["pending", "member", "admin"];
+    }
+
+    if (myRole === "admin") {
+      if (member.role === "admin") {
+        return ["admin"];
+      }
+      return ["pending", "member"];
+    }
+
+    return [member.role ?? "pending"];
+  };
+
   if (loading) {
     return <div className="p-4">読み込み中...</div>;
   }
@@ -208,7 +242,6 @@ export default function CompanyAdminPage() {
     <main className="p-4 max-w-3xl mx-auto space-y-6">
       <h1 className="text-xl font-bold">会社管理</h1>
 
-      {/* 会社情報 */}
       <section className="border rounded-2xl p-4 space-y-3">
         <h2 className="font-semibold">会社情報</h2>
 
@@ -239,7 +272,6 @@ export default function CompanyAdminPage() {
         </div>
       </section>
 
-      {/* 招待コード */}
       <section className="border rounded-2xl p-4 space-y-3">
         <h2 className="font-semibold">招待コード</h2>
 
@@ -254,13 +286,18 @@ export default function CompanyAdminPage() {
         </button>
       </section>
 
-      {/* メンバー管理 */}
       <section className="border rounded-2xl p-4 space-y-4">
         <h2 className="font-semibold">メンバー管理</h2>
 
         <div className="space-y-3">
           {members.map((member) => {
-          const canEdit = myRole === "admin";
+            const canEdit = myRole === "owner" || myRole === "admin";
+            const editableRoles = getEditableRoles(member);
+            const isFixed =
+              member.uid === ownerUid ||
+              member.role === "owner" ||
+              member.uid === myUid ||
+              (myRole === "admin" && member.role === "admin");
 
             return (
               <div
@@ -280,24 +317,27 @@ export default function CompanyAdminPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-  {canEdit ? (
-    <select
-      className="border rounded-lg px-3 py-2"
-      value={member.role}
-      onChange={(e) =>
-        changeRole(member.uid, e.target.value as UserRole)
-      }
-      disabled={saving || member.uid === myUid}
-    >
-      <option value="member">member</option>
-      <option value="admin">admin</option>
-    </select>
-  ) : (
-    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
-      {member.role}
-    </div>
-  )}
-</div>
+                  {canEdit && !isFixed ? (
+                    <select
+                      className="border rounded-lg px-3 py-2"
+                      value={member.role ?? "pending"}
+                      onChange={(e) =>
+                        changeRole(member.uid, e.target.value as UserRole)
+                      }
+                      disabled={saving}
+                    >
+                      {editableRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {ROLE_LABEL[role]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm">
+                      {ROLE_LABEL[member.role ?? "pending"]}
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -305,4 +345,4 @@ export default function CompanyAdminPage() {
       </section>
     </main>
   );
-}　
+}

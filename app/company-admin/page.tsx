@@ -15,7 +15,7 @@ import {
 import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
 
-type UserRole = "owner" | "admin" | "member";
+type UserRole = "owner" | "admin" | "member" | "pending";
 
 type Member = {
   uid: string;
@@ -23,6 +23,13 @@ type Member = {
   email?: string;
   role?: UserRole;
   isActive?: boolean;
+};
+
+const ROLE_LABEL: Record<UserRole, string> = {
+  owner: "オーナー",
+  admin: "管理者",
+  member: "社員",
+  pending: "承認待ち",
 };
 
 export default function CompanyAdminPage() {
@@ -61,13 +68,14 @@ export default function CompanyAdminPage() {
           return;
         }
 
-        if (userData.role !== "admin") {
+        const currentRole = (userData.role ?? "pending") as UserRole;
+
+        if (currentRole !== "owner" && currentRole !== "admin") {
           router.replace("/");
           return;
         }
 
         const currentCompanyId = userData.companyId as string;
-        const currentRole = userData.role as UserRole;
 
         setCompanyId(currentCompanyId);
         setMyRole(currentRole);
@@ -106,14 +114,20 @@ export default function CompanyAdminPage() {
         uid: d.id,
         displayName: data.displayName ?? "",
         email: data.email ?? "",
-        role: data.role ?? "member",
+        role: (data.role ?? "pending") as UserRole,
         isActive: data.isActive ?? true,
       };
     });
 
+    const rank: Record<UserRole, number> = {
+      owner: 0,
+      admin: 1,
+      member: 2,
+      pending: 3,
+    };
+
     const sorted = list.sort((a, b) => {
-      const rank = { owner: 0, admin: 1, member: 2 };
-      return rank[a.role ?? "member"] - rank[b.role ?? "member"];
+      return rank[a.role ?? "pending"] - rank[b.role ?? "pending"];
     });
 
     setMembers(sorted);
@@ -136,7 +150,7 @@ export default function CompanyAdminPage() {
       setSaving(true);
 
       await updateDoc(doc(db, "companies", companyId), {
-        name: companyName,
+        name: companyName.trim(),
         updatedAt: new Date().toISOString(),
       });
 
@@ -172,32 +186,27 @@ export default function CompanyAdminPage() {
     }
   };
 
-  const claimOwnerUid = async () => {
-    if (!companyId || !myUid) return;
-
-    try {
-      setSaving(true);
-
-      await updateDoc(doc(db, "companies", companyId), {
-        ownerUid: myUid,
-        updatedAt: new Date().toISOString(),
-      });
-
-      setOwnerUid(myUid);
-      alert("ownerUid を設定しました");
-    } catch (error) {
-      console.error(error);
-      alert("ownerUid の設定に失敗しました");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const saveDisplayName = async (targetUid: string) => {
+    if (!companyId) return;
+
     const nextName = editingNames[targetUid]?.trim();
 
     if (!nextName) {
       alert("表示名を入力してください");
+      return;
+    }
+
+    const target = members.find((m) => m.uid === targetUid);
+    if (!target) return;
+
+    const canEditTarget =
+      myRole === "owner" ||
+      (myRole === "admin" &&
+        target.uid !== ownerUid &&
+        target.role !== "admin");
+
+    if (!canEditTarget) {
+      alert("このユーザーの表示名は編集できません");
       return;
     }
 
@@ -225,23 +234,40 @@ export default function CompanyAdminPage() {
     const target = members.find((m) => m.uid === targetUid);
     if (!target) return;
 
+    if (target.uid === ownerUid || target.role === "owner") {
+      alert("ownerの権限はここでは変更できません");
+      return;
+    }
+
+    if (targetUid === myUid) {
+      alert("自分自身の権限はここでは変更できません");
+      return;
+    }
+
     const activeAdminCount = members.filter(
       (m) => m.role === "admin" && (m.isActive ?? true)
     ).length;
 
-    if (targetUid === myUid && nextRole === "member") {
-      alert("自分自身をmemberには変更できません");
-      return;
-    }
-
     if (
       target.role === "admin" &&
-      nextRole === "member" &&
+      nextRole !== "admin" &&
       (target.isActive ?? true) &&
       activeAdminCount <= 1
     ) {
-      alert("最後の管理者は member に変更できません");
+      alert("最後の管理者の権限は下げられません");
       return;
+    }
+
+    if (myRole === "admin") {
+      if (target.role === "admin") {
+        alert("他のadminの権限変更はownerのみ可能です");
+        return;
+      }
+
+      if (nextRole === "admin") {
+        alert("adminへの変更はownerのみ可能です");
+        return;
+      }
     }
 
     try {
@@ -267,6 +293,11 @@ export default function CompanyAdminPage() {
     const target = members.find((m) => m.uid === targetUid);
     if (!target) return;
 
+    if (target.uid === ownerUid || target.role === "owner") {
+      alert("ownerは無効化できません");
+      return;
+    }
+
     if (targetUid === myUid && !nextActive) {
       alert("自分自身は無効化できません");
       return;
@@ -286,6 +317,11 @@ export default function CompanyAdminPage() {
       return;
     }
 
+    if (myRole === "admin" && target.role === "admin") {
+      alert("他のadminの有効/無効変更はownerのみ可能です");
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -302,6 +338,25 @@ export default function CompanyAdminPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const getEditableRoles = (member: Member): UserRole[] => {
+    if (member.uid === ownerUid || member.role === "owner") {
+      return ["owner"];
+    }
+
+    if (myRole === "owner") {
+      return ["pending", "member", "admin"];
+    }
+
+    if (myRole === "admin") {
+      if (member.role === "admin") {
+        return ["admin"];
+      }
+      return ["pending", "member"];
+    }
+
+    return [member.role ?? "pending"];
   };
 
   if (loading) {
@@ -324,17 +379,6 @@ export default function CompanyAdminPage() {
           <div className="text-sm text-gray-500">Owner UID</div>
           <div className="text-sm break-all">{ownerUid || "未設定"}</div>
         </div>
-
-        {!ownerUid && (
-          <button
-            type="button"
-            className="w-full border rounded-lg py-2 mt-2"
-            onClick={claimOwnerUid}
-            disabled={saving}
-          >
-            このアカウントを ownerUid に設定
-          </button>
-        )}
 
         <div>
           <div className="text-sm text-gray-500">会社名</div>
@@ -374,8 +418,28 @@ export default function CompanyAdminPage() {
 
         <div className="space-y-3">
           {members.map((member) => {
-            const canEdit = myRole === "admin" && member.uid !== myUid;
+            const isOwner = member.uid === ownerUid || member.role === "owner";
+            const isSelf = member.uid === myUid;
             const isActive = member.isActive ?? true;
+
+            const canEditRole =
+              !isOwner &&
+              !isSelf &&
+              (myRole === "owner" ||
+                (myRole === "admin" && member.role !== "admin"));
+
+            const canEditName =
+              !isSelf &&
+              (myRole === "owner" ||
+                (myRole === "admin" && !isOwner && member.role !== "admin"));
+
+            const canToggleActive =
+              !isOwner &&
+              !isSelf &&
+              (myRole === "owner" ||
+                (myRole === "admin" && member.role !== "admin"));
+
+            const editableRoles = getEditableRoles(member);
 
             return (
               <div
@@ -385,27 +449,33 @@ export default function CompanyAdminPage() {
                 <div className="min-w-0 flex-1 space-y-2">
                   <div>
                     <div className="text-xs text-gray-500 mb-1">表示名</div>
-                    <div className="flex gap-2">
-                      <input
-                        className="flex-1 border rounded-lg px-3 py-2"
-                        value={editingNames[member.uid] ?? ""}
-                        onChange={(e) =>
-                          setEditingNames((prev) => ({
-                            ...prev,
-                            [member.uid]: e.target.value,
-                          }))
-                        }
-                        disabled={saving}
-                      />
-                      <button
-                        type="button"
-                        className="border rounded-lg px-3 py-2"
-                        onClick={() => saveDisplayName(member.uid)}
-                        disabled={saving}
-                      >
-                        保存
-                      </button>
-                    </div>
+                    {canEditName ? (
+                      <div className="flex gap-2">
+                        <input
+                          className="flex-1 border rounded-lg px-3 py-2"
+                          value={editingNames[member.uid] ?? ""}
+                          onChange={(e) =>
+                            setEditingNames((prev) => ({
+                              ...prev,
+                              [member.uid]: e.target.value,
+                            }))
+                          }
+                          disabled={saving}
+                        />
+                        <button
+                          type="button"
+                          className="border rounded-lg px-3 py-2"
+                          onClick={() => saveDisplayName(member.uid)}
+                          disabled={saving}
+                        >
+                          保存
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="border rounded-lg px-3 py-2 bg-gray-50">
+                        {member.displayName || "名前未設定"}
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -419,35 +489,38 @@ export default function CompanyAdminPage() {
                     状態: {isActive ? "有効" : "無効"}
                   </div>
 
+                  <div className="text-xs text-gray-400">
+                    権限: {ROLE_LABEL[member.role ?? "pending"]}
+                  </div>
+
                   <div className="text-xs text-gray-400 break-all">
                     UID: {member.uid}
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  {canEdit ? (
+                  {canEditRole ? (
                     <select
                       className="border rounded-lg px-3 py-2"
-                      value={member.role}
+                      value={member.role ?? "pending"}
                       onChange={(e) =>
                         changeRole(member.uid, e.target.value as UserRole)
                       }
-                      disabled={saving || member.uid === myUid || !isActive}
+                      disabled={saving || !isActive}
                     >
-                      <option value="member">member</option>
-                      <option value="admin">管理者</option>
+                      {editableRoles.map((role) => (
+                        <option key={role} value={role}>
+                          {ROLE_LABEL[role]}
+                        </option>
+                      ))}
                     </select>
                   ) : (
                     <div className="px-3 py-2 rounded-lg bg-gray-50 text-sm text-center">
-                      {member.role === "admin"
-                        ? "管理者"
-                        : member.role === "owner"
-                        ? "owner"
-                        : "member"}
+                      {ROLE_LABEL[member.role ?? "pending"]}
                     </div>
                   )}
 
-                  {member.uid !== myUid && (
+                  {canToggleActive && (
                     <button
                       type="button"
                       className={`px-3 py-2 rounded-lg border text-sm ${
