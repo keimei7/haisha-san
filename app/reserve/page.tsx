@@ -705,6 +705,7 @@ const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [showEditTable, setShowEditTable] = useState(false);
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
+const [showPhotoSlotManager, setShowPhotoSlotManager] = useState(false);
 
 useEffect(() => {
   if (!companyId) return;
@@ -1487,7 +1488,35 @@ downloadCsv(filename, csv);
     }}
   />
 )}
+{showPhotoSlotManager && (
+  <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
+    <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+      <h2 className="text-lg font-bold">チェック項目管理</h2>
 
+      <input
+        className="w-full border rounded-lg px-3 py-2"
+        placeholder="例：酒気帯び確認"
+      />
+
+      <div className="flex gap-2">
+        <button
+          className="flex-1 rounded-lg bg-blue-600 text-white py-2"
+          type="button"
+        >
+          追加（あとで実装）
+        </button>
+
+        <button
+          className="rounded-lg border px-4 py-2"
+          type="button"
+          onClick={() => setShowPhotoSlotManager(false)}
+        >
+          閉じる
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {showMenu && (
         <div className="fixed inset-0 z-[300]">
           <div
@@ -1736,9 +1765,8 @@ downloadCsv(filename, csv);
 <div className="border rounded-xl overflow-hidden">
   <button
     type="button"
-    className="w-full px-3 py-3 flex items-center justify-between bg-white"
-   onClick={() => {
-  router.push("/photo-slots");
+    onClick={() => {
+  setShowPhotoSlotManager(true);
   setShowMenu(false);
 }}
   >
