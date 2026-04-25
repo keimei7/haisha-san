@@ -43,7 +43,12 @@ type ReservationItem = {
   site: string;
   note: string;
 };
-
+type PhotoSlotItem = {
+  id: string;
+  title: string;
+  groupLabel: string;
+  sort: number;
+};
 type DayItem = {
   key: string;
   label: string;
@@ -674,6 +679,160 @@ const [subLabel, setSubLabel] = useState(asset.subLabel ?? "");
     </div>
   );
 }
+function PhotoSlotManagerModal({
+  slots,
+  onClose,
+  onAdd,
+  onUpdate,
+  onDelete,
+}: {
+  slots: PhotoSlotItem[];
+  onClose: () => void;
+  onAdd: (payload: { title: string; groupLabel: string }) => void | Promise<void>;
+  onUpdate: (
+    slotId: string,
+    payload: { title: string; groupLabel: string }
+  ) => void | Promise<void>;
+  onDelete: (slotId: string) => void | Promise<void>;
+}) {
+  const [title, setTitle] = useState("");
+  const [groupLabel, setGroupLabel] = useState("");
+
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+        <h2 className="text-lg font-bold">チェック項目管理</h2>
+
+        <div className="space-y-3 rounded-xl border p-3">
+          <div>
+            <label className="text-sm text-gray-600">表示グループ</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={groupLabel}
+              onChange={(e) => setGroupLabel(e.target.value)}
+              placeholder="例：朝 / 夕 / 返却時"
+            />
+          </div>
+
+          <div>
+            <label className="text-sm text-gray-600">写真枠の名前</label>
+            <input
+              className="w-full border rounded-lg px-3 py-2"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="例：酒気帯び確認 / 勤怠写真"
+            />
+          </div>
+
+          <button
+            className="w-full rounded-lg bg-blue-600 text-white py-2"
+            type="button"
+            onClick={async () => {
+              if (!title.trim()) {
+                alert("写真枠の名前を入れてください");
+                return;
+              }
+
+              await onAdd({
+                title: title.trim(),
+                groupLabel: groupLabel.trim(),
+              });
+
+              setTitle("");
+              setGroupLabel("");
+            }}
+          >
+            ＋ 写真枠を追加
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-sm font-bold">登録済み</div>
+
+          {slots.length === 0 ? (
+            <div className="text-sm text-gray-400">写真枠なし</div>
+          ) : (
+            slots.map((slot) => (
+              <PhotoSlotEditRow
+                key={slot.id}
+                slot={slot}
+                onUpdate={onUpdate}
+                onDelete={onDelete}
+              />
+            ))
+          )}
+        </div>
+
+        <button
+          className="w-full rounded-lg border px-4 py-2"
+          type="button"
+          onClick={onClose}
+        >
+          閉じる
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PhotoSlotEditRow({
+  slot,
+  onUpdate,
+  onDelete,
+}: {
+  slot: PhotoSlotItem;
+  onUpdate: (
+    slotId: string,
+    payload: { title: string; groupLabel: string }
+  ) => void | Promise<void>;
+  onDelete: (slotId: string) => void | Promise<void>;
+}) {
+  const [title, setTitle] = useState(slot.title);
+  const [groupLabel, setGroupLabel] = useState(slot.groupLabel);
+
+  return (
+    <div className="rounded-xl border p-2 space-y-2">
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          className="border rounded-lg px-2 py-1.5 text-sm"
+          value={groupLabel}
+          onChange={(e) => setGroupLabel(e.target.value)}
+          placeholder="朝"
+        />
+
+        <input
+          className="border rounded-lg px-2 py-1.5 text-sm"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="酒気帯び確認"
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          className="flex-1 rounded-lg border py-1.5 text-sm"
+          type="button"
+          onClick={() =>
+            onUpdate(slot.id, {
+              title: title.trim(),
+              groupLabel: groupLabel.trim(),
+            })
+          }
+        >
+          保存
+        </button>
+
+        <button
+          className="rounded-lg border border-red-400 text-red-500 px-3 py-1.5 text-sm"
+          type="button"
+          onClick={() => onDelete(slot.id)}
+        >
+          削除
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function ReservePage() {
     const [menuMyAssetsOpen, setMenuMyAssetsOpen] = useState(true);
@@ -706,7 +865,7 @@ const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [showAddAsset, setShowAddAsset] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
 const [showPhotoSlotManager, setShowPhotoSlotManager] = useState(false);
-
+const [photoSlots, setPhotoSlots] = useState<PhotoSlotItem[]>([]);
 useEffect(() => {
   if (!companyId) return;
 
@@ -891,6 +1050,38 @@ const unsub = onSnapshot(q, (snap) => {
 
     return () => unsub();
   }, [companyId]);
+
+  useEffect(() => {
+  if (!companyId) return;
+
+  const q = query(
+    collection(db, "photoSlots"),
+    where("companyId", "==", companyId)
+  );
+
+  const unsub = onSnapshot(q, (snap) => {
+    const list: PhotoSlotItem[] = snap.docs
+      .map((docSnap) => {
+        const data = docSnap.data() as {
+          title?: string;
+          groupLabel?: string;
+          sort?: number;
+        };
+
+        return {
+          id: docSnap.id,
+          title: data.title ?? "",
+          groupLabel: data.groupLabel ?? "",
+          sort: data.sort ?? 0,
+        };
+      })
+      .sort((a, b) => a.sort - b.sort);
+
+    setPhotoSlots(list);
+  });
+
+  return () => unsub();
+}, [companyId]);
 
   const currentTable = tables.find((t) => t.id === currentTableId);
 const toggleTableOpen = (tableId: string) => {
@@ -1489,33 +1680,48 @@ downloadCsv(filename, csv);
   />
 )}
 {showPhotoSlotManager && (
-  <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
-    <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
-      <h2 className="text-lg font-bold">チェック項目管理</h2>
+  <PhotoSlotManagerModal
+    slots={photoSlots}
+    onClose={() => setShowPhotoSlotManager(false)}
+    onAdd={async ({ title, groupLabel }) => {
+      try {
+        await addDoc(collection(db, "photoSlots"), {
+          companyId,
+          title,
+          groupLabel,
+          sort: Date.now(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("photo slot add error:", error);
+        alert("写真枠の追加に失敗しました");
+      }
+    }}
+    onUpdate={async (slotId, { title, groupLabel }) => {
+      try {
+        await updateDoc(doc(db, "photoSlots", slotId), {
+          title,
+          groupLabel,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error("photo slot update error:", error);
+        alert("写真枠の更新に失敗しました");
+      }
+    }}
+    onDelete={async (slotId) => {
+      const ok = window.confirm("この写真枠を削除しますか？");
+      if (!ok) return;
 
-      <input
-        className="w-full border rounded-lg px-3 py-2"
-        placeholder="例：酒気帯び確認"
-      />
-
-      <div className="flex gap-2">
-        <button
-          className="flex-1 rounded-lg bg-blue-600 text-white py-2"
-          type="button"
-        >
-          追加（あとで実装）
-        </button>
-
-        <button
-          className="rounded-lg border px-4 py-2"
-          type="button"
-          onClick={() => setShowPhotoSlotManager(false)}
-        >
-          閉じる
-        </button>
-      </div>
-    </div>
-  </div>
+      try {
+        await deleteDoc(doc(db, "photoSlots", slotId));
+      } catch (error) {
+        console.error("photo slot delete error:", error);
+        alert("写真枠の削除に失敗しました");
+      }
+    }}
+  />
 )}
       {showMenu && (
         <div className="fixed inset-0 z-[300]">
