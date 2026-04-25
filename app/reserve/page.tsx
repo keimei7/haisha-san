@@ -1479,6 +1479,32 @@ downloadCsv(filename, csv);
                       {asset.inspection || "点検情報なし"}
                     </div>
                   </div>
+                  <div className="mt-3 space-y-2">
+  {photoSlots.map((slot) => (
+    <div
+      key={slot.id}
+      className="border rounded-lg p-2 flex items-center justify-between"
+    >
+      <div className="text-sm">
+        <div className="font-medium">
+          {slot.groupLabel && `${slot.groupLabel} / `}
+          {slot.title}
+        </div>
+      </div>
+
+      <button
+        className="text-xs border px-2 py-1 rounded bg-gray-50"
+        type="button"
+        onClick={() => {
+          // ここはあとでアップロード処理
+          alert("写真アップロード（次で実装）");
+        }}
+      >
+        ＋写真
+      </button>
+    </div>
+  ))}
+</div>
                   <div className="text-sm text-gray-500">{asset.assignedUser}</div>
                 </div>
               ))}
