@@ -1733,6 +1733,19 @@ downloadCsv(filename, csv);
     })}
   </div>
 </div>
+<div className="border rounded-xl overflow-hidden">
+  <button
+    type="button"
+    className="w-full px-3 py-3 flex items-center justify-between bg-white"
+    onClick={() => {
+      alert("チェック項目管理は次に作ります");
+      setShowMenu(false);
+    }}
+  >
+    <span className="font-semibold">チェック項目管理</span>
+    <span className="text-sm text-gray-500">＋</span>
+  </button>
+</div>
 {(myRole === "admin" || myRole === "owner") && (
   <button
     type="button"
