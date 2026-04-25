@@ -12,7 +12,7 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { auth } from "@/lib/firebase-client";
+import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 
 type UserRole = "owner" | "admin" | "member" | "pending";
