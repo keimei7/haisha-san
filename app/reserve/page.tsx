@@ -16,6 +16,8 @@ import {
 } from "firebase/firestore";
 import { auth } from "@/lib/firebase-client";
 import { db } from "@/lib/firebase";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { storage } from "@/lib/firebase-client";
 
 type TableItem = {
   id: string;
@@ -48,6 +50,15 @@ type PhotoSlotItem = {
   title: string;
   groupLabel: string;
   sort: number;
+};
+type PhotoLogItem = {
+  id: string;
+  assetId: string;
+  slotId: string;
+  dateKey: string;
+  photoUrl: string;
+  uploadedBy: string;
+  uploadedAt: string;
 };
 type DayItem = {
   key: string;
@@ -320,7 +331,6 @@ function AddAssetModal({
   const [subLabel, setSubLabel] = useState("");
   const [inspection, setInspection] = useState("");
   const [assignedUser, setAssignedUser] = useState("");
-
   return (
     <div className="fixed inset-0 z-[200] bg-black/40 flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl space-y-4">
@@ -866,6 +876,8 @@ const [savingDisplayName, setSavingDisplayName] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SelectedSlot>(null);
 const [showPhotoSlotManager, setShowPhotoSlotManager] = useState(false);
 const [photoSlots, setPhotoSlots] = useState<PhotoSlotItem[]>([]);
+const [photoLogs, setPhotoLogs] = useState<PhotoLogItem[]>([]);
+
 useEffect(() => {
   if (!companyId) return;
 
@@ -1082,7 +1094,42 @@ const unsub = onSnapshot(q, (snap) => {
 
   return () => unsub();
 }, [companyId]);
+useEffect(() => {
+  if (!companyId) return;
 
+  const q = query(
+    collection(db, "photoLogs"),
+    where("companyId", "==", companyId),
+    where("dateKey", "==", makeDayKey(new Date()))
+  );
+
+  const unsub = onSnapshot(q, (snap) => {
+    const list: PhotoLogItem[] = snap.docs.map((docSnap) => {
+      const data = docSnap.data() as {
+        assetId?: string;
+        slotId?: string;
+        dateKey?: string;
+        photoUrl?: string;
+        uploadedBy?: string;
+        uploadedAt?: string;
+      };
+
+      return {
+        id: docSnap.id,
+        assetId: data.assetId ?? "",
+        slotId: data.slotId ?? "",
+        dateKey: data.dateKey ?? "",
+        photoUrl: data.photoUrl ?? "",
+        uploadedBy: data.uploadedBy ?? "",
+        uploadedAt: data.uploadedAt ?? "",
+      };
+    });
+
+    setPhotoLogs(list);
+  });
+
+  return () => unsub();
+}, [companyId]);
   const currentTable = tables.find((t) => t.id === currentTableId);
 const toggleTableOpen = (tableId: string) => {
   setOpenTableIds((prev) =>
@@ -1118,6 +1165,8 @@ const toggleTableOpen = (tableId: string) => {
     .filter((a) => !!a.assignedUser && a.assignedUser === myDisplayName)
     .sort((a, b) => a.sort - b.sort);
 }, [assets, myDisplayName]);
+
+const todayKey = makeDayKey(new Date());
 
 const exportWeeklyReservationsCsv = () => {
   if (!currentTable) {
@@ -1163,6 +1212,36 @@ const exportWeeklyReservationsCsv = () => {
 
  const filename = `${currentTable.title}_${formatWeekTitle(weekStart)}.csv`;
 downloadCsv(filename, csv);
+};
+const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: File) => {
+  if (!companyId) return;
+
+  const dateKey = makeDayKey(new Date());
+  const logId = `${companyId}_${dateKey}_${asset.id}_${slot.id}`;
+  const storagePath = `photoLogs/${companyId}/${dateKey}/${asset.id}/${slot.id}_${Date.now()}_${file.name}`;
+
+  try {
+    const storageRef = ref(storage, storagePath);
+    await uploadBytes(storageRef, file);
+    const photoUrl = await getDownloadURL(storageRef);
+
+    await setDoc(doc(db, "photoLogs", logId), {
+      companyId,
+      assetId: asset.id,
+      assetName: asset.name,
+      slotId: slot.id,
+      slotTitle: slot.title,
+      groupLabel: slot.groupLabel,
+      dateKey,
+      photoUrl,
+      uploadedBy: myDisplayName,
+      uploadedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("photo upload error:", error);
+    alert("写真アップロードに失敗しました");
+  }
 };
 
   const handleLogout = async () => {
@@ -1450,67 +1529,105 @@ downloadCsv(filename, csv);
 </div>
  )}
 
-        {myAssets.length > 0 && (
-          <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
-            <h3 className="font-bold">Myアセット</h3>
+       {myAssets.length > 0 && (
+  <div className="mt-4 rounded-2xl border bg-white p-4 space-y-3">
+    <h3 className="font-bold">Myアセット</h3>
 
-            <div className="space-y-2">
-              {myAssets.map((asset) => (
-                <div
-                  key={asset.id}
-                  className="rounded-xl border px-3 py-3 flex items-center justify-between"
-                >
-                  <div>
-                 <button
-  type="button"
-  className="w-full text-center"
-  onClick={() => setEditingAsset(asset)}
->
-  <div className="font-medium whitespace-pre-line break-words">
-    {asset.name}
-  </div>
-  {asset.subLabel && (
-    <div className="text-xs text-gray-500 mt-1 break-words">
-      {asset.subLabel}
-    </div>
-  )}
-</button>
-                    <div className="text-sm text-gray-500">
-                      {asset.inspection || "点検情報なし"}
-                    </div>
-                  </div>
-                  <div className="mt-3 space-y-2">
-  {photoSlots.map((slot) => (
-    <div
-      key={slot.id}
-      className="border rounded-lg p-2 flex items-center justify-between"
-    >
-      <div className="text-sm">
-        <div className="font-medium">
-          {slot.groupLabel && `${slot.groupLabel} / `}
-          {slot.title}
-        </div>
-      </div>
+    <div className="space-y-3">
+      {myAssets.map((asset) => (
+        <div
+          key={asset.id}
+          className="rounded-xl border px-3 py-3 space-y-3"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <button
+              type="button"
+              className="min-w-0 text-left"
+              onClick={() => setEditingAsset(asset)}
+            >
+              <div className="font-medium whitespace-pre-line break-words">
+                {asset.name}
+              </div>
 
-      <button
-        className="text-xs border px-2 py-1 rounded bg-gray-50"
-        type="button"
-        onClick={() => {
-          // ここはあとでアップロード処理
-          alert("写真アップロード（次で実装）");
-        }}
-      >
-        ＋写真
-      </button>
-    </div>
-  ))}
-</div>
-                  <div className="text-sm text-gray-500">{asset.assignedUser}</div>
+              {asset.subLabel && (
+                <div className="text-xs text-gray-500 mt-1 break-words">
+                  {asset.subLabel}
                 </div>
-              ))}
+              )}
+
+              <div className="text-sm text-gray-500 mt-1">
+                {asset.inspection || "点検情報なし"}
+              </div>
+            </button>
+
+            <div className="text-sm text-gray-500 shrink-0">
+              {asset.assignedUser}
             </div>
           </div>
-        )}
+
+          {photoSlots.length > 0 && (
+            <div className="grid grid-cols-1 gap-2">
+              {photoSlots.map((slot) => {
+                const log = photoLogs.find(
+                  (l) =>
+                    l.assetId === asset.id &&
+                    l.slotId === slot.id &&
+                    l.dateKey === todayKey
+                );
+
+                return (
+                  <div
+                    key={slot.id}
+                    className="rounded-lg border bg-gray-50 p-2 space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-800 truncate">
+                          {slot.groupLabel
+                            ? `${slot.groupLabel} / ${slot.title}`
+                            : slot.title}
+                        </div>
+
+                        <div className="text-[11px] text-gray-500">
+                          {log ? "本日提出済み" : "本日未提出"}
+                        </div>
+                      </div>
+
+                      <label className="shrink-0 rounded-lg border bg-white px-2 py-1 text-xs">
+                        {log ? "変更" : "＋写真"}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+
+                            await uploadTodayPhoto(asset, slot, file);
+                            e.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+
+                    {log?.photoUrl && (
+                      <img
+                        src={log.photoUrl}
+                        alt={slot.title}
+                        className="h-24 w-full rounded-lg border object-cover"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
         <p className="mt-3 text-xs text-gray-500">
           アセット件数: {currentTableAssets.length} / 共有: {sharedAssets.length} /
