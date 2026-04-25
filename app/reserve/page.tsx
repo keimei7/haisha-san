@@ -2356,14 +2356,14 @@ setShowEditTable(false);
 <div className="border rounded-xl overflow-hidden">
   <button
     type="button"
-    className="w-full px-3 py-3 flex items-center justify-between bg-white"
-   onClick={() => {
-  router.push("/daily-photos");
-  setShowMenu(false);
-}}
+    className="w-full px-3 py-3 bg-white flex items-center justify-center relative"
+    onClick={() => {
+      router.push("/daily-photos");
+      setShowMenu(false);
+    }}
   >
     <span className="font-semibold">本日の写真一覧</span>
-    <span className="text-sm text-gray-500">確認</span>
+    <span className="absolute right-3 text-sm text-gray-500">確認</span>
   </button>
 </div>
 {(myRole === "admin" || myRole === "owner") && (
