@@ -121,7 +121,9 @@ function escapeCsv(value: string): string {
 }
 
 function downloadCsv(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+  const bom = "\uFEFF"; // Excelで日本語が化けにくくなる
+  const blob = new Blob([bom + content], { type: "text/csv;charset=utf-8;" });
+
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
