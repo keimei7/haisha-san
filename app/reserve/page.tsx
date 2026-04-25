@@ -1636,17 +1636,15 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
 
                       <label className="shrink-0 rounded-lg border bg-white px-2 py-1 text-xs">
                         {log ? "変更" : "＋写真"}
-                      <input
+                     <input
   type="file"
   accept="image/*"
-  capture="environment"
   className="hidden"
   onChange={async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const compressed = await compressImage(file);
-
     await uploadTodayPhoto(asset, slot, compressed);
 
     e.currentTarget.value = "";
