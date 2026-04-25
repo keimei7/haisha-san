@@ -884,6 +884,129 @@ function PhotoSlotEditRow({
     </div>
   );
 }
+function PhotoLogListModal({
+  assets,
+  slots,
+  logs,
+  todayKey,
+  onClose,
+}: {
+  assets: AssetItem[];
+  slots: PhotoSlotItem[];
+  logs: PhotoLogItem[];
+  todayKey: string;
+  onClose: () => void;
+}) {
+  const assignedAssets = assets
+    .filter((asset) => !!asset.assignedUser)
+    .sort((a, b) => (a.assignedUser ?? "").localeCompare(b.assignedUser ?? ""));
+
+  return (
+    <div className="fixed inset-0 z-[220] bg-black/40 flex items-center justify-center px-4">
+      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold">本日の写真一覧</h2>
+            <div className="text-xs text-gray-500">{todayKey}</div>
+          </div>
+
+          <button
+            className="text-2xl leading-none text-gray-500"
+            type="button"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        {assignedAssets.length === 0 ? (
+          <div className="text-sm text-gray-400">割り当て済みアセットなし</div>
+        ) : (
+          <div className="space-y-3">
+            {assignedAssets.map((asset) => {
+              const submittedCount = slots.filter((slot) =>
+                logs.some(
+                  (log) =>
+                    log.assetId === asset.id &&
+                    log.slotId === slot.id &&
+                    log.dateKey === todayKey
+                )
+              ).length;
+
+              return (
+                <div key={asset.id} className="rounded-xl border p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold">{asset.assignedUser}</div>
+                      <div className="text-sm text-gray-600">
+                        {asset.name}
+                        {asset.subLabel ? ` / ${asset.subLabel}` : ""}
+                      </div>
+                    </div>
+
+                    <div
+                      className={`rounded-full px-2 py-1 text-xs ${
+                        submittedCount === slots.length && slots.length > 0
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {submittedCount}/{slots.length}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {slots.map((slot) => {
+                      const log = logs.find(
+                        (item) =>
+                          item.assetId === asset.id &&
+                          item.slotId === slot.id &&
+                          item.dateKey === todayKey
+                      );
+
+                      return (
+                        <div
+                          key={slot.id}
+                          className="rounded-lg border bg-gray-50 p-2"
+                        >
+                          <div className="text-xs font-semibold">
+                            {slot.groupLabel
+                              ? `${slot.groupLabel} / ${slot.title}`
+                              : slot.title}
+                          </div>
+
+                          {log?.photoUrl ? (
+                            <img
+                              src={log.photoUrl}
+                              alt={slot.title}
+                              className="mt-2 h-20 w-full rounded border object-cover"
+                            />
+                          ) : (
+                            <div className="mt-2 h-20 rounded border border-dashed bg-white flex items-center justify-center text-xs text-red-500">
+                              未提出
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <button
+          className="w-full rounded-lg border px-4 py-2"
+          type="button"
+          onClick={onClose}
+        >
+          閉じる
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function ReservePage() {
     const [menuMyAssetsOpen, setMenuMyAssetsOpen] = useState(true);
@@ -918,6 +1041,7 @@ const [savingDisplayName, setSavingDisplayName] = useState(false);
 const [showPhotoSlotManager, setShowPhotoSlotManager] = useState(false);
 const [photoSlots, setPhotoSlots] = useState<PhotoSlotItem[]>([]);
 const [photoLogs, setPhotoLogs] = useState<PhotoLogItem[]>([]);
+const [showPhotoLogList, setShowPhotoLogList] = useState(false);
 
 useEffect(() => {
   if (!companyId) return;
@@ -1908,6 +2032,15 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
     }}
   />
 )}
+{showPhotoLogList && (
+  <PhotoLogListModal
+    assets={assets}
+    slots={photoSlots}
+    logs={photoLogs}
+    todayKey={todayKey}
+    onClose={() => setShowPhotoLogList(false)}
+  />
+)}
       {showMenu && (
         <div className="fixed inset-0 z-[300]">
           <div
@@ -2163,6 +2296,19 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
   >
     <span className="font-semibold">チェック項目管理</span>
     <span className="text-sm text-gray-500">＋</span>
+  </button>
+</div>
+<div className="border rounded-xl overflow-hidden">
+  <button
+    type="button"
+    className="w-full px-3 py-3 flex items-center justify-between bg-white"
+    onClick={() => {
+      setShowPhotoLogList(true);
+      setShowMenu(false);
+    }}
+  >
+    <span className="font-semibold">本日の写真一覧</span>
+    <span className="text-sm text-gray-500">確認</span>
   </button>
 </div>
 {(myRole === "admin" || myRole === "owner") && (
