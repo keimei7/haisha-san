@@ -30,6 +30,8 @@ type PhotoLogItem = {
   slotId: string;
   dateKey: string;
   photoUrl: string;
+  uploadedBy: string;
+  uploadedAt: string;
 };
 
 function makeDayKey(date: Date): string {
@@ -69,7 +71,7 @@ const [viewerUrl, setViewerUrl] = useState<string | null>(null);
 const [viewerTitle, setViewerTitle] = useState<string>("");
 const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 const selectedDateKey = useMemo(() => makeDayKey(selectedDate), [selectedDate]);
-
+const [viewerMeta, setViewerMeta] = useState<string>("");
   // auth → companyId
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -132,6 +134,7 @@ const selectedDateKey = useMemo(() => makeDayKey(selectedDate), [selectedDate]);
         .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
       setSlots(list);
     });
+  
     return () => unsub();
   }, [companyId]);
 
@@ -147,12 +150,14 @@ const selectedDateKey = useMemo(() => makeDayKey(selectedDate), [selectedDate]);
       const list: PhotoLogItem[] = snap.docs.map((d) => {
         const data = d.data() as any;
         return {
-          id: d.id,
-          assetId: data.assetId ?? "",
-          slotId: data.slotId ?? "",
-          dateKey: data.dateKey ?? "",
-          photoUrl: data.photoUrl ?? "",
-        };
+  id: d.id,
+  assetId: data.assetId ?? "",
+  slotId: data.slotId ?? "",
+  dateKey: data.dateKey ?? "",
+  photoUrl: data.photoUrl ?? "",
+  uploadedBy: data.uploadedBy ?? "",
+  uploadedAt: data.uploadedAt ?? "",
+};
       });
       setLogs(list);
     });
@@ -192,6 +197,11 @@ const addDaysLocal = (d: Date, n: number) => {
   x.setDate(x.getDate() + n);
   return x;
 };
+const formatShortTime = (iso: string) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+};
   // CSV出力：行=人/アセット、列=slotタイトル（提出済みなら1）
   const exportTodayCsv = () => {
     const allSlotTitles = slots.map((s) =>
@@ -206,7 +216,15 @@ const addDaysLocal = (d: Date, n: number) => {
         const ok = logs.some(
           (l) => l.assetId === a.id && l.slotId === s.id && l.dateKey === selectedDateKey
         );
-        row.push(ok ? "1" : "");
+        const found = logs.find(
+  (l) => l.assetId === a.id && l.slotId === s.id && l.dateKey === selectedDateKey
+);
+
+row.push(
+  found
+    ? `1|${found.uploadedBy}|${formatShortTime(found.uploadedAt)}`
+    : ""
+);
       }
       return row;
     });
@@ -321,19 +339,27 @@ const addDaysLocal = (d: Date, n: number) => {
       {!target ? (
         <span className="text-gray-300">—</span>
       ) : log?.photoUrl ? (
-        <img
-  src={log.photoUrl}
-  alt="thumb"
-  className="mx-auto h-10 w-10 rounded-md border object-cover cursor-pointer"
-  onClick={() => {
-    setViewerUrl(log.photoUrl);
-    setViewerTitle(
-      `${a.assignedUser ?? ""} / ${a.name} / ${
-        s.groupLabel ? `${s.groupLabel}/${s.title}` : s.title
-      }`
-    );
-  }}
-/>
+       <div className="flex flex-col items-center gap-1">
+  <img
+    src={log.photoUrl}
+    alt="thumb"
+    className="h-10 w-10 rounded-md border object-cover cursor-pointer"
+    onClick={() => {
+      setViewerUrl(log.photoUrl);
+      setViewerTitle(
+        `${a.assignedUser ?? ""} / ${a.name} / ${
+          s.groupLabel ? `${s.groupLabel}/${s.title}` : s.title
+        }`
+      );
+      // 証跡もモーダルに出したいので state に入れる（次の手順で追加）
+      setViewerMeta(`${log.uploadedBy || "—"} / ${formatShortTime(log.uploadedAt)}`);
+    }}
+  />
+  <div className="text-[10px] leading-tight text-gray-500 whitespace-nowrap">
+    {log.uploadedBy || "—"} / {formatShortTime(log.uploadedAt)}
+  </div>
+</div>
+
       ) : (
         <span className="inline-flex items-center justify-center rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs">
           ×
@@ -347,28 +373,22 @@ const addDaysLocal = (d: Date, n: number) => {
             </tbody>
           </table>
           {viewerUrl && (
-  <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-4">
-    <div className="w-full max-w-3xl rounded-2xl bg-white overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b">
-        <div className="text-sm font-semibold truncate">{viewerTitle}</div>
-        <button
-          type="button"
-          className="text-2xl leading-none text-gray-500"
-          onClick={() => setViewerUrl(null)}
-        >
-          ×
-        </button>
-      </div>
-
-      <div className="bg-black flex items-center justify-center">
-        <img
-          src={viewerUrl}
-          alt="full"
-          className="max-h-[80vh] w-auto object-contain"
-        />
-      </div>
-    </div>
+  <div className="flex items-center justify-between px-4 py-3 border-b">
+  <div className="min-w-0">
+    <div className="text-sm font-semibold truncate">{viewerTitle}</div>
+    {viewerMeta && (
+      <div className="text-xs text-gray-500 truncate">{viewerMeta}</div>
+    )}
   </div>
+
+  <button
+    type="button"
+    className="text-2xl leading-none text-gray-500"
+    onClick={() => setViewerUrl(null)}
+  >
+    ×
+  </button>
+</div>
 )}
         </div>
 
