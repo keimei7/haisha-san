@@ -265,32 +265,32 @@ export default function DailyPhotosPage() {
                   </td>
 
                   {colSlots.map((s) => {
-                    const target = !s.tableId || s.tableId === a.tableId;
-                    const ok =
-                      target &&
-                      logs.some(
-                        (l) =>
-                          l.assetId === a.id &&
-                          l.slotId === s.id &&
-                          l.dateKey === todayKey
-                      );
+  const target = !s.tableId || s.tableId === a.tableId;
 
-                    return (
-                      <td key={s.id} className="border px-2 py-2 text-center">
-                        {!target ? (
-                          <span className="text-gray-300">—</span>
-                        ) : ok ? (
-                          <span className="inline-flex items-center justify-center rounded-full bg-green-100 text-green-700 px-2 py-1 text-xs">
-                            ✓
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center justify-center rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs">
-                            ×
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
+  const log = target
+    ? logs.find(
+        (l) => l.assetId === a.id && l.slotId === s.id && l.dateKey === todayKey
+      )
+    : undefined;
+
+  return (
+    <td key={s.id} className="border px-2 py-2 text-center">
+      {!target ? (
+        <span className="text-gray-300">—</span>
+      ) : log?.photoUrl ? (
+        <img
+          src={log.photoUrl}
+          alt="thumb"
+          className="mx-auto h-10 w-10 rounded-md border object-cover"
+        />
+      ) : (
+        <span className="inline-flex items-center justify-center rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs">
+          ×
+        </span>
+      )}
+    </td>
+  );
+})}
                 </tr>
               ))}
             </tbody>
