@@ -64,7 +64,8 @@ export default function DailyPhotosPage() {
   const [logs, setLogs] = useState<PhotoLogItem[]>([]);
 const [viewerUrl, setViewerUrl] = useState<string | null>(null);
 const [viewerTitle, setViewerTitle] = useState<string>("");
-  const todayKey = useMemo(() => makeDayKey(new Date()), []);
+const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+const selectedDateKey = useMemo(() => makeDayKey(selectedDate), [selectedDate]);
 
   // auth → companyId
   useEffect(() => {
@@ -137,7 +138,7 @@ const [viewerTitle, setViewerTitle] = useState<string>("");
     const q = query(
       collection(db, "photoLogs"),
       where("companyId", "==", companyId),
-      where("dateKey", "==", todayKey)
+     where("dateKey", "==", selectedDateKey)
     );
     const unsub = onSnapshot(q, (snap) => {
       const list: PhotoLogItem[] = snap.docs.map((d) => {
@@ -153,8 +154,7 @@ const [viewerTitle, setViewerTitle] = useState<string>("");
       setLogs(list);
     });
     return () => unsub();
-  }, [companyId, todayKey]);
-
+}, [companyId, selectedDateKey]);
   // 表の対象＝割り当て済みアセット
   const rows = useMemo(() => {
     return assets
@@ -172,6 +172,23 @@ const [viewerTitle, setViewerTitle] = useState<string>("");
     return map;
   }, [rows, slots]);
 
+  const toInputDate = (d: Date) => {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const fromInputDate = (value: string) => {
+  const [y, m, d] = value.split("-").map((v) => Number(v));
+  return new Date(y, (m ?? 1) - 1, d ?? 1);
+};
+
+const addDaysLocal = (d: Date, n: number) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+};
   // CSV出力：行=人/アセット、列=slotタイトル（提出済みなら1）
   const exportTodayCsv = () => {
     const allSlotTitles = slots.map((s) =>
@@ -184,7 +201,7 @@ const [viewerTitle, setViewerTitle] = useState<string>("");
       const row = [a.assignedUser ?? "", a.name, a.subLabel ?? ""];
       for (const s of slots) {
         const ok = logs.some(
-          (l) => l.assetId === a.id && l.slotId === s.id && l.dateKey === todayKey
+          (l) => l.assetId === a.id && l.slotId === s.id && l.dateKey === selectedDateKey
         );
         row.push(ok ? "1" : "");
       }
@@ -195,7 +212,7 @@ const [viewerTitle, setViewerTitle] = useState<string>("");
       .map((r) => r.map((c) => escapeCsv(c)).join(","))
       .join("\n");
 
-    downloadCsv(`写真提出_${todayKey}.csv`, csv);
+    downloadCsv(`写真提出_${selectedDateKey}.csv`, csv);
   };
 
   // 表の列：見た目は「全slot」を共通列にしておくとテンプレとして一貫する
@@ -204,31 +221,53 @@ const [viewerTitle, setViewerTitle] = useState<string>("");
   return (
     <main className="min-h-screen bg-white text-black p-3">
       <div className="mx-auto max-w-[980px] space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="text-lg font-bold">本日の写真提出一覧</div>
-            <div className="text-xs text-gray-500">{todayKey}</div>
-          </div>
+       <div className="flex items-center justify-between gap-2">
+  <div>
+    <div className="text-lg font-bold">写真提出一覧</div>
+    <div className="text-xs text-gray-500">{selectedDateKey}</div>
+  </div>
 
-          <div className="flex gap-2">
-            <button
-              className="rounded-lg border bg-white px-3 py-2 text-sm"
-              onClick={() => router.push("/reserve")}
-              type="button"
-            >
-              戻る
-            </button>
+  <div className="flex items-center gap-2">
+    <button
+      className="rounded-lg border bg-white px-3 py-2 text-sm"
+      type="button"
+      onClick={() => setSelectedDate((d) => addDaysLocal(d, -1))}
+    >
+      ←
+    </button>
 
-            <button
-              className="rounded-lg border bg-white px-3 py-2 text-sm"
-              onClick={exportTodayCsv}
-              type="button"
-            >
-              CSV出力
-            </button>
-          </div>
-        </div>
+    <input
+      type="date"
+      className="rounded-lg border bg-white px-3 py-2 text-sm"
+      value={toInputDate(selectedDate)}
+      onChange={(e) => setSelectedDate(fromInputDate(e.target.value))}
+    />
 
+    <button
+      className="rounded-lg border bg-white px-3 py-2 text-sm"
+      type="button"
+      onClick={() => setSelectedDate((d) => addDaysLocal(d, 1))}
+    >
+      →
+    </button>
+
+    <button
+      className="rounded-lg border bg-white px-3 py-2 text-sm"
+      onClick={() => router.push("/reserve")}
+      type="button"
+    >
+      戻る
+    </button>
+
+    <button
+      className="rounded-lg border bg-white px-3 py-2 text-sm"
+      onClick={exportTodayCsv}
+      type="button"
+    >
+      CSV出力
+    </button>
+  </div>
+</div>
         <div className="rounded-xl border bg-white overflow-auto">
           <table className="min-w-[920px] w-full border-collapse text-sm">
             <thead>
@@ -270,7 +309,7 @@ const [viewerTitle, setViewerTitle] = useState<string>("");
 
   const log = target
     ? logs.find(
-        (l) => l.assetId === a.id && l.slotId === s.id && l.dateKey === todayKey
+        (l) => l.assetId === a.id && l.slotId === s.id && l.dateKey === selectedDateKey
       )
     : undefined;
 
