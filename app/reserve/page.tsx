@@ -1437,13 +1437,13 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
 
   const dateKey = makeDayKey(new Date());
   const logId = `${companyId}_${dateKey}_${asset.id}_${slot.id}`;
-  const storagePath = `photoLogs/${companyId}/${dateKey}/${asset.id}/${slot.id}_${Date.now()}_${file.name}`;
-
+// ★上書き：常に同じ場所に保存
+const storagePath = `photoLogs/${companyId}/${dateKey}/${asset.id}/${slot.id}.jpg`;
   try {
     const storageRef = ref(storage, storagePath);
     await uploadBytes(storageRef, file);
-    const photoUrl = await getDownloadURL(storageRef);
-
+   const photoUrl = await getDownloadURL(storageRef);
+const photoUrlWithBust = `${photoUrl}&v=${Date.now()}`;
     await setDoc(doc(db, "photoLogs", logId), {
       companyId,
       assetId: asset.id,
@@ -1452,7 +1452,7 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
       slotTitle: slot.title,
       groupLabel: slot.groupLabel,
       dateKey,
-      photoUrl,
+      photoUrl: photoUrlWithBust,
       uploadedBy: myDisplayName,
       uploadedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
