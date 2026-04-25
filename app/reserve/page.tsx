@@ -891,12 +891,14 @@ function PhotoLogListModal({
   logs,
   todayKey,
   onClose,
+  onUpload,
 }: {
   assets: AssetItem[];
   slots: PhotoSlotItem[];
   logs: PhotoLogItem[];
   todayKey: string;
   onClose: () => void;
+  onUpload: (asset: AssetItem, slot: PhotoSlotItem, file: File) => Promise<void>;
 }) {
   const assignedAssets = assets
     .filter((asset) => !!asset.assignedUser)
@@ -958,41 +960,75 @@ const submittedCount = targetSlots.filter((slot) =>                logs.some(
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
-                    {targetSlots.map((slot) => {
-                      const log = logs.find(
-                        (item) =>
-                          item.assetId === asset.id &&
-                          item.slotId === slot.id &&
-                          item.dateKey === todayKey
-                      );
+                 <div className="overflow-x-auto">
+  <div className="flex gap-2 min-w-max pb-1">
+    {targetSlots.map((slot) => {
+      const log = logs.find(
+        (item) =>
+          item.assetId === asset.id &&
+          item.slotId === slot.id &&
+          item.dateKey === todayKey
+      );
 
-                      return (
-                        <div
-                          key={slot.id}
-                          className="rounded-lg border bg-gray-50 p-2"
-                        >
-                          <div className="text-xs font-semibold">
-                            {slot.groupLabel
-                              ? `${slot.groupLabel} / ${slot.title}`
-                              : slot.title}
-                          </div>
+      return (
+        <div
+          key={slot.id}
+          className="w-[92px] shrink-0 rounded-xl border bg-white p-2"
+        >
+          <div className="h-8 text-[10px] font-bold leading-tight overflow-hidden">
+            {slot.groupLabel
+              ? `${slot.groupLabel} / ${slot.title}`
+              : slot.title}
+          </div>
 
-                          {log?.photoUrl ? (
-                            <img
-                              src={log.photoUrl}
-                              alt={slot.title}
-                              className="mt-2 h-20 w-full rounded border object-cover"
-                            />
-                          ) : (
-                            <div className="mt-2 h-20 rounded border border-dashed bg-white flex items-center justify-center text-xs text-red-500">
-                              未提出
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+          {log?.photoUrl ? (
+            <label className="mt-1 block h-[68px] w-[68px] cursor-pointer overflow-hidden rounded-lg border bg-gray-100">
+              <img
+                src={log.photoUrl}
+                alt={slot.title}
+                className="h-full w-full object-cover"
+              />
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  const compressed = await compressImage(file);
+                  await onUpload(asset, slot, compressed);
+
+                  e.currentTarget.value = "";
+                }}
+              />
+            </label>
+          ) : (
+            <label className="mt-1 flex h-[68px] w-[68px] cursor-pointer items-center justify-center rounded-lg border border-dashed border-red-400 bg-white text-[11px] text-red-500">
+              未提出
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  const compressed = await compressImage(file);
+                  await onUpload(asset, slot, compressed);
+
+                  e.currentTarget.value = "";
+                }}
+              />
+            </label>
+          )}
+        </div>
+      );
+    })}
+  </div>
+</div>
                 </div>
               );
             })}
@@ -1408,10 +1444,14 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
       uploadedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
-  } catch (error) {
-    console.error("photo upload error:", error);
-    alert("写真アップロードに失敗しました");
-  }
+ } catch (error) {
+  console.error("photo upload error:", error);
+  alert(
+    error instanceof Error
+      ? `写真アップロードに失敗しました: ${error.message}`
+      : "写真アップロードに失敗しました"
+  );
+}
 };
 
   const handleLogout = async () => {
@@ -2052,6 +2092,7 @@ setShowEditTable(false);
     logs={photoLogs}
     todayKey={todayKey}
     onClose={() => setShowPhotoLogList(false)}
+    onUpload={uploadTodayPhoto}
   />
 )}
       {showMenu && (
