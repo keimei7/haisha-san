@@ -2092,16 +2092,7 @@ setShowEditTable(false);
     }}
   />
 )}
-{showPhotoLogList && (
-  <PhotoLogListModal
-    assets={assets}
-    slots={photoSlots}
-    logs={photoLogs}
-    todayKey={todayKey}
-    onClose={() => setShowPhotoLogList(false)}
-    onUpload={uploadTodayPhoto}
-  />
-)}
+
       {showMenu && (
         <div className="fixed inset-0 z-[300]">
           <div
@@ -2363,10 +2354,10 @@ setShowEditTable(false);
   <button
     type="button"
     className="w-full px-3 py-3 flex items-center justify-between bg-white"
-    onClick={() => {
-      setShowPhotoLogList(true);
-      setShowMenu(false);
-    }}
+   onClick={() => {
+  router.push("/daily-photos");
+  setShowMenu(false);
+}}
   >
     <span className="font-semibold">本日の写真一覧</span>
     <span className="text-sm text-gray-500">確認</span>
