@@ -50,6 +50,7 @@ type PhotoSlotItem = {
   title: string;
   groupLabel: string;
   sort: number;
+  tableId?: string;
 };
 type PhotoLogItem = {
   id: string;
@@ -924,8 +925,10 @@ function PhotoLogListModal({
         ) : (
           <div className="space-y-3">
             {assignedAssets.map((asset) => {
-              const submittedCount = slots.filter((slot) =>
-                logs.some(
+              const targetSlots = slots.filter(
+  (slot) => !slot.tableId || slot.tableId === asset.tableId
+);
+const submittedCount = targetSlots.filter((slot) =>                logs.some(
                   (log) =>
                     log.assetId === asset.id &&
                     log.slotId === slot.id &&
@@ -946,17 +949,17 @@ function PhotoLogListModal({
 
                     <div
                       className={`rounded-full px-2 py-1 text-xs ${
-                        submittedCount === slots.length && slots.length > 0
+                        submittedCount === targetSlots.length && targetSlots.length > 0
                           ? "bg-green-100 text-green-700"
                           : "bg-red-100 text-red-700"
                       }`}
                     >
-                      {submittedCount}/{slots.length}
+                     {submittedCount}/{targetSlots.length}
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    {slots.map((slot) => {
+                    {targetSlots.map((slot) => {
                       const log = logs.find(
                         (item) =>
                           item.assetId === asset.id &&
@@ -1239,17 +1242,19 @@ const unsub = onSnapshot(q, (snap) => {
   const unsub = onSnapshot(q, (snap) => {
     const list: PhotoSlotItem[] = snap.docs
       .map((docSnap) => {
-        const data = docSnap.data() as {
-          title?: string;
-          groupLabel?: string;
-          sort?: number;
-        };
+       const data = docSnap.data() as {
+  title?: string;
+  groupLabel?: string;
+  sort?: number;
+  tableId?: string;
+};
 
         return {
           id: docSnap.id,
           title: data.title ?? "",
           groupLabel: data.groupLabel ?? "",
           sort: data.sort ?? 0,
+          tableId: data.tableId ?? "",
         };
       })
       .sort((a, b) => a.sort - b.sort);
@@ -1732,7 +1737,9 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
 
           {photoSlots.length > 0 && (
             <div className="grid grid-cols-1 gap-2">
-              {photoSlots.map((slot) => {
+              {photoSlots
+  .filter((slot) => !slot.tableId || slot.tableId === asset.tableId)
+  .map((slot) => {
                 const log = photoLogs.find(
                   (l) =>
                     l.assetId === asset.id &&
@@ -1847,8 +1854,14 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
             if (!ok) return;
 
             try {
-              await deleteDoc(doc(db, "tables", currentTable.id));
-              setShowEditTable(false);
+              const childAssets = assets.filter((asset) => asset.tableId === currentTable.id);
+
+await Promise.all([
+  ...childAssets.map((asset) => deleteDoc(doc(db, "assets", asset.id))),
+  deleteDoc(doc(db, "tables", currentTable.id)),
+]);
+
+setShowEditTable(false);
             } catch (error) {
               console.error("table delete error:", error);
               alert("テーブル削除に失敗しました");
