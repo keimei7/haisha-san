@@ -1745,99 +1745,95 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
 
     <div className="space-y-3">
       {myAssets.map((asset) => (
-        <div
-          key={asset.id}
-          className="rounded-xl border px-3 py-3 space-y-3"
-        >
-          <div className="flex items-start justify-between gap-3">
-            <button
-              type="button"
-              className="min-w-0 text-left"
-              onClick={() => setEditingAsset(asset)}
-            >
-              <div className="font-medium whitespace-pre-line break-words">
-                {asset.name}
-              </div>
-
-              {asset.subLabel && (
-                <div className="text-xs text-gray-500 mt-1 break-words">
-                  {asset.subLabel}
-                </div>
-              )}
-
-              <div className="text-sm text-gray-500 mt-1">
-                {asset.inspection || "点検情報なし"}
-              </div>
-            </button>
-
-            <div className="text-sm text-gray-500 shrink-0">
-              {asset.assignedUser}
-            </div>
-          </div>
-
-          {photoSlots.length > 0 && (
-            <div className="grid grid-cols-1 gap-2">
-              {photoSlots
-  .filter((slot) => !slot.tableId || slot.tableId === asset.tableId)
-  .map((slot) => {
-                const log = photoLogs.find(
-                  (l) =>
-                    l.assetId === asset.id &&
-                    l.slotId === slot.id &&
-                    l.dateKey === todayKey
-                );
-
-                return (
-                  <div
-                    key={slot.id}
-                    className="rounded-lg border bg-gray-50 p-2 space-y-2"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold text-gray-800 truncate">
-                          {slot.groupLabel
-                            ? `${slot.groupLabel} / ${slot.title}`
-                            : slot.title}
-                        </div>
-
-                        <div className="text-[11px] text-gray-500">
-                          {log ? "本日提出済み" : "本日未提出"}
-                        </div>
-                      </div>
-
-                      <label className="shrink-0 rounded-lg border bg-white px-2 py-1 text-xs">
-                        {log ? "変更" : "＋写真"}
-                     <input
-  type="file"
-  accept="image/*"
-  className="hidden"
-  onChange={async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const compressed = await compressImage(file);
-    await uploadTodayPhoto(asset, slot, compressed);
-
-    e.currentTarget.value = "";
-  }}
-/>
-                      </label>
-                    </div>
-
-                    {log?.photoUrl && (
-                      <img
-                        src={log.photoUrl}
-                        alt={slot.title}
-                        className="h-24 w-full rounded-lg border object-cover"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+  <div key={asset.id} className="rounded-xl border px-3 py-3 space-y-3">
+    <div className="flex items-start justify-between gap-3">
+      <button
+        type="button"
+        className="min-w-0 text-left"
+        onClick={() => setEditingAsset(asset)}
+      >
+        <div className="font-medium whitespace-pre-line break-words">
+          {asset.name}
         </div>
-      ))}
+
+        {asset.subLabel && (
+          <div className="text-xs text-gray-500 mt-1 break-words">
+            {asset.subLabel}
+          </div>
+        )}
+
+        <div className="text-sm text-gray-500 mt-1">
+          {asset.inspection || "点検情報なし"}
+        </div>
+      </button>
+
+      <div className="text-sm text-gray-500 shrink-0">{asset.assignedUser}</div>
+    </div>
+
+    {photoSlots.length > 0 && (
+      <div className="grid grid-cols-1 gap-2">
+        {photoSlots
+          .filter((slot) => !slot.tableId || slot.tableId === asset.tableId)
+          .map((slot) => {
+            const log = photoLogs.find(
+              (l) =>
+                l.assetId === asset.id &&
+                l.slotId === slot.id &&
+                l.dateKey === todayKey
+            );
+
+            return (
+              <div
+                key={slot.id}
+                className="rounded-lg border bg-gray-50 p-2 flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-800 truncate">
+                    {slot.groupLabel
+                      ? `${slot.groupLabel} / ${slot.title}`
+                      : slot.title}
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    {log ? "本日提出済み" : "本日未提出"}
+                  </div>
+
+                  <label className="inline-block mt-1 rounded-lg border bg-white px-2 py-1 text-xs cursor-pointer">
+                    {log ? "変更" : "＋写真"}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        const compressed = await compressImage(file);
+                        await uploadTodayPhoto(asset, slot, compressed);
+
+                        e.currentTarget.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {log?.photoUrl ? (
+                  <img
+                    src={log.photoUrl}
+                    alt={slot.title}
+                    className="h-14 w-14 rounded-lg border object-cover shrink-0"
+                  />
+                ) : (
+                  <div className="h-14 w-14 rounded-lg border border-dashed bg-white text-[10px] text-red-500 flex items-center justify-center shrink-0">
+                    未
+                  </div>
+                )}
+              </div>
+            );
+          })}
+      </div>
+    )}
+  </div>
+))}
     </div>
   </div>
 )}
