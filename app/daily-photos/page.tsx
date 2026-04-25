@@ -62,7 +62,8 @@ export default function DailyPhotosPage() {
   const [assets, setAssets] = useState<AssetItem[]>([]);
   const [slots, setSlots] = useState<PhotoSlotItem[]>([]);
   const [logs, setLogs] = useState<PhotoLogItem[]>([]);
-
+const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+const [viewerTitle, setViewerTitle] = useState<string>("");
   const todayKey = useMemo(() => makeDayKey(new Date()), []);
 
   // auth → companyId
@@ -279,10 +280,18 @@ export default function DailyPhotosPage() {
         <span className="text-gray-300">—</span>
       ) : log?.photoUrl ? (
         <img
-          src={log.photoUrl}
-          alt="thumb"
-          className="mx-auto h-10 w-10 rounded-md border object-cover"
-        />
+  src={log.photoUrl}
+  alt="thumb"
+  className="mx-auto h-10 w-10 rounded-md border object-cover cursor-pointer"
+  onClick={() => {
+    setViewerUrl(log.photoUrl);
+    setViewerTitle(
+      `${a.assignedUser ?? ""} / ${a.name} / ${
+        s.groupLabel ? `${s.groupLabel}/${s.title}` : s.title
+      }`
+    );
+  }}
+/>
       ) : (
         <span className="inline-flex items-center justify-center rounded-full bg-red-100 text-red-700 px-2 py-1 text-xs">
           ×
@@ -295,6 +304,30 @@ export default function DailyPhotosPage() {
               ))}
             </tbody>
           </table>
+          {viewerUrl && (
+  <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-4">
+    <div className="w-full max-w-3xl rounded-2xl bg-white overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b">
+        <div className="text-sm font-semibold truncate">{viewerTitle}</div>
+        <button
+          type="button"
+          className="text-2xl leading-none text-gray-500"
+          onClick={() => setViewerUrl(null)}
+        >
+          ×
+        </button>
+      </div>
+
+      <div className="bg-black flex items-center justify-center">
+        <img
+          src={viewerUrl}
+          alt="full"
+          className="max-h-[80vh] w-auto object-contain"
+        />
+      </div>
+    </div>
+  </div>
+)}
         </div>
 
         <div className="text-xs text-gray-500">
