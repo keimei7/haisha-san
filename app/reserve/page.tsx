@@ -133,6 +133,47 @@ function formatInspectionShort(value: string): string {
   if (!trimmed) return "";
   return trimmed.replace(/^\d{4}\//, "");
 }
+async function compressImage(file: File): Promise<File> {
+  const img = document.createElement("img");
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d")!;
+
+  const dataUrl = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(file);
+  });
+
+  img.src = dataUrl;
+
+  await new Promise((resolve) => {
+    img.onload = resolve;
+  });
+
+  // 最大サイズ制限（ここ調整ポイント）
+  const MAX_WIDTH = 1280;
+  const MAX_HEIGHT = 1280;
+
+  let width = img.width;
+  let height = img.height;
+
+  if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+    const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+    width = width * ratio;
+    height = height * ratio;
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const blob = await new Promise<Blob>((resolve) =>
+    canvas.toBlob(resolve as any, "image/jpeg", 0.7) // ←画質
+  );
+
+  return new File([blob!], file.name, { type: "image/jpeg" });
+}
 function CreateTableModal({
   onClose,
   onCreate,
@@ -1595,19 +1636,22 @@ const uploadTodayPhoto = async (asset: AssetItem, slot: PhotoSlotItem, file: Fil
 
                       <label className="shrink-0 rounded-lg border bg-white px-2 py-1 text-xs">
                         {log ? "変更" : "＋写真"}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
+                      <input
+  type="file"
+  accept="image/*"
+  capture="environment"
+  className="hidden"
+  onChange={async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-                            await uploadTodayPhoto(asset, slot, file);
-                            e.currentTarget.value = "";
-                          }}
-                        />
+    const compressed = await compressImage(file);
+
+    await uploadTodayPhoto(asset, slot, compressed);
+
+    e.currentTarget.value = "";
+  }}
+/>
                       </label>
                     </div>
 
