@@ -2343,13 +2343,14 @@ setShowEditTable(false);
 <div className="border rounded-xl overflow-hidden">
   <button
     type="button"
+    className="w-full px-3 py-3 bg-white flex items-center justify-center relative"
     onClick={() => {
-  setShowPhotoSlotManager(true);
-  setShowMenu(false);
-}}
+      setShowPhotoSlotManager(true);
+      setShowMenu(false);
+    }}
   >
     <span className="font-semibold">チェック項目管理</span>
-    <span className="text-sm text-gray-500">＋</span>
+    <span className="absolute right-3 text-sm text-gray-500">＋</span>
   </button>
 </div>
 <div className="border rounded-xl overflow-hidden">
