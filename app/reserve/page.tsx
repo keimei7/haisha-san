@@ -14,10 +14,10 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import { auth } from "@/lib/firebase-client";
+import { auth, storage } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { storage } from "@/lib/firebase-client";
+
 
 type TableItem = {
   id: string;

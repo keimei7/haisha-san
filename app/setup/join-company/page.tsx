@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { auth } from "@/lib/firebase-client";
+import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 import {
   collection,

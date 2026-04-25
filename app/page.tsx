@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase-client";
+import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 

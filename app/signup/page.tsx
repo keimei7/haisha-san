@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
-import { auth } from "@/lib/firebase-client";
+import { auth } from "@/lib/firebase";
 import { db } from "@/lib/firebase";
 
 export default function SignupPage() {
