@@ -2370,10 +2370,10 @@ setShowEditTable(false);
   <button
     type="button"
     className="w-full border rounded-lg py-2 mt-4"
-   onClick={() => {
-  router.push("/daily-photos");
-  setShowMenu(false);
-}}
+    onClick={() => {
+      router.push("/company-admin");
+      setShowMenu(false);
+    }}
   >
     会社管理
   </button>
