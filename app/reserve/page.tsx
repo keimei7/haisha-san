@@ -1166,12 +1166,12 @@ useEffect(() => {
    const q = query(collection(db, "users"), where("companyId", "==", companyId));
 const unsub = onSnapshot(q, (snap) => {
   const names = snap.docs
-    .map((docSnap) => {
-      const data = docSnap.data() as UserDoc & { isActive?: boolean };
-      if (data.isActive === false) return "";
-      return data.displayName ?? data.name ?? "";
-    })
-    .filter(Boolean);
+  .map((docSnap) => {
+    const data = docSnap.data() as UserDoc & { isActive?: boolean };
+    if (data.isActive === false) return "";
+    return data.displayName ?? data.name ?? data.email ?? "";
+  })
+  .filter((name): name is string => Boolean(name));
   setMemberOptions(names);
 });
 
